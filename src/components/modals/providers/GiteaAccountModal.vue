@@ -4,7 +4,7 @@
       <div class="modal__image">
         <icon-provider provider-id="gitea"></icon-provider>
       </div>
-      <p>将您的<b>Gitea</b>链接到<b>StackEdit中文版</b>。</p>
+      <p>将您的<b>Gitea</b>链接到<b>KEDIT</b>。</p>
       <template v-if="!useServerConf">
         <form-entry label="Gitea URL" error="serverUrl">
           <template v-slot:field>

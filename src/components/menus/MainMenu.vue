@@ -142,7 +142,7 @@
     </menu-entry>
     <menu-entry @click.native="about">
       <template v-slot:icon><icon-help-circle></icon-help-circle></template>
-      关于 StackEdit
+      关于 KEDIT
     </menu-entry>
   </div>
 </template>

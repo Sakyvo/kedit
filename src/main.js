@@ -23,7 +23,7 @@ const updateServiceWorker = registerSW({
 });
 
 if (localStorage.updated) {
-  store.dispatch('notification/info', 'StackEdit中文版刚刚更新了！');
+  store.dispatch('notification/info', 'KEDIT刚刚更新了！');
   setTimeout(() => localStorage.removeItem('updated'), 2000);
 }
 
@@ -33,7 +33,7 @@ if (!localStorage.installPrompted) {
     promptEvent.preventDefault();
 
     try {
-      await store.dispatch('notification/confirm', '将StackEdit中文版添加到您的主屏幕上？');
+      await store.dispatch('notification/confirm', '将KEDIT添加到您的主屏幕上？');
       promptEvent.prompt();
       await promptEvent.userChoice;
     } catch (err) {

@@ -4,7 +4,7 @@
       <div class="modal__image">
         <icon-provider provider-id="zendesk"></icon-provider>
       </div>
-      <p>将您的<b>Zendesk</b>链接到<b>StackEdit中文版</b>。</p>
+      <p>将您的<b>Zendesk</b>链接到<b>KEDIT</b>。</p>
       <form-entry label="Site URL" error="siteUrl">
         <template v-slot:field><input class="textfield" type="text" v-model.trim="siteUrl" @keydown.enter="resolve()"></template>
         <div class="form-entry__info">

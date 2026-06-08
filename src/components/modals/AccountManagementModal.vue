@@ -4,8 +4,8 @@
       <div class="modal__image">
         <icon-key></icon-key>
       </div>
-      <p v-if="entries.length">StackEdit中文版可以访问以下外部账号：</p>
-      <p v-else>StackEdit中文版尚未访问任何外部账号。</p>
+      <p v-if="entries.length">KEDIT可以访问以下外部账号：</p>
+      <p v-else>KEDIT尚未访问任何外部账号。</p>
       <div>
         <div class="account-entry flex flex--column" v-for="entry in entries" :key="entry.token.sub">
           <div class="account-entry__header flex flex--row flex--align-center">

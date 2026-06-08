@@ -34,8 +34,8 @@ export default {
           return 'gitee';
         case 'gitcodeWorkspace':
           return 'gitcode';
-        case 'stackedit':
-          return 'stackedit';
+        case 'kedit':
+          return 'kedit';
         default:
           return this.providerId;
       }
@@ -53,8 +53,8 @@ export default {
   background-size: contain;
 }
 
-.icon-provider--stackedit {
-  background-image: url(../assets/iconStackedit.svg);
+.icon-provider--kedit {
+  background-image: url(../assets/iconKedit.svg);
 }
 
 .icon-provider--google-drive {
