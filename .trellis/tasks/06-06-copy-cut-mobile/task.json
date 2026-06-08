@@ -1,0 +1,31 @@
+{
+  "id": "copy-cut-mobile",
+  "name": "copy-cut-mobile",
+  "title": "Mobile copy/cut selection sync",
+  "description": "BE/Codex. Keep clean-md copy/cut override; sync selection on copy/cut + selectionchange/touchend. #7.",
+  "status": "planning",
+  "dev_type": "bug",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Sakyvo",
+  "assignee": "Sakyvo",
+  "createdAt": "2026-06-06",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "06-06-editor-ux-overhaul",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "grill_state": "grilled",
+    "grill_order": 8,
+    "track": "backend",
+    "owner_tool": "codex"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "trim-cruft",
+  "name": "trim-cruft",
+  "title": "Trim StackEdit cruft (badges off, image hosts dormant)",
+  "description": "BE/Codex. Remove badge subsystem (badgeSvc); make external image hosts dormant (default workspace). #2B/#18.",
+  "status": "planning",
+  "dev_type": "refactor",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Sakyvo",
+  "assignee": "Sakyvo",
+  "createdAt": "2026-06-06",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "06-06-editor-ux-overhaul",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "grill_state": "grilled",
+    "grill_order": 2,
+    "track": "backend",
+    "owner_tool": "codex"
+  }
+}

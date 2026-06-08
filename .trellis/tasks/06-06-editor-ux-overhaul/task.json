@@ -1,0 +1,40 @@
+{
+  "id": "editor-ux-overhaul",
+  "name": "editor-ux-overhaul",
+  "title": "KEDIT editor UX overhaul",
+  "description": "Parent: the 8 StackEdit UX pain-point fixes as independently-verifiable child slices, split by FE(Claude Code)/BE(Codex) track. All children depend on 06-04-fork-stackedit. See prd.md for the R1-R20 enumeration + coverage table.",
+  "status": "planning",
+  "dev_type": "feature",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Sakyvo",
+  "assignee": "Sakyvo",
+  "createdAt": "2026-06-06",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-06-rebrand-kedit",
+    "06-06-trim-cruft",
+    "06-06-toolbar-single-row",
+    "06-06-doc-panel-backend",
+    "06-06-doc-panel-frontend",
+    "06-06-toc-drawer",
+    "06-06-list-autonumber",
+    "06-06-copy-cut-mobile",
+    "06-06-preview-backend",
+    "06-06-preview-frontend"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "track": "parent",
+    "owner_tool": "-"
+  }
+}

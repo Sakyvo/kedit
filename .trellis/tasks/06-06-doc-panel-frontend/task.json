@@ -1,0 +1,31 @@
+{
+  "id": "doc-panel-frontend",
+  "name": "doc-panel-frontend",
+  "title": "Doc panel frontend (sort UI, rename fix, context menu, mobile long-press)",
+  "description": "FE/Claude Code. Sort control UI, rename binding fix, enriched context menu, mobile long-press + folder picker. #4. Depends on doc-panel-backend.",
+  "status": "planning",
+  "dev_type": "feature",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Sakyvo",
+  "assignee": "Sakyvo",
+  "createdAt": "2026-06-06",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "06-06-editor-ux-overhaul",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "grill_state": "grilled",
+    "grill_order": 5,
+    "track": "frontend",
+    "owner_tool": "claude-code"
+  }
+}

@@ -1,25 +1,2 @@
-.DS_Store
-node_modules/
-dist/
-diststyle/
-.history
-.idea
-npm-debug.log*
+.ace-tool/
 .npm-cache/
-.vscode
-stackedit_v4
-chrome-app/*.zip
-/test/unit/coverage/
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-*/__pycache__/
-/server/.venv/
-stats.html

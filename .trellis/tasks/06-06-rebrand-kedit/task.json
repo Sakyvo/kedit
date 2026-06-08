@@ -1,0 +1,31 @@
+{
+  "id": "rebrand-kedit",
+  "name": "rebrand-kedit",
+  "title": "Rebrand UI StackEdit to KEDIT",
+  "description": "FE/Claude Code. Rename visible StackEdit branding to KEDIT; preserve data-contract identifiers (ADR-0005).",
+  "status": "in_progress",
+  "dev_type": "refactor",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Sakyvo",
+  "assignee": "Sakyvo",
+  "createdAt": "2026-06-06",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "06-06-editor-ux-overhaul",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "grill_state": "grilled",
+    "grill_order": 1,
+    "track": "frontend",
+    "owner_tool": "claude-code"
+  }
+}

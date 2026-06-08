@@ -1,0 +1,31 @@
+{
+  "id": "doc-panel-backend",
+  "name": "doc-panel-backend",
+  "title": "Doc panel backend (time-sort stamps, comparator, move/duplicate/export ops)",
+  "description": "BE/Codex. Stamp createdOn/updatedOn; sort comparator by name/modified/created; move/duplicate/export-md ops. #4.",
+  "status": "planning",
+  "dev_type": "feature",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Sakyvo",
+  "assignee": "Sakyvo",
+  "createdAt": "2026-06-06",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "06-06-editor-ux-overhaul",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "grill_state": "grilled",
+    "grill_order": 4,
+    "track": "backend",
+    "owner_tool": "codex"
+  }
+}
