@@ -21,9 +21,29 @@ the rest conversationally.
 
 ## Status (update the checkboxes as you complete each item)
 
-- [ ] Fill backend guidelines
-- [ ] Fill frontend guidelines
-- [ ] Add code examples
+- [x] Fill backend guidelines
+- [x] Fill frontend guidelines
+- [x] Add code examples
+
+## Decision
+
+- Backend specs now describe the actual Flask support layer under `server/`:
+  thin routes in `server/app.py`, provider/export helpers in sibling modules,
+  config through `server/conf.py`, no server-side database, and no structured
+  logging framework.
+- Frontend specs now describe the actual Vue 3 / Vuex / Vite StackEdit fork:
+  Options API single-file components, Vuex modules, services, provider helpers,
+  IndexedDB/localStorage persistence through `localDbSvc`, and Jest unit tests
+  under `test/unit/specs/`.
+- Project-wide boundaries recorded in spec: preserve raw Markdown as the stored
+  Document source, keep Sync private and Publish manual/public, keep Private
+  images private at rest with base64 only as transient copy/Publish projection,
+  and preserve StackEdit-era persisted identifiers unless a future migration
+  explicitly changes them.
+- The specs cite real local examples such as `server/app.py`,
+  `server/github.py`, `server/pdf.py`, `src/components/ExplorerNode.vue`,
+  `src/store/moduleTemplate.js`, `src/services/localDbSvc.js`,
+  `src/services/workspaceImageSvc.js`, and focused Jest specs.
 
 ---
 

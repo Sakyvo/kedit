@@ -1,39 +1,37 @@
 # Frontend Development Guidelines
 
-> Best practices for frontend development in this project.
+KEDIT is a Vue 3 + Vuex + Vite fork of StackEdit. The frontend owns the editor,
+workspace model, provider integrations, local IndexedDB persistence, Sync, and
+Publish handoff behavior.
 
----
+## Pre-Development Checklist
 
-## Overview
-
-This directory contains guidelines for frontend development. Fill in each file with your project's specific conventions.
-
----
+- Read `CONTEXT.md` for KEDIT domain language before naming UI, state, or
+  service concepts.
+- Read ADRs under `docs/adr/` when touching editor architecture, Sync, images,
+  preview rendering, or branding/data identifiers.
+- Search existing components/services before adding a new abstraction.
+- Preserve raw Markdown as the Author-edited source. Preview may diverge at the
+  render layer, but stored Document text should remain portable Markdown.
+- Preserve private-at-rest image behavior. Base64 is a transient copy/Publish
+  projection only.
 
 ## Guidelines Index
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
-| [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
-| [State Management](./state-management.md) | Local state, global state, server state | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
+| [Directory Structure](./directory-structure.md) | Source tree layout and feature placement | Filled |
+| [Component Guidelines](./component-guidelines.md) | Vue SFC patterns, props, styling, accessibility | Filled |
+| [Hook Guidelines](./hook-guidelines.md) | Current no-hook pattern and service/directive alternatives | Filled |
+| [State Management](./state-management.md) | Vuex modules, IndexedDB, provider state | Filled |
+| [Type Safety](./type-safety.md) | JavaScript contracts and validation patterns | Filled |
+| [Quality Guidelines](./quality-guidelines.md) | Build/test/style checks and review expectations | Filled |
 
----
+## Project Boundaries
 
-## How to Fill These Guidelines
-
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- Use Vue Options API and Vuex patterns already present in the fork.
+- Keep reusable business logic in `src/services/`, not duplicated inside
+  components.
+- Keep provider-specific remote behavior under `src/services/providers/`.
+- Keep persisted StackEdit identifiers unless a migration task explicitly
+  changes them.
