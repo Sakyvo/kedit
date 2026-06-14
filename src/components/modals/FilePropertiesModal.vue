@@ -229,8 +229,7 @@ export default {
         if (Object.keys(extensions).filter(key => key !== 'preset').length) {
           badgeSvc.addBadge('changeExtension');
         }
-        store.commit('content/patchItem', {
-          id: this.contentId,
+        store.dispatch('content/patchCurrent', {
           properties: utils.sanitizeText(this.yamlProperties),
         });
         this.config.resolve();

@@ -55,6 +55,16 @@ Available project commands:
 - Jest config exists at `test/unit/jest.conf.js`, but there is no npm test
   script in the current `package.json`.
 
+## Current Jest Harness Gotcha
+
+The current package is `"type": "module"`, while `test/unit/jest.conf.js` is a
+CommonJS config that calls `require`. Running Jest directly with that config
+fails before tests load. If you bypass that first layer with a temporary CJS
+config, the repo also lacks `jest-environment-jsdom` for Jest 29 and references
+`vue-jest`, which is not installed. Until the harness is fixed in a dedicated
+testing-infra task, report focused Jest runs as blocked by the project test
+stack and rely on `npm run build` plus code review for task-level verification.
+
 ## Code Review Checklist
 
 - Does the change preserve KEDIT domain terms from `CONTEXT.md`?

@@ -108,11 +108,14 @@ export default {
       const contentId = idsByPath[contentPath];
 
       // File creations/updates
+      const existingItem = store.getters.itemsByGitPath[path] || {};
       const item = utils.addItemHash({
         id: fileId,
         type: 'file',
         name: path.slice(parentPath.length, -'.md'.length),
         parentId: idsByPath[parentPath] || null,
+        createdOn: existingItem.createdOn || 0,
+        updatedOn: existingItem.updatedOn || 0,
       });
 
       const fileSyncData = syncDataByPath[path];

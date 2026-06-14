@@ -14,7 +14,26 @@ function debounceAction(action, wait) {
 }
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
-const compare = (node1, node2) => collator.compare(node1.item.name, node2.item.name);
+const sortFields = ['name', 'updatedOn', 'createdOn'];
+const sortDirections = ['asc', 'desc'];
+const normalizeSortField = value => (sortFields.includes(value) ? value : 'updatedOn');
+const normalizeSortDirection = value => (sortDirections.includes(value) ? value : 'desc');
+const compareNames = (node1, node2) => collator.compare(node1.item.name, node2.item.name);
+const getStamp = (item, field) => {
+  const value = Number(item[field]);
+  return Number.isFinite(value) ? value : 0;
+};
+const compare = ({ sortBy, sortDirection }) => (node1, node2) => {
+  const field = normalizeSortField(sortBy);
+  const direction = normalizeSortDirection(sortDirection);
+  let result = field === 'name'
+    ? compareNames(node1, node2)
+    : getStamp(node1.item, field) - getStamp(node2.item, field);
+  if (direction === 'desc') {
+    result *= -1;
+  }
+  return result || compareNames(node1, node2);
+};
 
 class Node {
   constructor(item, locations = [], isFolder = false) {
@@ -27,11 +46,12 @@ class Node {
     }
   }
 
-  sortChildren() {
+  sortChildren(sortOptions) {
     if (this.isFolder) {
-      this.folders.sort(compare);
-      this.files.sort(compare);
-      this.folders.forEach(child => child.sortChildren());
+      const compareNodes = compare(sortOptions);
+      this.folders.sort(compareNodes);
+      this.files.sort(compareNodes);
+      this.folders.forEach(child => child.sortChildren(sortOptions));
     }
   }
 }
@@ -64,12 +84,20 @@ export default {
     dragTargetId: null,
     newChildNode: nilFileNode,
     openNodes: {},
+    sortBy: 'updatedOn',
+    sortDirection: 'desc',
   },
   mutations: {
     setSelectedId: setter('selectedId'),
     setEditingId: setter('editingId'),
     setDragSourceId: setter('dragSourceId'),
     setDragTargetId: setter('dragTargetId'),
+    setSortBy(state, value) {
+      state.sortBy = normalizeSortField(value);
+    },
+    setSortDirection(state, value) {
+      state.sortDirection = normalizeSortDirection(value);
+    },
     setNewItem(state, item) {
       state.newChildNode = item ? new Node(item, [], item.type === 'folder') : nilFileNode;
     },
@@ -136,7 +164,7 @@ export default {
         }
         node.parentNode = parentNode;
       });
-      rootNode.sortChildren();
+      rootNode.sortChildren(state);
 
       // Add Trash and Temp nodes
       rootNode.folders.unshift(tempFolderNode);

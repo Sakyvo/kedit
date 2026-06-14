@@ -3,7 +3,7 @@
   "name": "doc-panel-backend",
   "title": "Doc panel backend (time-sort stamps, comparator, move/duplicate/export ops)",
   "description": "BE/Codex. Stamp createdOn/updatedOn; sort comparator by name/modified/created; move/duplicate/export-md ops. #4.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": "feature",
   "scope": null,
   "package": null,
@@ -26,6 +26,7 @@
     "grill_state": "grilled",
     "grill_order": 4,
     "track": "backend",
-    "owner_tool": "codex"
+    "owner_tool": "codex",
+    "domain": "be"
   }
 }

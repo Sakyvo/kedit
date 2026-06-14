@@ -19,16 +19,19 @@ export default {
     comments,
   } = {}, background = false) {
     const id = utils.uid();
+    const now = Date.now();
     const item = {
       id,
       name: utils.sanitizeFilename(name),
       parentId: parentId || null,
+      createdOn: now,
+      updatedOn: now,
     };
     const content = {
       id: `${id}/content`,
-      text: utils.sanitizeText(text || store.getters['data/computedSettings'].newFileContent),
+      text: utils.sanitizeText(text ?? store.getters['data/computedSettings'].newFileContent),
       properties: utils
-        .sanitizeText(properties || store.getters['data/computedSettings'].newFileProperties),
+        .sanitizeText(properties ?? store.getters['data/computedSettings'].newFileProperties),
       discussions: discussions || {},
       comments: comments || {},
     };
@@ -105,10 +108,22 @@ export default {
       }
     }
 
-    return this.setOrPatchItem({
+    const patch = {
       ...item,
       id,
-    });
+    };
+    if (item.type === 'file') {
+      const existingItem = store.getters.allItemsById[id];
+      const now = Date.now();
+      if (existingItem) {
+        patch.createdOn = item.createdOn || existingItem.createdOn || 0;
+        patch.updatedOn = now;
+      } else {
+        patch.createdOn = item.createdOn || now;
+        patch.updatedOn = item.updatedOn || now;
+      }
+    }
+    return this.setOrPatchItem(patch);
   },
 
   /**
@@ -131,6 +146,14 @@ export default {
         item.name = sanitizedName;
       }
     }
+    if (item.type === 'file') {
+      if (patch.createdOn !== undefined) {
+        item.createdOn = patch.createdOn;
+      }
+      if (patch.updatedOn !== undefined) {
+        item.updatedOn = patch.updatedOn;
+      }
+    }
 
     // Save item in the store
     store.commit(`${item.type}/setItem`, item);
@@ -144,6 +167,39 @@ export default {
     }
 
     return store.getters.allItemsById[item.id];
+  },
+
+  async moveItem(itemId, parentId = null) {
+    const item = store.getters.allItemsById[itemId];
+    if (!item) {
+      return null;
+    }
+    return this.storeItem({
+      ...item,
+      parentId,
+    });
+  },
+
+  async duplicateFile(fileId, parentId) {
+    const file = store.state.file.itemsById[fileId];
+    if (!file) {
+      return null;
+    }
+    const { default: localDbSvc } = await import('./localDbSvc');
+    const content = await localDbSvc.loadItem(`${fileId}/content`);
+    return this.createFile({
+      name: file.name,
+      parentId: parentId === undefined ? file.parentId : parentId,
+      text: content.text,
+      properties: content.properties,
+      discussions: utils.deepCopy(content.discussions),
+      comments: utils.deepCopy(content.comments),
+    }, true);
+  },
+
+  async exportMarkdown(fileId) {
+    const { default: exportSvc } = await import('./exportSvc');
+    return exportSvc.exportToDisk(fileId, 'md');
   },
 
   /**

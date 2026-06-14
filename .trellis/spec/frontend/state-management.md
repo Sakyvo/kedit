@@ -47,6 +47,77 @@ component boundaries.
 - `workspaceImageSvc.js` reads private image records and produces data URLs for
   projection. Do not store those data URLs in Document source.
 
+## File Timestamp Metadata Contract
+
+### 1. Scope / Trigger
+
+- File items persisted by Vuex/IndexedDB carry sort metadata for the Document
+  panel. This is browser persistence metadata, not Markdown source content.
+
+### 2. Signatures
+
+- `workspaceSvc.createFile({ name, parentId, text, properties, discussions, comments }, background)`
+  creates a `file` item with `createdOn` and `updatedOn`.
+- `workspaceSvc.storeItem(item)` updates file metadata and refreshes
+  `updatedOn`.
+- `store.dispatch('content/patchCurrent', patch)` updates current Document
+  content and refreshes the owning file's `updatedOn`.
+- `explorer` sort state accepts `sortBy: 'name' | 'updatedOn' | 'createdOn'`
+  and `sortDirection: 'asc' | 'desc'`.
+
+### 3. Contracts
+
+- File metadata fields:
+  - `createdOn: number` Unix epoch milliseconds; legacy/missing value is `0`.
+  - `updatedOn: number` Unix epoch milliseconds; legacy/missing value is `0`.
+- New files set both stamps to the same `Date.now()` value.
+- Metadata/content saves refresh `updatedOn` and preserve `createdOn`.
+- Git workspace projection must preserve local stamps and must not serialize
+  them into `.md` content.
+
+### 4. Validation & Error Matrix
+
+- Missing file item -> workspace file operations return `null` where the
+  service method is nullable.
+- Missing/non-numeric stamp -> explorer treats it as `0` so legacy Documents
+  sort as oldest.
+- Invalid sort field/direction -> explorer normalizes to
+  `updatedOn`/`desc`.
+
+### 5. Good/Base/Bad Cases
+
+- Good: create a Document, edit content, then sort by modified descending; it
+  appears before untouched legacy Documents.
+- Base: rename or move a Document through `workspaceSvc.storeItem`; metadata is
+  persisted and path uniqueness still runs.
+- Bad: write timestamps into Document Markdown or provider-serialized `.md`
+  metadata.
+
+### 6. Tests Required
+
+- Service tests assert create/save timestamp behavior and legacy `0` handling.
+- Store/service tests assert `content/patchCurrent` refreshes the owning file's
+  `updatedOn`.
+- Explorer tests assert `name`, `updatedOn`, and `createdOn` sorting in both
+  directions while preserving folders-before-files.
+
+### 7. Wrong vs Correct
+
+Wrong:
+
+```js
+store.commit('content/patchItem', { id: contentId, text });
+```
+
+Correct:
+
+```js
+store.dispatch('content/patchCurrent', { text });
+```
+
+Use the action so the Document content and the owning file's modified timestamp
+stay in sync.
+
 ## Common Mistakes
 
 - Writing directly to IndexedDB from components.
