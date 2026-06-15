@@ -3,7 +3,7 @@
   "name": "fork-stackedit",
   "title": "Fork StackEdit as KEDIT's editor engine",
   "description": "Per ADR-0001: fork StackEdit (Vue3/Vite/markdown-it, Apache-2.0) into the repo as the editor engine; get it building, running, and syncing to the GitHub private repo as pure .md (ADR-0002). Foundational — unblocks image-storage-model and all KEDIT feature work. markra design skin is a separate follow-up.",
-  "status": "planning",
+  "status": "completed",
   "dev_type": "feature",
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "Sakyvo",
   "assignee": "Sakyvo",
   "createdAt": "2026-06-04",
-  "completedAt": null,
+  "completedAt": "2026-06-15",
   "branch": null,
   "base_branch": "master",
   "worktree_path": null,
@@ -22,5 +22,8 @@
   "parent": null,
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {
+    "human_approved": true,
+    "approved_at": "2026-06-15"
+  }
 }
