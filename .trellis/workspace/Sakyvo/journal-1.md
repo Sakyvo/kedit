@@ -44,3 +44,36 @@ Added Document timestamp metadata, explorer sorting, workspace move/duplicate/ex
 ### Next Steps
 
 - Archive only after explicit human approval.
+
+
+## Session 2: Doc panel backend
+
+**Date**: 2026-06-16
+**Task**: Doc panel backend
+**Branch**: `master`
+
+### Summary
+
+Completed and archived doc-panel backend work: file timestamp metadata, sorting comparator support, and backend file operations.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b8547b8f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

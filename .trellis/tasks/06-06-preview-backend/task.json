@@ -26,6 +26,10 @@
     "grill_state": "grilled",
     "grill_order": 9,
     "track": "backend",
-    "owner_tool": "codex"
+    "owner_tool": "codex",
+    "domain": "be",
+    "depends_on": [
+      "06-04-fork-stackedit"
+    ]
   }
 }

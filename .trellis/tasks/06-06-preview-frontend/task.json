@@ -26,6 +26,11 @@
     "grill_state": "grilled",
     "grill_order": 10,
     "track": "frontend",
-    "owner_tool": "claude-code"
+    "owner_tool": "claude-code",
+    "domain": "fe",
+    "depends_on": [
+      "06-04-fork-stackedit",
+      "06-06-preview-backend"
+    ]
   }
 }
