@@ -3,7 +3,7 @@
   "name": "doc-panel-backend",
   "title": "Doc panel backend (time-sort stamps, comparator, move/duplicate/export ops)",
   "description": "BE/Codex. Stamp createdOn/updatedOn; sort comparator by name/modified/created; move/duplicate/export-md ops. #4.",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": "feature",
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "Sakyvo",
   "assignee": "Sakyvo",
   "createdAt": "2026-06-06",
-  "completedAt": null,
+  "completedAt": "2026-06-16",
   "branch": null,
   "base_branch": "master",
   "worktree_path": null,
@@ -27,6 +27,9 @@
     "grill_order": 4,
     "track": "backend",
     "owner_tool": "codex",
-    "domain": "be"
+    "domain": "be",
+    "depends_on": [
+      "06-04-fork-stackedit"
+    ]
   }
 }
