@@ -23,13 +23,7 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {
-    "grill_state": "grilled",
-    "grill_order": 3,
     "track": "frontend",
-    "owner_tool": "claude-code",
-    "domain": "fe",
-    "depends_on": [
-      "06-04-fork-stackedit"
-    ]
+    "owner_tool": "claude-code"
   }
 }

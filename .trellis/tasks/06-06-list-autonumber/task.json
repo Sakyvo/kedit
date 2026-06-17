@@ -23,13 +23,7 @@
   "relatedFiles": [],
   "notes": "",
   "meta": {
-    "grill_state": "grilled",
-    "grill_order": 7,
     "track": "backend",
-    "owner_tool": "codex",
-    "domain": "fe",
-    "depends_on": [
-      "06-04-fork-stackedit"
-    ]
+    "owner_tool": "codex"
   }
 }
