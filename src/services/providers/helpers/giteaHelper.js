@@ -2,7 +2,6 @@ import utils from '../../utils';
 import networkSvc from '../../networkSvc';
 import store from '../../../store';
 import userSvc from '../../userSvc';
-import badgeSvc from '../../badgeSvc';
 import constants from '../../../data/constants';
 
 const tokenExpirationMargin = 5 * 60 * 1000;
@@ -219,7 +218,6 @@ export default {
       applicationSecret,
       sub,
     );
-    badgeSvc.addBadge('addGiteaAccount');
     return token;
   },
   async updateToken(token, imgStorageInfo) {

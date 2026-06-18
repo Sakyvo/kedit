@@ -38,7 +38,6 @@ import Tab from './common/Tab';
 import CodeEditor from '../CodeEditor';
 import defaultSettings from '../../data/defaults/defaultSettings.yml?raw';
 import store from '../../store';
-import badgeSvc from '../../services/badgeSvc';
 
 const emptySettings = '# 增加您的自定义配置覆盖默认配置';
 
@@ -80,18 +79,6 @@ export default {
       if (!this.error) {
         const settings = this.strippedCustomSettings;
         await store.dispatch('data/setSettings', settings);
-        const customSettings = yaml.load(settings);
-        if (customSettings.shortcuts) {
-          badgeSvc.addBadge('changeShortcuts');
-        }
-        const computedSettings = store.getters['data/computedSettings'];
-        const customSettingsCount = Object
-          .keys(customSettings)
-          .filter(key => key !== 'shortcuts' && computedSettings[key])
-          .length;
-        if (customSettingsCount) {
-          badgeSvc.addBadge('changeSettings');
-        }
         this.config.resolve(settings);
       }
     },

@@ -12,8 +12,6 @@ import styledHtmlWithThemeTemplate from '../data/templates/styledHtmlWithThemeTe
 import styledHtmlWithThemeAndTocTemplate from '../data/templates/styledHtmlWithThemeAndTocTemplate.html?raw';
 import jekyllSiteTemplate from '../data/templates/jekyllSiteTemplate.html?raw';
 import constants from '../data/constants';
-import features from '../data/features';
-import badgeSvc from '../services/badgeSvc';
 
 const itemTemplate = (id, data = {}) => ({
   id,
@@ -66,19 +64,18 @@ const patcher = id => ({ state, commit }, data) => {
 };
 
 // For layoutSettings
-const toggleLayoutSetting = (name, value, featureId, getters, dispatch) => {
+const toggleLayoutSetting = (name, value, getters, dispatch) => {
   const currentValue = getters.layoutSettings[name];
   const patch = {
     [name]: value === undefined ? !currentValue : !!value,
   };
   if (patch[name] !== currentValue) {
     dispatch('patchLayoutSettings', patch);
-    badgeSvc.addBadge(featureId);
   }
 };
 
-const layoutSettingsToggler = (propertyName, featureId) => ({ getters, dispatch }, value) =>
-  toggleLayoutSetting(propertyName, value, featureId, getters, dispatch);
+const layoutSettingsToggler = propertyName => ({ getters, dispatch }, value) =>
+  toggleLayoutSetting(propertyName, value, getters, dispatch);
 
 const notEnoughSpace = (layoutConstants, showGutter) =>
   document.body.clientWidth < layoutConstants.editorMinWidth +
@@ -229,20 +226,6 @@ export default {
     zendeskTokensBySub: (state, { tokensByType }) => tokensByType.zendesk || {},
     smmsTokensBySub: (state, { tokensByType }) => tokensByType.smms || {},
     customTokensBySub: (state, { tokensByType }) => tokensByType.custom || {},
-    badgeCreations: getter('badgeCreations'),
-    badgeTree: (state, { badgeCreations }) => features
-      .map(feature => feature.toBadge(badgeCreations)),
-    allBadges: (state, { badgeTree }) => {
-      const result = [];
-      const processBadgeNodes = nodes => nodes.forEach((node) => {
-        result.push(node);
-        if (node.children) {
-          processBadgeNodes(node.children);
-        }
-      });
-      processBadgeNodes(badgeTree);
-      return result;
-    },
   },
   actions: {
     setServerConf: setter('serverConf'),
@@ -260,7 +243,6 @@ export default {
       settingsStr = settingsStr.indexOf('colorTheme:') > -1 ?
         settingsStr.replace(/.*colorTheme:.*/, themeStr) : `${settingsStr}\n${themeStr}`;
       commit('setItem', itemTemplate('settings', settingsStr));
-      badgeSvc.addBadge('switchTheme');
     },
     patchLocalSettings: patcher('localSettings'),
     patchLayoutSettings: patcher('layoutSettings'),
@@ -339,7 +321,6 @@ export default {
     addGiteaToken: tokenAdder('gitea'),
     addWordpressToken: tokenAdder('wordpress'),
     addZendeskToken: tokenAdder('zendesk'),
-    patchBadgeCreations: patcher('badgeCreations'),
     addSmmsToken: tokenAdder('smms'),
     addCustomToken: tokenAdder('custom'),
   },

@@ -167,7 +167,6 @@ import gitlabProvider from '../../services/providers/gitlabProvider';
 import giteaProvider from '../../services/providers/giteaProvider';
 import syncSvc from '../../services/syncSvc';
 import store from '../../store';
-import badgeSvc from '../../services/badgeSvc';
 
 const tokensToArray = (tokens, filter = () => true) => Object.values(tokens)
   .filter(token => filter(token))
@@ -233,7 +232,7 @@ export default {
   methods: {
     requestSync() {
       if (!this.isSyncRequested) {
-        syncSvc.requestSync(true);
+        syncSvc.requestSync();
       }
     },
     async manageSync() {
@@ -289,14 +288,12 @@ export default {
         'queue/enqueue',
         async () => {
           await dropboxProvider.openFiles(token, paths);
-          badgeSvc.addBadge('openFromDropbox');
         },
       );
     },
     async saveDropbox(token) {
       try {
         await openSyncModal(token, 'dropboxSave');
-        badgeSvc.addBadge('saveOnDropbox');
       } catch (e) { /* cancel */ }
     },
     async openGoogleDrive(token) {
@@ -305,14 +302,12 @@ export default {
         'queue/enqueue',
         async () => {
           await googleDriveProvider.openFiles(token, files);
-          badgeSvc.addBadge('openFromGoogleDrive');
         },
       );
     },
     async saveGoogleDrive(token) {
       try {
         await openSyncModal(token, 'googleDriveSave');
-        badgeSvc.addBadge('saveOnGoogleDrive');
       } catch (e) { /* cancel */ }
     },
     async openGithub(token) {
@@ -325,7 +320,6 @@ export default {
           'queue/enqueue',
           async () => {
             await githubProvider.openFile(token, syncLocation);
-            badgeSvc.addBadge('openFromGithub');
           },
         );
       } catch (e) { /* cancel */ }
@@ -333,7 +327,6 @@ export default {
     async saveGithub(token) {
       try {
         await openSyncModal(token, 'githubSave');
-        badgeSvc.addBadge('saveOnGithub');
       } catch (e) { /* cancel */ }
     },
     async openGitee(token) {
@@ -346,7 +339,6 @@ export default {
           'queue/enqueue',
           async () => {
             await giteeProvider.openFile(token, syncLocation);
-            badgeSvc.addBadge('openFromGitee');
           },
         );
       } catch (e) { /* cancel */ }
@@ -354,7 +346,6 @@ export default {
     async saveGitee(token) {
       try {
         await openSyncModal(token, 'giteeSave');
-        badgeSvc.addBadge('saveOnGitee');
       } catch (e) { /* cancel */ }
     },
     async openGitcode(token) {
@@ -367,7 +358,6 @@ export default {
           'queue/enqueue',
           async () => {
             await gitcodeProvider.openFile(token, syncLocation);
-            badgeSvc.addBadge('openFromGitCode');
           },
         );
       } catch (e) { /* cancel */ }
@@ -375,19 +365,16 @@ export default {
     async saveGitcode(token) {
       try {
         await openSyncModal(token, 'gitcodeSave');
-        badgeSvc.addBadge('saveOnGitCode');
       } catch (e) { /* cancel */ }
     },
     async saveGist(token) {
       try {
         await openSyncModal(token, 'gistSync');
-        badgeSvc.addBadge('saveOnGist');
       } catch (e) { /* cancel */ }
     },
     async saveGiteeGist(token) {
       try {
         await openSyncModal(token, 'giteeGistSync');
-        badgeSvc.addBadge('saveOnGiteeGist');
       } catch (e) { /* cancel */ }
     },
     async openGitlab(token) {
@@ -400,7 +387,6 @@ export default {
           'queue/enqueue',
           async () => {
             await gitlabProvider.openFile(token, syncLocation);
-            badgeSvc.addBadge('openFromGitlab');
           },
         );
       } catch (e) { /* cancel */ }
@@ -415,7 +401,6 @@ export default {
           'queue/enqueue',
           async () => {
             await giteaProvider.openFile(token, syncLocation);
-            badgeSvc.addBadge('openFromGitea');
           },
         );
       } catch (e) { /* cancel */ }
@@ -423,13 +408,11 @@ export default {
     async saveGitlab(token) {
       try {
         await openSyncModal(token, 'gitlabSave');
-        badgeSvc.addBadge('saveOnGitlab');
       } catch (e) { /* cancel */ }
     },
     async saveGitea(token) {
       try {
         await openSyncModal(token, 'giteaSave');
-        badgeSvc.addBadge('saveOnGitea');
       } catch (e) { /* cancel */ }
     },
   },

@@ -30,14 +30,6 @@
               <b>URL:</b>
               {{entry.url}}
             </span>
-            <span class="account-entry__field line-entry" v-if="entry.customHeaders">
-              <b>自定义请求头:</b>
-              {{entry.customHeaders}}
-            </span>
-            <span class="account-entry__field line-entry" v-if="entry.customParams">
-              <b>自定义Form参数:</b>
-              {{entry.customParams}}
-            </span>
             <span class="account-entry__field" v-if="entry.scopes">
               <b>权限范围:</b>
               {{entry.scopes.join(', ')}}
@@ -89,14 +81,6 @@
         <template v-slot:icon><icon-provider provider-id="zendesk"></icon-provider></template>
         <span>添加Zendesk账号</span>
       </menu-entry>
-      <menu-entry @click.native="addSmmsAccount">
-        <template v-slot:icon><icon-provider provider-id="smms"></icon-provider></template>
-        <span>添加SM.MS账号</span>
-      </menu-entry>
-      <menu-entry @click.native="addCustomAccount">
-        <template v-slot:icon><icon-provider provider-id="custom"></icon-provider></template>
-        <span>添加自定义图床账号</span>
-      </menu-entry>
     </div>
     <div class="modal__button-bar">
       <button class="button button--resolve" @click="config.resolve()">关闭</button>
@@ -119,9 +103,6 @@ import gitlabHelper from '../../services/providers/helpers/gitlabHelper';
 import giteaHelper from '../../services/providers/helpers/giteaHelper';
 import wordpressHelper from '../../services/providers/helpers/wordpressHelper';
 import zendeskHelper from '../../services/providers/helpers/zendeskHelper';
-import smmsHelper from '../../services/providers/helpers/smmsHelper';
-import customHelper from '../../services/providers/helpers/customHelper';
-import badgeSvc from '../../services/badgeSvc';
 
 export default {
   components: {
@@ -206,23 +187,6 @@ export default {
           name: token.name,
           scopes: ['read', 'hc:write'],
         })),
-        ...Object.values(store.getters['data/smmsTokensBySub']).map(token => ({
-          token,
-          providerId: 'smms',
-          userId: token.sub,
-          name: token.name,
-          scopes: ['api'],
-        })),
-        ...Object.values(store.getters['data/customTokensBySub']).map(token => ({
-          token,
-          providerId: 'custom',
-          url: token.uploadUrl,
-          userId: token.name,
-          name: token.name,
-          customHeaders: token.customHeaders && JSON.stringify(token.customHeaders),
-          customParams: token.customParams && JSON.stringify(token.customParams),
-          scopes: ['upload'],
-        })),
       ];
     },
   },
@@ -233,7 +197,6 @@ export default {
       await store.dispatch('data/patchTokensByType', {
         [entry.providerId]: tokensBySub,
       });
-      badgeSvc.addBadge('removeAccount');
     },
     async addBloggerAccount() {
       try {
@@ -298,36 +261,12 @@ export default {
         await zendeskHelper.addAccount(subdomain, clientId);
       } catch (e) { /* cancel */ }
     },
-    async addSmmsAccount() {
-      try {
-        const { proxyUrl, apiSecretToken } = await store.dispatch('modal/open', { type: 'smmsAccount' });
-        await smmsHelper.addAccount(proxyUrl, apiSecretToken);
-      } catch (e) { /* cancel */ }
-    },
-    async addCustomAccount() {
-      try {
-        const accountInfo = await store.dispatch('modal/open', { type: 'customAccount' });
-        await customHelper.addAccount(accountInfo);
-      } catch (e) { /* cancel */ }
-    },
   },
 };
 </script>
 
 <style lang="scss">
 @import '../../styles/variables.scss';
-
-.line-entry {
-  word-break: break-word; /* 文本行的任意字内断开，就算是一个单词也会分开 */
-  word-wrap: break-word; /* IE */
-  white-space: -moz-pre-wrap; /* Mozilla */
-  white-space: -hp-pre-wrap; /* HP printers */
-  white-space: -o-pre-wrap; /* Opera 7 */
-  white-space: -pre-wrap; /* Opera 4-6 */
-  white-space: pre; /* CSS2 */
-  white-space: pre-wrap; /* CSS 2.1 */
-  white-space: pre-line; /* CSS 3 (and 2.1 as well, actually) */
-}
 
 .account-entry {
   margin: 1.5em 0;

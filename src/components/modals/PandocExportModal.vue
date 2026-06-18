@@ -33,7 +33,6 @@ import networkSvc from '../../services/networkSvc';
 import editorSvc from '../../services/editorSvc';
 import modalTemplate from './common/modalTemplate';
 import store from '../../store';
-import badgeSvc from '../../services/badgeSvc';
 
 export default modalTemplate({
   computedLocalSettings: {
@@ -60,7 +59,6 @@ export default modalTemplate({
             timeout: 60000,
           });
           FileSaver.saveAs(body, `${currentFile.name}.${selectedFormat}`);
-          badgeSvc.addBadge('exportPandoc');
         } catch (err) {
           console.error(err); // eslint-disable-line no-console
           store.dispatch('notification/error', err);

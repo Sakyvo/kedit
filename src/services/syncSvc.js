@@ -17,7 +17,6 @@ import './providers/googleDriveWorkspaceProvider';
 import tempFileSvc from './tempFileSvc';
 import workspaceSvc from './workspaceSvc';
 import constants from '../data/constants';
-import badgeSvc from './badgeSvc';
 
 const minAutoSyncEvery = 60 * 1000; // 60 sec
 const inactivityThreshold = 3 * 1000; // 3 sec
@@ -766,11 +765,10 @@ const syncWorkspace = async (skipContents = false) => {
       return true;
     }));
 
-    // Sync settings, workspaces and badges only in the main workspace
+    // Sync workspace data only in the main workspace
     if (workspace.id === 'main') {
       // await syncDataItem('settings');
       await syncDataItem('workspaces');
-      await syncDataItem('badgeCreations');
       // await syncDataItem('templates');
     }
 
@@ -831,13 +829,6 @@ const syncWorkspace = async (skipContents = false) => {
       await syncWorkspace(true);
     }
 
-    if (workspace.id === 'main') {
-      const badgeByProviderId = {
-        giteeAppData: 'syncMainWorkspace',
-        githubAppData: 'githubSyncMainWorkspace',
-      };
-      badgeSvc.addBadge(badgeByProviderId[workspace.providerId] || 'syncMainWorkspace');
-    }
   } catch (err) {
     if (err && err.message === 'TOO_LATE') {
       // Restart sync
@@ -906,7 +897,7 @@ const uploadImgs = async () => {
 /**
  * Enqueue a sync task, if possible.
  */
-const requestSync = (addTriggerSyncBadge = false) => {
+const requestSync = () => {
   // No sync in light mode
   if (store.state.light) {
     return;
@@ -961,9 +952,6 @@ const requestSync = (addTriggerSyncBadge = false) => {
             }
           });
 
-          if (addTriggerSyncBadge) {
-            badgeSvc.addBadge('triggerSync');
-          }
         } finally {
           clearInterval(intervalId);
         }

@@ -2,7 +2,6 @@ import utils from '../../utils';
 import networkSvc from '../../networkSvc';
 import store from '../../../store';
 import userSvc from '../../userSvc';
-import badgeSvc from '../../badgeSvc';
 
 const tokenExpirationMargin = 5 * 60 * 1000;
 
@@ -173,7 +172,6 @@ export default {
 
   async addAccount() {
     const token = await this.startOauth2();
-    badgeSvc.addBadge('addGitCodeAccount');
     return token;
   },
 

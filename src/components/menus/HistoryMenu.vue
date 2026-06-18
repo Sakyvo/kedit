@@ -58,7 +58,6 @@ import giteeHelper from '../../services/providers/helpers/giteeHelper';
 import githubHelper from '../../services/providers/helpers/githubHelper';
 import syncSvc from '../../services/syncSvc';
 import store from '../../store';
-import badgeSvc from '../../services/badgeSvc';
 
 let editorClassAppliers = [];
 let previewClassAppliers = [];
@@ -254,8 +253,6 @@ export default {
         if (firstSyncLocation) {
           if (!value) {
             this.syncLocationId = firstSyncLocation.id;
-          } else if (value.id !== firstSyncLocation.id) {
-            badgeSvc.addBadge('chooseHistory');
           }
         }
       },

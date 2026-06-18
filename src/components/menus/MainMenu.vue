@@ -101,11 +101,6 @@
       打印
     </menu-entry>
     <hr>
-    <menu-entry @click.native="badges">
-      <template v-slot:icon><icon-seal></icon-seal></template>
-      <div><div class="menu-entry__label menu-entry__label--count">{{badgeCount}}/{{featureCount}}</div> 徽章</div>
-      <span>列出应用程序功能和获得的徽章。</span>
-    </menu-entry>
     <menu-entry @click.native="accounts">
       <template v-slot:icon><icon-key></icon-key></template>
       <div><div class="menu-entry__label menu-entry__label--count">{{accountCount}}</div> 账号</div>
@@ -192,12 +187,6 @@ export default {
       return Object.values(store.getters['data/tokensByType'])
         .reduce((count, tokensBySub) => count + Object.values(tokensBySub).length, 0);
     },
-    badgeCount() {
-      return store.getters['data/allBadges'].filter(badge => badge.isEarned).length;
-    },
-    featureCount() {
-      return store.getters['data/allBadges'].length;
-    },
   },
   methods: {
     ...mapActions('data', {
@@ -244,11 +233,6 @@ export default {
     async accounts() {
       try {
         await store.dispatch('modal/open', 'accountManagement');
-      } catch (e) { /* Cancel */ }
-    },
-    async badges() {
-      try {
-        await store.dispatch('modal/open', 'badgeManagement');
       } catch (e) { /* Cancel */ }
     },
     async reset() {

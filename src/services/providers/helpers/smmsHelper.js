@@ -1,7 +1,6 @@
 import networkSvc from '../../networkSvc';
 import store from '../../../store';
 import userSvc from '../../userSvc';
-import badgeSvc from '../../badgeSvc';
 
 /**
  * https://doc.sm.ms/#api-User-Get_Profile
@@ -46,7 +45,6 @@ export default {
   },
   async addAccount(proxyUrl, apiSecretToken) {
     const token = await this.getTokenObj(proxyUrl, apiSecretToken);
-    badgeSvc.addBadge('addSmmsAccount');
     return token;
   },
   async uploadFile({

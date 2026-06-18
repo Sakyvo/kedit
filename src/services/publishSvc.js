@@ -5,7 +5,6 @@ import networkSvc from './networkSvc';
 import exportSvc from './exportSvc';
 import providerRegistry from './providers/common/providerRegistry';
 import workspaceSvc from './workspaceSvc';
-import badgeSvc from './badgeSvc';
 
 const hasCurrentFilePublishLocations = () => !!store.getters['publishLocation/current'].length;
 
@@ -131,7 +130,6 @@ const requestPublish = () => {
           throw new Error('Publish not possible.');
         }
         await publishFile(store.getters['file/current'].id);
-        badgeSvc.addBadge('triggerPublish');
       }
     };
     intervalId = utils.setInterval(() => attempt(), 1000);
@@ -145,7 +143,7 @@ const publishLocationAndStore = async (publishLocation, commitMsg) => {
   return publishLocationToStore;
 };
 
-const createPublishLocation = (publishLocation, featureId) => {
+const createPublishLocation = (publishLocation) => {
   const currentFile = store.getters['file/current'];
   publishLocation.fileId = currentFile.id;
   store.dispatch(
@@ -165,9 +163,6 @@ const createPublishLocation = (publishLocation, featureId) => {
       }
       await publishLocationAndStore(publishLocation, commitMsg);
       store.dispatch('notification/info', `添加了一个新的发布位置 "${currentFile.name}".`);
-      if (featureId) {
-        badgeSvc.addBadge(featureId);
-      }
     },
   );
 };

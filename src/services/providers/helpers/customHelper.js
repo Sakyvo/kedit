@@ -2,7 +2,6 @@ import MD5 from 'crypto-js/md5';
 import networkSvc from '../../networkSvc';
 import store from '../../../store';
 import userSvc from '../../userSvc';
-import badgeSvc from '../../badgeSvc';
 import utils from '../../utils';
 
 /**
@@ -36,7 +35,6 @@ export default {
     };
     // Add token to smms tokens
     store.dispatch('data/addCustomToken', token);
-    badgeSvc.addBadge('addCustomAccount');
     return token;
   },
   async uploadFile({

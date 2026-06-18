@@ -80,7 +80,6 @@ import { mapGetters, mapActions } from 'vuex';
 import ModalInner from './common/ModalInner';
 import workspaceSvc from '../../services/workspaceSvc';
 import store from '../../store';
-import badgeSvc from '../../services/badgeSvc';
 import localDbSvc from '../../services/localDbSvc';
 
 export default {
@@ -120,7 +119,6 @@ export default {
               name: this.editingName,
             },
           });
-          badgeSvc.addBadge('renameWorkspace');
         } else {
           this.editingName = workspace.name;
         }
@@ -143,7 +141,6 @@ export default {
             name: workspace.name,
           });
           workspaceSvc.removeWorkspace(id);
-          badgeSvc.addBadge('removeWorkspace');
         } catch (e) { /* Cancel */ }
       }
     },
@@ -162,7 +159,6 @@ export default {
           autoSync: false,
         },
       });
-      badgeSvc.addBadge('stopAutoSyncWorkspace');
     },
     async startAutoSync(id) {
       const workspace = this.workspacesById[id];
@@ -179,7 +175,6 @@ export default {
           autoSync: true,
         },
       });
-      badgeSvc.addBadge('autoSyncWorkspace');
     },
   },
   created() {
