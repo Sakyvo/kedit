@@ -77,3 +77,37 @@ Completed and archived doc-panel backend work: file timestamp metadata, sorting 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Trim StackEdit cruft
+
+**Date**: 2026-06-18
+**Task**: Trim StackEdit cruft
+**Branch**: `master`
+
+### Summary
+
+Removed the legacy badge subsystem, made external image hosts dormant, cleaned obsolete badge-era branches, updated state-management spec, and validated the trim-cruft task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d7e2667a` | (see git log) |
+| `6554c423` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
