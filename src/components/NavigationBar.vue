@@ -195,10 +195,7 @@ export default {
     },
     pagedownClick(name) {
       if (store.getters['content/isCurrentEditable']) {
-        const text = editorSvc.clEditor.getContent();
         editorSvc.pagedownEditor.uiManager.doClick(name);
-        if (text !== editorSvc.clEditor.getContent()) {
-        }
       }
     },
     async editTitle(toggle) {
@@ -284,10 +281,24 @@ export default {
 
 .navigation-bar__inner--edit-pagedownButtons {
   margin-left: 15px;
+  /* single horizontal row: buttons scroll instead of wrapping + being clipped */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* hide scrollbar, keep scroll (Firefox) */
+
+  &::-webkit-scrollbar {
+    display: none; /* hide scrollbar, keep scroll (WebKit) */
+  }
+
+  > * {
+    flex: 0 0 auto;
+  }
 
   .navigation-bar__button,
   .navigation-bar__spacer {
-    float: left;
+    float: none;
   }
 }
 
@@ -433,12 +444,19 @@ export default {
   }
 }
 
-.navigation-bar__title--input,
-.navigation-bar__inner--edit-pagedownButtons {
+.navigation-bar__title--input {
   display: none;
 
   .navigation-bar--editor & {
     display: block;
+  }
+}
+
+.navigation-bar__inner--edit-pagedownButtons {
+  display: none;
+
+  .navigation-bar--editor & {
+    display: flex;
   }
 }
 
