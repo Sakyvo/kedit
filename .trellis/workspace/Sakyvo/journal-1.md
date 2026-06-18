@@ -111,3 +111,36 @@ Removed the legacy badge subsystem, made external image hosts dormant, cleaned o
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Toolbar: single-row horizontal-scroll formatting bar (FE)
+
+**Date**: 2026-06-18
+**Task**: Toolbar: single-row horizontal-scroll formatting bar (FE)
+**Branch**: `master`
+
+### Summary
+
+NavigationBar pagedown 按钮行改 flex nowrap + overflow-x 横滑（隐藏滚动条、保留触摸滑动），移动端全部格式/图片按钮可达、桌面不变；清掉 pagedownClick 冗余 getContent()+trim-cruft 残留空 if。静态校验通过，视觉/构建验证待 06-04 装依赖。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c1e7c76d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
