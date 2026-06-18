@@ -47,6 +47,82 @@ component boundaries.
 - `workspaceImageSvc.js` reads private image records and produces data URLs for
   projection. Do not store those data URLs in Document source.
 
+## Image Upload And Legacy Badge Contract
+
+### 1. Scope / Trigger
+
+- Image insertion from paste, drop, or the image dialog is a Private image write.
+  It must stay inside the current private git workspace.
+- StackEdit badge data is legacy-compatible only. KEDIT does not surface, earn,
+  write, or sync badges.
+
+### 2. Signatures
+
+- `imageSvc.updateImg(imgFile)` returns `{ url }` for a private workspace image
+  path or `{ error }` when the current workspace cannot store private images.
+- `img/checkedStorage` may still exist in localStorage, but it is not an upload
+  routing contract for external providers.
+
+### 3. Contracts
+
+- Good upload path: `imageSvc.updateImg` derives a workspace image path, stores
+  base64 content in IndexedDB through `localDbSvc.saveImg`, and returns the
+  workspace-relative URL for Markdown insertion.
+- External image-host providers such as SM.MS, custom HTTP uploaders, GitHub
+  image repos, and Gitea image repos must not be executable from KEDIT image
+  insertion.
+- `.stackedit-data/badgeCreations.json` may appear in historical synced
+  workspaces. Parsers may tolerate the path, but no live Vuex getter, UI, sync
+  write, or test assertion should depend on badge state.
+
+### 4. Validation & Error Matrix
+
+- Current workspace is not git/private-image capable -> `updateImg` returns the
+  existing image-storage error and performs no external upload.
+- `localStorage["img/checkedStorage"]` contains `token` or `tokenRepo` ->
+  upload still uses workspace storage or fails as workspace storage, never the
+  external provider.
+- Historical `badgeCreations.json` exists remotely -> parsing must remain
+  non-fatal; KEDIT ignores it as product state.
+
+### 5. Good/Base/Bad Cases
+
+- Good: paste an image while a stale SM.MS storage is in localStorage; the image
+  is saved as a Private workspace image.
+- Base: an old synced repo contains `.stackedit-data/badgeCreations.json`; sync
+  does not crash and no badge UI appears.
+- Bad: a component imports `badgeSvc`, reads `data/allBadges`, or adds a UI path
+  that lets the Author choose an external image host for insertion.
+
+### 6. Tests Required
+
+- Service tests for `imageSvc.updateImg` assert workspace-only behavior and stale
+  external `checkedStorage` ignored.
+- Component tests for image/account dialogs assert external image-host chooser
+  and SM.MS/custom creation entries are absent.
+- Search check before finish:
+  `rg "badgeSvc|addBadge|badgeTree|allBadges|badgeCreations" src test`
+  should return only the documented legacy parser tolerance point if retained.
+
+### 7. Wrong vs Correct
+
+Wrong:
+
+```js
+const currStorage = store.getters['img/getCheckedStorage'];
+if (currStorage.type === 'token') {
+  return smmsHelper.uploadFile(...);
+}
+```
+
+Correct:
+
+```js
+const path = getImagePath(workspacePath, imgFile);
+await localDbSvc.saveImg({ path: absolutePath, content: base64 });
+return { url: path.replaceAll(' ', '%20') };
+```
+
 ## File Timestamp Metadata Contract
 
 ### 1. Scope / Trigger
