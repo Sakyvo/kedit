@@ -17,6 +17,9 @@
         <button class="side-title__button side-title__button--search button" @click="toSearch()" v-title="'搜索文件'">
           <icon-file-search></icon-file-search>
         </button>
+        <button class="side-title__button side-title__button--sort button" @click="openSortMenu" v-title="'排序'">
+          <icon-view-list></icon-view-list>
+        </button>
       </div>
       <div class="flex flex--row" v-else>
         <button class="side-title__button button" @click="back()" v-title="'返回资源管理器'">
@@ -147,6 +150,32 @@ export default {
       setTimeout(() => {
         store.commit('file/setCurrentId', item.id);
       }, 10);
+    },
+    openSortMenu(evt) {
+      const { sortBy, sortDirection } = store.state.explorer;
+      const options = [
+        ['name', 'asc', '名称 ↑'],
+        ['name', 'desc', '名称 ↓'],
+        ['updatedOn', 'desc', '修改时间（新→旧）'],
+        ['updatedOn', 'asc', '修改时间（旧→新）'],
+        ['createdOn', 'desc', '创建时间（新→旧）'],
+        ['createdOn', 'asc', '创建时间（旧→新）'],
+      ];
+      const items = options.map(([field, direction, label]) => ({
+        name: `${sortBy === field && sortDirection === direction ? '● ' : '　'}${label}`,
+        perform: () => {
+          store.commit('explorer/setSortBy', field);
+          store.commit('explorer/setSortDirection', direction);
+        },
+      }));
+      store.dispatch('contextMenu/open', {
+        coordinates: { left: evt.clientX, top: evt.clientY },
+        items,
+      }).then((item) => {
+        if (item) {
+          item.perform();
+        }
+      });
     },
   },
   created() {

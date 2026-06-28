@@ -1,9 +1,9 @@
 <template>
   <div class="explorer-node" :class="{'explorer-node--selected': isSelected, 'explorer-node--folder': node.isFolder, 'explorer-node--open': isOpen, 'explorer-node--trash': node.isTrash, 'explorer-node--temp': node.isTemp, 'explorer-node--drag-target': isDragTargetFolder}" @dragover.prevent @dragenter.stop="node.noDrop || setDragTarget(node)" @dragleave.stop="isDragTarget && setDragTarget()" @drop.prevent.stop="onDrop" @contextmenu="onContextMenu">
     <div class="explorer-node__item-editor" v-if="isEditing" :style="{paddingLeft: leftPadding}" draggable="true" @dragstart.stop.prevent>
-      <input type="text" class="text-input" v-focus @blur="submitEdit()" @keydown.stop @keydown.enter="submitEdit()" @keydown.esc.stop="submitEdit(true)" v-model="editingNodeName">
+      <input type="text" ref="editInput" class="text-input" @blur="submitEdit()" @keydown.stop @keydown.enter="submitEdit()" @keydown.esc.stop="submitEdit(true)" v-model="editingValue">
     </div>
-    <div class="explorer-node__item" v-else :style="{paddingLeft: leftPadding}" @click="select()" draggable="true" @dragstart.stop="setDragSourceId" @dragend.stop="setDragTarget()">
+    <div class="explorer-node__item" v-else :style="{paddingLeft: leftPadding}" @click="onItemClick" draggable="true" @dragstart.stop="setDragSourceId" @dragend.stop="setDragTarget()" @touchstart.passive="onTouchStart" @touchend="clearLongPress" @touchmove="clearLongPress" @touchcancel="clearLongPress">
       {{node.item.name}}
       <icon-provider class="explorer-node__location" v-for="location in node.locations" :key="location.id" :provider-id="location.providerId"></icon-provider>
     </div>
@@ -30,6 +30,8 @@ export default {
   props: ['node', 'depth'],
   data: () => ({
     editingValue: '',
+    longPressTimer: null,
+    suppressClick: false,
   }),
   computed: {
     leftPadding() {
@@ -65,13 +67,19 @@ export default {
         store.commit('explorer/setNewItemName', value);
       },
     },
-    editingNodeName: {
-      get() {
-        return store.getters['explorer/editingNode'].item.name;
-      },
-      set(value) {
-        this.editingValue = value.trim();
-      },
+  },
+  watch: {
+    isEditing(editing) {
+      if (editing) {
+        this.editingValue = store.getters['explorer/editingNode'].item.name;
+        this.$nextTick(() => {
+          const input = this.$refs.editInput;
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        });
+      }
     },
   },
   methods: {
@@ -172,41 +180,116 @@ export default {
         });
       }
     },
-    async onContextMenu(evt) {
-      if (this.select(undefined, false)) {
-        evt.preventDefault();
-        evt.stopPropagation();
-        const item = await store.dispatch('contextMenu/open', {
-          coordinates: {
-            left: evt.clientX,
-            top: evt.clientY,
-          },
-          items: [{
-            name: '新建文件',
-            disabled: !this.node.isFolder || this.node.isTrash,
-            perform: () => explorerSvc.newItem(false),
-          }, {
-            name: '新建文件夹',
-            disabled: !this.node.isFolder || this.node.isTrash || this.node.isTemp,
-            perform: () => explorerSvc.newItem(true),
-          }, {
-            type: 'separator',
-          }, {
-            name: '重命名',
-            disabled: this.node.isTrash || this.node.isTemp,
-            perform: () => this.setEditingId(this.node.item.id),
-          }, {
-            name: '删除',
-            perform: () => explorerSvc.deleteItem(),
-          }, {
-            name: '复制路径',
-            disabled: this.node.isTrash || this.node.isTemp,
-            perform: () => this.$refs.copyId.click(),
-          }],
+    onContextMenu(evt) {
+      evt.preventDefault();
+      evt.stopPropagation();
+      this.openContextMenu({ left: evt.clientX, top: evt.clientY });
+    },
+    async openContextMenu(coordinates) {
+      if (!this.select(undefined, false)) {
+        return;
+      }
+      const isFile = !this.node.isFolder;
+      const locked = this.node.isTrash || this.node.isTemp;
+      const item = await store.dispatch('contextMenu/open', {
+        coordinates,
+        items: [{
+          name: '新建文件',
+          disabled: !this.node.isFolder || this.node.isTrash,
+          perform: () => explorerSvc.newItem(false),
+        }, {
+          name: '新建文件夹',
+          disabled: !this.node.isFolder || this.node.isTrash || this.node.isTemp,
+          perform: () => explorerSvc.newItem(true),
+        }, {
+          type: 'separator',
+        }, {
+          name: '重命名',
+          disabled: locked,
+          perform: () => this.setEditingId(this.node.item.id),
+        }, {
+          name: '移动到…',
+          disabled: locked || this.node.noDrag,
+          perform: () => this.openMovePicker(coordinates),
+        }, {
+          name: '复制副本',
+          disabled: !isFile || locked,
+          perform: () => workspaceSvc.duplicateFile(this.node.item.id),
+        }, {
+          name: '导出 .md',
+          disabled: !isFile || locked,
+          perform: () => workspaceSvc.exportMarkdown(this.node.item.id),
+        }, {
+          name: '删除',
+          perform: () => explorerSvc.deleteItem(),
+        }, {
+          type: 'separator',
+        }, {
+          name: '复制路径',
+          disabled: locked,
+          perform: () => this.$refs.copyId.click(),
+        }],
+      });
+      if (item) {
+        item.perform();
+      }
+    },
+    async openMovePicker(coordinates) {
+      const target = await store.dispatch('contextMenu/open', {
+        coordinates,
+        items: this.buildMoveTargets(),
+      });
+      if (target) {
+        target.perform();
+      }
+    },
+    buildMoveTargets() {
+      const sourceId = this.node.item.id;
+      const currentParentId = this.node.item.parentId || null;
+      const targets = [{
+        name: '根目录',
+        disabled: currentParentId === null,
+        perform: () => workspaceSvc.moveItem(sourceId, null),
+      }];
+      const walk = (folderNode, depth) => {
+        folderNode.folders.forEach((folder) => {
+          if (folder.isTrash || folder.isTemp || folder.item.id === sourceId) {
+            return;
+          }
+          targets.push({
+            name: `${'　'.repeat(depth + 1)}${folder.item.name}`,
+            disabled: folder.item.id === currentParentId,
+            perform: () => workspaceSvc.moveItem(sourceId, folder.item.id),
+          });
+          walk(folder, depth + 1);
         });
-        if (item) {
-          item.perform();
-        }
+      };
+      walk(store.getters['explorer/rootNode'], 0);
+      return targets;
+    },
+    onItemClick() {
+      if (this.suppressClick) {
+        this.suppressClick = false;
+        return;
+      }
+      this.select();
+    },
+    onTouchStart(evt) {
+      this.clearLongPress();
+      const touch = evt.touches && evt.touches[0];
+      const coordinates = touch
+        ? { left: touch.clientX, top: touch.clientY }
+        : { left: 0, top: 0 };
+      this.longPressTimer = setTimeout(() => {
+        this.longPressTimer = null;
+        this.suppressClick = true;
+        this.openContextMenu(coordinates);
+      }, 500);
+    },
+    clearLongPress() {
+      if (this.longPressTimer) {
+        clearTimeout(this.longPressTimer);
+        this.longPressTimer = null;
       }
     },
   },
