@@ -177,3 +177,36 @@ Explorer 头部排序按钮(名称/修改/创建×升降，复用 backend compar
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: TOC side drawer: click-to-jump + toolbar entry (FE)
+
+**Date**: 2026-07-01
+**Task**: TOC side drawer: click-to-jump + toolbar entry (FE)
+**Branch**: `master`
+
+### Summary
+
+NavigationBar 加目录按钮(icon-toc)→toggleToc 开 SideBar 的 toc 面板(复用抽屉)；Toc.vue 比例拖拽→点击跳转(平滑滚动到标题顶)、字号9→13px、放开 pointer-events+悬停高亮、保留 mask；tocDimension 实测 DOM 故字号变更自适应。静态校验通过，视觉验证待用户。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e52e4da0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

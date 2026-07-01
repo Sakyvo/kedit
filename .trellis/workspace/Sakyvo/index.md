@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-07-01
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~179 | Active |
+| `journal-1.md` | ~212 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 6 | 2026-07-01 | TOC side drawer: click-to-jump + toolbar entry (FE) | `e52e4da0` | `master` |
 | 5 | 2026-07-01 | Doc panel frontend: sort/rename/menu/mobile long-press (FE) | `93b4ab4e` | `master` |
 | 4 | 2026-06-18 | Toolbar: single-row horizontal-scroll formatting bar (FE) | `c1e7c76d` | `master` |
 | 3 | 2026-06-18 | Trim StackEdit cruft | `d7e2667a`, `6554c423` | `master` |
