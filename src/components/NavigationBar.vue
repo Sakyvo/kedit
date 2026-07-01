@@ -4,6 +4,7 @@
     <div class="navigation-bar__inner navigation-bar__inner--left navigation-bar__inner--button">
       <button class="navigation-bar__button navigation-bar__button--close button" v-if="light" @click="close()" v-title="'关闭KEDIT'"><icon-check-circle></icon-check-circle></button>
       <button class="navigation-bar__button navigation-bar__button--explorer-toggler button" v-else tour-step-anchor="explorer" @click="toggleExplorer()" v-title="'切换资源管理器'"><icon-folder></icon-folder></button>
+      <button class="navigation-bar__button navigation-bar__button--toc button" v-if="!light" @click="toggleToc" v-title="'目录'"><icon-toc></icon-toc></button>
     </div>
     <!-- Side bar -->
     <div class="navigation-bar__inner navigation-bar__inner--right navigation-bar__inner--button">
@@ -192,6 +193,15 @@ export default {
     },
     switchTheme() {
       store.dispatch('data/switchThemeSetting');
+    },
+    toggleToc() {
+      const onToc = store.getters['data/layoutSettings'].sideBarPanel === 'toc';
+      if (this.styles.showSideBar && onToc) {
+        this.toggleSideBar(false);
+      } else {
+        this.toggleSideBar(true);
+        store.dispatch('data/setSideBarPanel', 'toc');
+      }
     },
     pagedownClick(name) {
       if (store.getters['content/isCurrentEditable']) {

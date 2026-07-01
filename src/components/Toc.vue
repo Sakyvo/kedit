@@ -21,43 +21,24 @@ export default {
   mounted() {
     const tocElt = this.$el.querySelector('.toc__inner');
 
-    // TOC click behaviour
-    let isMousedown;
-    function onClick(e) {
-      if (!isMousedown) {
-        return;
-      }
+    // TOC click behaviour: jump to the clicked heading's top (not a proportional scrub)
+    tocElt.addEventListener('click', (e) => {
       e.preventDefault();
       const y = e.clientY - tocElt.getBoundingClientRect().top;
-
       editorSvc.previewCtx.sectionDescList.some((sectionDesc) => {
         if (y >= sectionDesc.tocDimension.endOffset) {
           return false;
         }
-        const posInSection = (y - sectionDesc.tocDimension.startOffset)
-          / (sectionDesc.tocDimension.height || 1);
-        const editorScrollTop = sectionDesc.editorDimension.startOffset
-          + (sectionDesc.editorDimension.height * posInSection);
-        editorSvc.editorElt.parentNode.scrollTop = editorScrollTop;
-        const previewScrollTop = sectionDesc.previewDimension.startOffset
-          + (sectionDesc.previewDimension.height * posInSection);
-        editorSvc.previewElt.parentNode.scrollTop = previewScrollTop;
+        editorSvc.editorElt.parentNode.scrollTo({
+          top: sectionDesc.editorDimension.startOffset,
+          behavior: 'smooth',
+        });
+        editorSvc.previewElt.parentNode.scrollTo({
+          top: sectionDesc.previewDimension.startOffset,
+          behavior: 'smooth',
+        });
         return true;
       });
-    }
-
-    tocElt.addEventListener('mouseup', () => {
-      isMousedown = false;
-    });
-    tocElt.addEventListener('mouseleave', () => {
-      isMousedown = false;
-    });
-    tocElt.addEventListener('mousedown', (e) => {
-      isMousedown = e.which === 1;
-      onClick(e);
-    });
-    tocElt.addEventListener('mousemove', (e) => {
-      onClick(e);
     });
 
     // Change mask postion on scroll
@@ -87,11 +68,13 @@ export default {
 </script>
 
 <style lang="scss">
+@import '../styles/variables.scss';
+
 .toc__inner {
   position: relative;
   color: rgba(0, 0, 0, 0.67);
   cursor: pointer;
-  font-size: 9px;
+  font-size: 13px;
   padding: 10px 20px 40px;
   white-space: nowrap;
   -webkit-user-select: none;
@@ -105,7 +88,10 @@ export default {
 
   * {
     font-weight: inherit;
-    pointer-events: none;
+  }
+
+  .cl-toc-section:hover {
+    color: $link-color;
   }
 
   .cl-toc-section {
