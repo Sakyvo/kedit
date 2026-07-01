@@ -23,3 +23,12 @@ Renaming the data-contract identifiers would orphan the Author's existing privat
 - Zero data-migration risk; existing Sync/storage keeps working untouched (honors ADR-0002's single-source-of-truth model).
 - Trade-off: the codebase and the private repo still carry `stackedit` internally. Intentional and invisible to Author/Visitor.
 - **Guard:** any future clean-rebrand of the persisted identifiers must ship with an explicit data migration and return as a new ADR — never a blind rename.
+
+## Addendum — 2026-07 (from rebrand implementation, task 06-06-rebrand-kedit)
+
+Implementing the rebrand surfaced two more data-contract identifiers, preserved under the same decision and more load-bearing than the originals:
+
+- `stackedit-db` — the IndexedDB database name (`src/services/utils.js`). Renaming it orphans **all** of the Author's local data; the single most destructive identifier to touch.
+- `<!--stackedit_data:…-->` — the embedded sync-data marker appended to synced content (`src/services/providers/common/Provider.js`). A parsed data format; renaming breaks ingestion of already-synced Documents.
+
+No decision change — this **extends**, not alters, the preserve list above. The same Guard applies: renaming either requires an explicit data migration and a new ADR.

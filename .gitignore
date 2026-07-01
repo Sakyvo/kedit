@@ -1,2 +1,7 @@
 .ace-tool/
 .npm-cache/
+node_modules/
+dist/
+.agents/
+.claude/
+.codex/
