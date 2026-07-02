@@ -4,6 +4,7 @@ import store from '../../store';
 
 const { Keystroke } = cledit;
 const indentRegexp = /^ {0,3}>[ ]*|^[ \t]*[*+-][ \t](?:\[[ xX]\][ \t])?|^([ \t]*)\d+\.[ \t](?:\[[ xX]\][ \t])?|^\s+/;
+const thematicBreakRegexp = /^ {0,3}(?:-(?:[ \t]*-){2,}|\*(?:[ \t]*\*){2,}|_(?:[ \t]*_){2,})[ \t]*$/;
 let clearNewline;
 let lastSelection;
 
@@ -35,7 +36,7 @@ function fixNumberedList(state, indent) {
         /^[ \t]*/,
         wholeMatch => wholeMatch.replace(/\t/g, '    '),
       ).match(indentRegex);
-      if (!match || line.match(/^#+ /)) { // Line not empty, not indented, or title
+      if (!match || line.match(/^#+ /) || line.match(thematicBreakRegexp)) { // Line not empty, not indented, title, or thematic break
         flush();
         return true;
       }
@@ -54,6 +55,7 @@ function fixNumberedList(state, indent) {
       }
       return false;
     });
+    flush();
     return hits;
   }
 
