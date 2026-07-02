@@ -210,3 +210,36 @@ NavigationBar 加目录按钮(icon-toc)→toggleToc 开 SideBar 的 toc 面板(�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: Ordered-list auto-number boundaries
+
+**Date**: 2026-07-02
+**Task**: Ordered-list auto-number boundaries
+**Branch**: `master`
+
+### Summary
+
+Fixed ordered-list auto-numbering so thematic breaks end a list and later lists renumber independently.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `46701398` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

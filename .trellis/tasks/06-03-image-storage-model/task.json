@@ -3,7 +3,7 @@
   "name": "image-storage-model",
   "title": "Image storage model: private files at rest + base64 Publish projection",
   "description": "Per ADR-0003: keep pasted images as Private files in the StackEdit private repo; never store base64; add a Copy-for-Publish action that emits text/plain raw Markdown with local /imgs refs inlined as base64 for manual paste into pdir. Blocked on the StackEdit fork (ADR-0001).",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": "feature",
   "scope": null,
   "package": null,
