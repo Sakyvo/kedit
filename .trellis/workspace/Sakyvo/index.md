@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
-- **Last Active**: 2026-07-02
+- **Total Sessions**: 8
+- **Last Active**: 2026-07-03
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~245 | Active |
+| `journal-1.md` | ~278 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-07-03 | Mobile copy/cut selection sync | `a4fc980e` | `master` |
 | 7 | 2026-07-02 | Ordered-list auto-number boundaries | `46701398` | `master` |
 | 6 | 2026-07-01 | TOC side drawer: click-to-jump + toolbar entry (FE) | `e52e4da0` | `master` |
 | 5 | 2026-07-01 | Doc panel frontend: sort/rename/menu/mobile long-press (FE) | `93b4ab4e` | `master` |

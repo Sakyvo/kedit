@@ -243,3 +243,36 @@ Fixed ordered-list auto-numbering so thematic breaks end a list and later lists 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Mobile copy/cut selection sync
+
+**Date**: 2026-07-03
+**Task**: Mobile copy/cut selection sync
+**Branch**: `master`
+
+### Summary
+
+Synced cledit selection state before clean Markdown copy/cut and added mobile selectionchange/touchend triggers.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a4fc980e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
