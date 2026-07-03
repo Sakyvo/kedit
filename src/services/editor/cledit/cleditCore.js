@@ -228,6 +228,8 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
   let windowKeydownListener;
   let windowMouseListener;
   let windowResizeListener;
+  let documentSelectionChangeListener;
+  let windowTouchendListener;
   function tryDestroy() {
     if (document.contains(contentElt)) {
       return false;
@@ -237,6 +239,8 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
     window.removeEventListener('mousedown', windowMouseListener);
     window.removeEventListener('mouseup', windowMouseListener);
     window.removeEventListener('resize', windowResizeListener);
+    document.removeEventListener('selectionchange', documentSelectionChangeListener);
+    window.removeEventListener('touchend', windowTouchendListener);
     editor.$trigger('destroy');
     return true;
   }
@@ -267,6 +271,20 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
     }
   };
   window.addEventListener('resize', windowResizeListener);
+
+  documentSelectionChangeListener = () => {
+    if (!tryDestroy() && selectionMgr.hasFocus()) {
+      selectionMgr.saveSelectionState(true, false);
+    }
+  };
+  document.addEventListener('selectionchange', documentSelectionChangeListener);
+
+  windowTouchendListener = () => {
+    if (!tryDestroy()) {
+      selectionMgr.saveSelectionState(true, false);
+    }
+  };
+  window.addEventListener('touchend', windowTouchendListener);
 
   // Provokes selection changes and does not fire mouseup event on Chrome/OSX
   contentElt.addEventListener(
@@ -334,6 +352,7 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
   if (isMarkdown) {
     contentElt.addEventListener('copy', (evt) => {
       if (evt.clipboardData) {
+        selectionMgr.saveSelectionState();
         evt.clipboardData.setData('text/plain', selectionMgr.getSelectedText());
         evt.preventDefault();
       }
@@ -341,6 +360,7 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
 
     contentElt.addEventListener('cut', (evt) => {
       if (evt.clipboardData) {
+        selectionMgr.saveSelectionState();
         evt.clipboardData.setData('text/plain', selectionMgr.getSelectedText());
         evt.preventDefault();
         replace(selectionMgr.selectionStart, selectionMgr.selectionEnd, '');
