@@ -9,6 +9,7 @@ import markdownitSub from 'markdown-it-sub';
 import markdownitSup from 'markdown-it-sup';
 import markdownitTasklist from './libs/markdownItTasklist';
 import markdownitAnchor from './libs/markdownItAnchor';
+import frontmatterRule from './frontmatterRule';
 import extensionSvc from '../services/extensionSvc';
 
 const coreBaseRules = [
@@ -74,6 +75,7 @@ extensionSvc.onInitConverter(0, (markdown, options) => {
     blockRules.splice(blockRules.indexOf('table'), 1);
   }
   markdown.block.ruler.enable(blockRules);
+  markdown.block.ruler.before('hr', 'frontmatter', frontmatterRule);
 
   const inlineRules = inlineBaseRules.slice();
   const inlineRules2 = inlineBaseRules2.slice();
@@ -109,6 +111,11 @@ extensionSvc.onInitConverter(0, (markdown, options) => {
     markdown.use(markdownitTasklist);
   }
   markdown.use(markdownitAnchor);
+
+  markdown.renderer.rules.frontmatter = (tokens, idx) =>
+    `<div class="kedit-frontmatter"><pre class="kedit-frontmatter__content">${
+      markdown.utils.escapeHtml(tokens[idx].content)
+    }</pre></div>\n`;
 
   // Wrap tables into a div for scrolling
   markdown.renderer.rules.table_open = (tokens, idx, opts) =>

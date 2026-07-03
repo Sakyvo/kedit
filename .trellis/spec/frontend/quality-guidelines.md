@@ -31,6 +31,9 @@ code cleanliness.
 
 - Search before adding a new utility, store getter, service method, or constant.
 - Keep source Markdown as the canonical Author-edited text.
+- For preview-only Markdown behavior, add markdown-it rules under
+  `src/extensions/`, register block rules before the CommonMark rule they must
+  preempt, and escape raw token content before emitting preview HTML.
 - Put cross-component logic in services or Vuex.
 - Keep provider contracts centralized under `src/services/providers/`.
 - Preserve frontend/backing-store compatibility unless the task includes a
