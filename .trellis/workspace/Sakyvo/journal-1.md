@@ -276,3 +276,36 @@ Synced cledit selection state before clean Markdown copy/cut and added mobile se
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: Preview frontmatter render rule
+
+**Date**: 2026-07-03
+**Task**: Preview frontmatter render rule
+**Branch**: `master`
+
+### Summary
+
+Added a render-only markdown-it frontmatter block rule so leading YAML metadata renders as dedicated preview markup without rewriting Document source or becoming a setext heading.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9444d679` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

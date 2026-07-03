@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
+- **Total Sessions**: 9
 - **Last Active**: 2026-07-03
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~278 | Active |
+| `journal-1.md` | ~311 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-07-03 | Preview frontmatter render rule | `9444d679` | `master` |
 | 8 | 2026-07-03 | Mobile copy/cut selection sync | `a4fc980e` | `master` |
 | 7 | 2026-07-02 | Ordered-list auto-number boundaries | `46701398` | `master` |
 | 6 | 2026-07-01 | TOC side drawer: click-to-jump + toolbar entry (FE) | `e52e4da0` | `master` |
