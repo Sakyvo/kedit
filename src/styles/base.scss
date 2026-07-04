@@ -52,17 +52,6 @@ h6 {
   line-height: $line-height-title;
 }
 
-h1,
-h2 {
-  &::after {
-    content: '';
-    display: block;
-    position: relative;
-    top: 0.33em;
-    border-bottom: 1px solid $hr-color;
-  }
-}
-
 ol ul,
 ul ol,
 ul ul,
@@ -78,10 +67,40 @@ a {
   color: $link-color;
   text-decoration: none;
   text-decoration-skip: ink;
+  overflow-wrap: anywhere;
 
   &:hover,
   &:focus {
     text-decoration: underline;
+  }
+}
+
+.kedit-frontmatter {
+  margin: 0 0 1.1em;
+  padding: 0.4em 1em;
+  border: 1px solid $hr-color;
+  border-left: 4px solid #cfd1d6;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.03);
+
+  .app--dark .layout__panel--preview & {
+    border-left-color: #333;
+    background: rgba(51, 51, 51, 0.4);
+  }
+}
+
+.kedit-frontmatter__content {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 0.85em;
+  color: rgba(0, 0, 0, 0.55);
+  white-space: pre-wrap;
+  word-break: break-word;
+
+  .app--dark .layout__panel--preview & {
+    color: rgba(255, 255, 255, 0.45);
   }
 }
 

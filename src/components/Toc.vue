@@ -95,13 +95,6 @@ export default {
   }
 
   .cl-toc-section {
-    h1,
-    h2 {
-      &::after {
-        display: none;
-      }
-    }
-
     h1 {
       margin: 1rem 0;
     }
