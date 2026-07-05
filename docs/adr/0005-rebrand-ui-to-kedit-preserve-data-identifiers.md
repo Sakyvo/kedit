@@ -32,3 +32,11 @@ Implementing the rebrand surfaced two more data-contract identifiers, preserved 
 - `<!--stackedit_data:…-->` — the embedded sync-data marker appended to synced content (`src/services/providers/common/Provider.js`). A parsed data format; renaming breaks ingestion of already-synced Documents.
 
 No decision change — this **extends**, not alters, the preserve list above. The same Guard applies: renaming either requires an explicit data migration and a new ADR.
+
+## Revision — 2026-07-05: `stackedit-app-data` repo migrated to `kedit-app-data` (with explicit data migration, per the Guard)
+
+The Author chose to rename the GitHub app-data repository tier after all. Executed per this ADR's Guard — as a migration, not a blind rename:
+
+1. **Data first**: the full history of `github.com/Sakyvo/stackedit-app-data` was pushed to the pre-created private `github.com/Sakyvo/kedit-app-data` (same commit tip, `543da390`), preserving the git-history safety net (ADR-0002).
+2. **Then code**: `appDataRepo` switched to `'kedit-app-data'` in the GitHub lane only — `githubHelper.js` and `githubAppDataProvider.js`. Because the new repo has identical history/blobs, sync continuity is seamless.
+3. **Unchanged**: `.stackedit-data/`, `.stackedit-trash/` (paths *inside* the repo), `stackedit-db`, `<!--stackedit_data:-->`, `resetStackEdit`, and the dormant gitee/gitcode helpers' `stackedit-app-data` constants. The old GitHub repo remains as a frozen backup until the Author deletes it.

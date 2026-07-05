@@ -5,7 +5,7 @@ import userSvc from '../../userSvc';
 
 const getScopes = token => [token.repoFullAccess ? 'repo' : 'public_repo', 'gist'];
 
-const appDataRepo = 'stackedit-app-data';
+const appDataRepo = 'kedit-app-data';
 
 const request = (token, options) => networkSvc.request({
   ...options,

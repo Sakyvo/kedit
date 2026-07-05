@@ -76,3 +76,22 @@ stack and rely on `npm run build` plus code review for task-level verification.
 - Does it avoid breaking `.stackedit-*` data-contract identifiers?
 - Does it reuse existing services/store getters?
 - Are edge cases covered by focused tests or an explicit manual check?
+
+## Common Mistake: Signature Change Without Sweeping Call Sites
+
+**Symptom**: A feature dies silently at runtime (e.g., every sidebar/explorer
+toggle click threw `TypeError`) while `npm run build` and CI stay green.
+
+**Cause**: A helper's parameter list changed (`toggleLayoutSetting` dropped its
+badge `featureId` param in the cruft-trim), but two direct call sites in
+`src/store/data.js` kept passing the old arity. Arguments shifted one position:
+a string landed in the `getters` slot. **Vite/Rollup do not check argument
+arity or types** — only ESLint `no-undef`-class errors or runtime hits it.
+
+**Fix**: `rg "<helperName>("` and reconcile EVERY call site in the same commit
+as the signature change (bf7aca6e).
+
+**Prevention**: Changing any function/action signature triggers the
+Pre-Modification Rule (`.trellis/spec/guides/index.md`): grep all call sites
+first; count arguments, not just names. Plain-JS refactors have NO compiler
+net — assume the build proves nothing about call compatibility.
