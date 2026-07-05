@@ -343,3 +343,37 @@ preview-frontend: frontmatter 胶囊/长链接换行/去标题分隔线(0cb21efd
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: Hotfix toggles + app-data migration to kedit-app-data
+
+**Date**: 2026-07-05
+**Task**: Hotfix toggles + app-data migration to kedit-app-data
+**Branch**: `master`
+
+### Summary
+
+修复 trim-cruft 签名错位导致侧栏/资源管理器点击无反应(bf7aca6e, 已部署验证); spec 记教训; 将 Sakyvo/stackedit-app-data 全量历史迁至私库 Sakyvo/kedit-app-data 并切换 GitHub 通道 appDataRepo 常量, ADR-0005 增补 Revision。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bf7aca6e` | (see git log) |
+| `d22f6bed` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
