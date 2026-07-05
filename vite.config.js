@@ -115,12 +115,12 @@ export default defineConfig({
     stackeditStaticBundle(),
     VitePWA({
       manifest: {
-        name: 'StackEdit中文版', // 应用名称
-        short_name: 'StackEdit',
+        name: 'KEDIT', // 应用名称
+        short_name: 'KEDIT',
         description: '笔记利器，在线Markdown编辑器。', // 应用描述
         display: 'standalone', // 显示模式
         orientation: 'any', // 屏幕方向
-        start_url: '/app', // 应用启动 URL
+        start_url: '/', // 应用启动 URL
         scope: '/',
         background_color: '#ffffff', // 背景颜色
         theme_color: '#ffffff',
