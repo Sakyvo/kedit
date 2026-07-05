@@ -46,11 +46,6 @@
         <span><b>{{currentWorkspace.name}}</b> 未同步。</span>
       </div>
     </div>
-    <menu-entry v-if="!loginToken" @click.native="signin">
-      <template v-slot:icon><icon-login></icon-login></template>
-      <div>使用 Gitee 登录</div>
-      <span>同步您的主文档空间并解锁功能。</span>
-    </menu-entry>
     <menu-entry v-if="!loginToken" @click.native="signinWithGithub">
       <template v-slot:icon><icon-login></icon-login></template>
       <div>使用 GitHub 登录</div>
@@ -147,7 +142,6 @@ import { mapGetters, mapActions } from 'vuex';
 import MenuEntry from './common/MenuEntry';
 import providerRegistry from '../../services/providers/common/providerRegistry';
 import UserImage from '../UserImage';
-import giteeHelper from '../../services/providers/helpers/giteeHelper';
 import githubHelper from '../../services/providers/helpers/githubHelper';
 import syncSvc from '../../services/syncSvc';
 import userSvc from '../../services/userSvc';
@@ -192,15 +186,6 @@ export default {
     ...mapActions('data', {
       setPanel: 'setSideBarPanel',
     }),
-    async signin() {
-      try {
-        await giteeHelper.signin();
-        await syncSvc.afterSignIn();
-        syncSvc.requestSync();
-      } catch (e) {
-        // Cancel
-      }
-    },
     async signinWithGithub() {
       try {
         const { accessToken } = await store.dispatch('modal/open', { type: 'githubPat' });
