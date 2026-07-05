@@ -1,6 +1,6 @@
 <template>
   <div class="toc">
-    <div class="toc__mask" :style="{top: (maskY - 5) + 'px'}"></div>
+    <div class="toc__mask" :style="{top: maskY + 'px', height: maskHeight + 'px'}"></div>
     <div class="toc__inner"></div>
   </div>
 </template>
@@ -12,6 +12,7 @@ import editorSvc from '../services/editorSvc';
 export default {
   data: () => ({
     maskY: 0,
+    maskHeight: 0,
   }),
   computed: {
     ...mapGetters('layout', [
@@ -21,33 +22,32 @@ export default {
   mounted() {
     const tocElt = this.$el.querySelector('.toc__inner');
 
-    // TOC click behaviour: jump to the clicked heading's top (not a proportional scrub)
+    // TOC click behaviour: exact DOM hit on an entry, instant jump to its heading
     tocElt.addEventListener('click', (e) => {
       e.preventDefault();
-      const y = e.clientY - tocElt.getBoundingClientRect().top;
+      const sectionElt = e.target.closest('.cl-toc-section');
+      if (!sectionElt) {
+        return;
+      }
       editorSvc.previewCtx.sectionDescList.some((sectionDesc) => {
-        if (y >= sectionDesc.tocDimension.endOffset) {
+        if (sectionDesc.tocElt !== sectionElt) {
           return false;
         }
-        editorSvc.editorElt.parentNode.scrollTo({
-          top: sectionDesc.editorDimension.startOffset,
-          behavior: 'smooth',
-        });
-        editorSvc.previewElt.parentNode.scrollTo({
-          top: sectionDesc.previewDimension.startOffset,
-          behavior: 'smooth',
-        });
+        editorSvc.editorElt.parentNode.scrollTop = sectionDesc.editorDimension.startOffset;
+        editorSvc.previewElt.parentNode.scrollTop = sectionDesc.previewDimension.startOffset;
         return true;
       });
     });
 
-    // Change mask postion on scroll
+    // Snap the mask to the current section's entry on scroll
     const updateMaskY = () => {
       const scrollPosition = editorSvc.getScrollPosition();
       if (scrollPosition) {
         const sectionDesc = editorSvc.previewCtxMeasured.sectionDescList[scrollPosition.sectionIdx];
-        this.maskY = sectionDesc.tocDimension.startOffset +
-          (scrollPosition.posInSection * sectionDesc.tocDimension.height);
+        if (sectionDesc && sectionDesc.tocElt) {
+          this.maskY = sectionDesc.tocElt.offsetTop;
+          this.maskHeight = sectionDesc.tocElt.offsetHeight;
+        }
       }
     };
 
@@ -130,7 +130,6 @@ export default {
   position: absolute;
   left: 0;
   width: 100%;
-  height: 35px;
   background-color: rgba(255, 255, 255, 0.2);
   pointer-events: none;
 

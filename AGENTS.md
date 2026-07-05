@@ -19,3 +19,8 @@ If you're using Codex or another agent-capable tool, additional project-scoped h
 Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
 
 <!-- TRELLIS:END -->
+
+## Git 工作流
+
+- **默认规则**：每次任务执行前 `git pull`，完成后 `git push`
+- **特例**：用户可明示跳过 pull 或 push，该要求仅对下一次任务生效

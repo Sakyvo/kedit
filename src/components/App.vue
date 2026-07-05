@@ -43,8 +43,7 @@ export default {
   }),
   computed: {
     classes() {
-      const result = themeClasses[store.getters['data/computedSettings'].colorTheme];
-      return Array.isArray(result) ? result : themeClasses.light;
+      return themeClasses.light; // KEDIT is light-only
     },
   },
   methods: {
@@ -85,6 +84,16 @@ export default {
   },
   async created() {
     window.viewFileByPath = this.viewFileByPath;
+    // Light-only: normalize any persisted dark setting (exports/mermaid read it)
+    this.$watch(
+      () => store.getters['data/computedSettings'].colorTheme,
+      (colorTheme) => {
+        if (colorTheme === 'dark') {
+          store.dispatch('data/switchThemeSetting');
+        }
+      },
+      { immediate: true },
+    );
     try {
       await syncSvc.init();
       await networkSvc.init();

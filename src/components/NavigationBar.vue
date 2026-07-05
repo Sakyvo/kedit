@@ -8,7 +8,7 @@
     </div>
     <!-- Side bar -->
     <div class="navigation-bar__inner navigation-bar__inner--right navigation-bar__inner--button">
-      <button class="navigation-bar__button navigation-bar__button--theme button" v-title="'切换主题'" tour-step-anchor="theme" @click="switchTheme"><icon-switch-theme></icon-switch-theme></button>
+      <button class="navigation-bar__button navigation-bar__button--sync-quick button" v-title="'立即同步'" tour-step-anchor="theme" :disabled="!isSyncPossible || isSyncRequested || offline" @click="requestSync"><icon-sync></icon-sync></button>
       <a class="navigation-bar__button navigation-bar__button--kedit button" v-if="light" href="app" target="_blank" v-title="'打开KEDIT'"><icon-provider provider-id="kedit"></icon-provider></a>
       <button class="navigation-bar__button navigation-bar__button--kedit button" v-else tour-step-anchor="menu" @click="toggleSideBar()" v-title="'切换侧边栏'"><icon-provider provider-id="kedit"></icon-provider></button>
     </div>
@@ -18,10 +18,6 @@
         <div v-if="!offline && showSpinner" class="spinner"></div>
         <icon-sync-off v-if="offline"></icon-sync-off>
       </div>
-      <!-- Title -->
-      <div ref="titleFakeElt" class="navigation-bar__title navigation-bar__title--fake text-input"></div>
-      <div class="navigation-bar__title navigation-bar__title--text text-input" :style="{width: titleWidth + 'px'}">{{title}}</div>
-      <input ref="titleInputElt" class="navigation-bar__title navigation-bar__title--input text-input" :class="{'navigation-bar__title--focus': titleFocus, 'navigation-bar__title--scrolling': titleScrolling}" :style="{width: titleWidth + 'px'}" @focus="editTitle(true)" @blur="editTitle(false)" @keydown.enter="submitTitle(false)" @keydown.esc.stop="submitTitle(true)" @mouseenter="titleHover = true" @mouseleave="titleHover = false" v-model="title">
       <!-- Sync/Publish -->
       <div class="flex flex--row" :class="{'navigation-bar__hidden': styles.hideLocations}">
         <a class="navigation-bar__button navigation-bar__button--location button" :class="{'navigation-bar__button--blink': location.id === currentLocation.id}" v-for="location in syncLocations" :key="location.id" :href="location.url" target="_blank" v-title="'同步位置'"><icon-provider :provider-id="location.providerId"></icon-provider></a>
@@ -53,12 +49,9 @@ import { mapState, mapMutations, mapGetters, mapActions } from 'vuex';
 import editorSvc from '../services/editorSvc';
 import syncSvc from '../services/syncSvc';
 import publishSvc from '../services/publishSvc';
-import animationSvc from '../services/animationSvc';
 import tempFileSvc from '../services/tempFileSvc';
-import utils from '../services/utils';
 import pagedownButtons from '../data/pagedownButtons';
 import store from '../store';
-import workspaceSvc from '../services/workspaceSvc';
 
 // According to mousetrap
 const mod = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? 'Meta' : 'Ctrl';
@@ -81,14 +74,6 @@ const getShortcut = (method) => {
 };
 
 export default {
-  data: () => ({
-    mounted: false,
-    title: '',
-    titleFocus: false,
-    titleHover: false,
-    titleFakeElt: null,
-    titleInputElt: null,
-  }),
   computed: {
     ...mapState([
       'light',
@@ -129,39 +114,6 @@ export default {
     },
     showSpinner() {
       return !store.state.queue.isEmpty;
-    },
-    titleWidth() {
-      if (!this.mounted) {
-        return 0;
-      }
-      this.titleFakeElt.textContent = this.title;
-      const width = this.titleFakeElt.getBoundingClientRect().width + 2; // 2px for the caret
-      return Math.min(width, this.styles.titleMaxWidth);
-    },
-    titleScrolling() {
-      const result = this.titleHover && !this.titleFocus;
-      if (this.titleInputElt) {
-        if (result) {
-          const scrollLeft = this.titleInputElt.scrollWidth - this.titleInputElt.offsetWidth;
-          animationSvc.animate(this.titleInputElt)
-            .scrollLeft(scrollLeft)
-            .duration(scrollLeft * 10)
-            .easing('inOut')
-            .start();
-        } else {
-          animationSvc.animate(this.titleInputElt)
-            .scrollLeft(0)
-            .start();
-        }
-      }
-      return result;
-    },
-    editCancelTrigger() {
-      const current = store.getters['file/current'];
-      return utils.serializeObject([
-        current.id,
-        current.name,
-      ]);
     },
   },
   methods: {
@@ -208,49 +160,19 @@ export default {
         editorSvc.pagedownEditor.uiManager.doClick(name);
       }
     },
-    async editTitle(toggle) {
-      this.titleFocus = toggle;
-      if (toggle) {
-        this.titleInputElt.setSelectionRange(0, this.titleInputElt.value.length);
-      } else {
-        const title = this.title.trim();
-        this.title = store.getters['file/current'].name;
-        if (title && this.title !== title) {
-          try {
-            await workspaceSvc.storeItem({
-              ...store.getters['file/current'],
-              name: title,
-            });
-          } catch (e) {
-            // Cancel
-          }
-        }
-      }
-    },
-    submitTitle(reset) {
-      if (reset) {
-        this.title = '';
-      }
-      this.titleInputElt.blur();
-    },
     close() {
       tempFileSvc.close();
     },
   },
   created() {
+    // Document title lives in the browser tab, not in the navigation bar
     this.$watch(
-      () => this.editCancelTrigger,
-      () => {
-        this.title = '';
-        this.editTitle(false);
+      () => store.getters['file/current'].name,
+      (name) => {
+        document.title = name ? `${name} - KEDIT` : 'KEDIT';
       },
       { immediate: true },
     );
-  },
-  mounted() {
-    this.titleFakeElt = this.$refs.titleFakeElt;
-    this.titleInputElt = this.$refs.titleInputElt;
-    this.mounted = true;
   },
 };
 </script>
@@ -334,7 +256,7 @@ export default {
     padding: 0 4px;
     width: 38px;
 
-    &.navigation-bar__button--theme {
+    &.navigation-bar__button--sync-quick {
       width: 34px;
       padding: 0 7px;
       opacity: 0.85;
@@ -374,17 +296,6 @@ export default {
   width: auto;
 }
 
-.navigation-bar__title {
-  margin: 0 4px;
-  font-size: 21px;
-
-  .layout--revision & {
-    position: absolute;
-    left: -9999px;
-  }
-}
-
-.navigation-bar__title,
 .navigation-bar__button {
   display: inline-block;
   color: $navbar-color;
@@ -406,7 +317,6 @@ export default {
   }
 }
 
-.navigation-bar__title--input,
 .navigation-bar__button {
   &:active,
   &:focus,
@@ -437,31 +347,6 @@ export default {
   animation: blink 1s linear infinite;
 }
 
-.navigation-bar__title--fake {
-  position: absolute;
-  left: -9999px;
-  width: auto;
-  white-space: pre-wrap;
-}
-
-.navigation-bar__title--text {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-
-  .navigation-bar--editor & {
-    display: none;
-  }
-}
-
-.navigation-bar__title--input {
-  display: none;
-
-  .navigation-bar--editor & {
-    display: block;
-  }
-}
-
 .navigation-bar__inner--edit-pagedownButtons {
   display: none;
 
@@ -490,18 +375,6 @@ export default {
   &:focus,
   &:hover {
     color: lighten($link-color, 25%);
-  }
-}
-
-.navigation-bar__title--input {
-  cursor: pointer;
-
-  &.navigation-bar__title--focus {
-    cursor: text;
-  }
-
-  .navigation-bar--light & {
-    display: none;
   }
 }
 

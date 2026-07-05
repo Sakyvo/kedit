@@ -38,9 +38,9 @@
         </div>
       </div>
       <div class="tour-step__inner" v-else-if="step === 'theme'">
-        <h2>切换主题！</h2>
-        <p>KEDIT可以切换亮/暗主题。</p>
-        <p>点击 <icon-switch-theme></icon-switch-theme> 切换主题。</p>
+        <h2>随时同步！</h2>
+        <p>KEDIT 会自动同步您的文档。</p>
+        <p>点击 <icon-sync></icon-sync> 立即同步。</p>
         <div class="tour-step__button-bar">
           <button class="button" @click="finish">跳过</button>
           <button class="button button--resolve" @click="next">下一步</button>
