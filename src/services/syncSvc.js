@@ -952,6 +952,7 @@ const requestSync = () => {
             }
           });
 
+          store.commit('setLastSyncSuccess');
         } finally {
           clearInterval(intervalId);
         }

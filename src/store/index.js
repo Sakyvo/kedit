@@ -55,6 +55,7 @@ const store = createStore({
     offline: false,
     lastOfflineCheck: 0,
     timeCounter: 0,
+    lastSyncSuccess: 0,
   },
   mutations: {
     setLight: (state, value) => {
@@ -68,6 +69,9 @@ const store = createStore({
     },
     updateTimeCounter: (state) => {
       state.timeCounter += 1;
+    },
+    setLastSyncSuccess: (state) => {
+      state.lastSyncSuccess = Date.now();
     },
   },
   getters: {
