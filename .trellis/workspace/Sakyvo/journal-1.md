@@ -309,3 +309,37 @@ Added a render-only markdown-it frontmatter block rule so leading YAML metadata 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: Preview frontend CSS + PWA stale-cache diagnosis
+
+**Date**: 2026-07-05
+**Task**: Preview frontend CSS + PWA stale-cache diagnosis
+**Branch**: `master`
+
+### Summary
+
+preview-frontend: frontmatter 胶囊/长链接换行/去标题分隔线(0cb21efd)。诊断 kedit.cc.cd 侧栏无反应+修复不显现: deploy job 瞬时失败(Deployment failed, try again later)+registerType:prompt 的 SW 卡死在早期半残部署的 precache; 修 rebrand 漏网 index.html+PWA manifest(start_url /app→/)。用户侧需清一次站点数据。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0cb21efd` | (see git log) |
+| `a74882c9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
