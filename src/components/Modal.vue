@@ -94,6 +94,7 @@ import CouchdbWorkspaceModal from './modals/providers/CouchdbWorkspaceModal';
 import CouchdbCredentialsModal from './modals/providers/CouchdbCredentialsModal';
 import SmmsAccountModal from './modals/providers/SmmsAccountModal';
 import CustomAccountModal from './modals/providers/CustomAccountModal';
+import GithubPatModal from './modals/providers/GithubPatModal';
 
 const getTabbables = container => container.querySelectorAll('a[href], button, .textfield, input[type=checkbox]')
   // Filter enabled and visible element
@@ -170,6 +171,7 @@ export default {
     CouchdbCredentialsModal,
     SmmsAccountModal,
     CustomAccountModal,
+    GithubPatModal,
   },
   computed: {
     ...mapGetters([

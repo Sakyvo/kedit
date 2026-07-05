@@ -203,7 +203,8 @@ export default {
     },
     async signinWithGithub() {
       try {
-        await githubHelper.signin();
+        const { accessToken } = await store.dispatch('modal/open', { type: 'githubPat' });
+        await githubHelper.signinWithToken(accessToken);
         await syncSvc.afterSignIn();
         syncSvc.requestSync();
       } catch (e) {

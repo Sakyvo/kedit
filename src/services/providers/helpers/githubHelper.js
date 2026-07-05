@@ -130,6 +130,38 @@ export default {
   signin() {
     return this.startOauth2(['repo', 'gist'], null, false, true);
   },
+  /**
+   * PAT sign-in: no OAuth backend needed (static deployment).
+   * Builds the same token object as startOauth2 with isMain=true.
+   */
+  async signinWithToken(accessToken) {
+    const scopes = ['repo', 'gist'];
+    const user = (await networkSvc.request({
+      method: 'GET',
+      url: 'https://api.github.com/user',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })).body;
+    userSvc.addUserInfo({
+      id: `${subPrefix}:${user.id}`,
+      name: user.login,
+      imageUrl: user.avatar_url || '',
+    });
+    const oldToken = store.getters['data/githubTokensBySub'][user.id];
+    const token = {
+      scopes,
+      accessToken,
+      isLogin: true,
+      name: user.login,
+      sub: `${user.id}`,
+      imgStorages: oldToken && oldToken.imgStorages,
+      repoFullAccess: true,
+    };
+    await this.checkAndCreateRepo(token);
+    store.dispatch('data/addGithubToken', token);
+    return token;
+  },
   async addAccount(repoFullAccess = false) {
     const token = await this.startOauth2(getScopes({ repoFullAccess }));
     return token;
