@@ -257,7 +257,7 @@ export default {
       dispatch('setSideBarPanel');
 
       // Toggle it
-      toggleLayoutSetting('showSideBar', value, 'toggleSideBar', getters, dispatch);
+      toggleLayoutSetting('showSideBar', value, getters, dispatch);
 
       // Close explorer if not enough space
       if (getters.layoutSettings.showSideBar &&
@@ -270,7 +270,7 @@ export default {
     },
     toggleExplorer: ({ getters, dispatch, rootGetters }, value) => {
       // Toggle explorer
-      toggleLayoutSetting('showExplorer', value, 'toggleExplorer', getters, dispatch);
+      toggleLayoutSetting('showExplorer', value, getters, dispatch);
 
       // Close side bar if not enough space
       if (getters.layoutSettings.showExplorer &&
