@@ -157,8 +157,8 @@ export default {
     // Data creations/updates
     const syncDataById = store.getters['data/syncDataById'];
     Object.keys(treeDataMap).forEach((path) => {
-      // Only settings、workspaces、template data are stored
-      const [, id] = path.match(/^\.stackedit-data\/(settings|workspaces|badgeCreations|templates)\.json$/) || [];
+      // Only settings、workspaces、template、explorerOrder data are stored
+      const [, id] = path.match(/^\.stackedit-data\/(settings|workspaces|badgeCreations|templates|explorerOrder)\.json$/) || [];
       if (id) {
         idsByPath[path] = id;
         idsByPath[id] = id;

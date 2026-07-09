@@ -50,6 +50,7 @@ import Message from './Message';
 import History from './History';
 import Database from './Database';
 import Magnify from './Magnify';
+import Menu from './Menu';
 import FormatListChecks from './FormatListChecks';
 import CheckCircle from './CheckCircle';
 import CheckCircleUn from './CheckCircleUn';
@@ -119,6 +120,7 @@ export default ({
   'iconHistory': History,
   'iconDatabase': Database,
   'iconMagnify': Magnify,
+  'iconMenu': Menu,
   'iconFormatListChecks': FormatListChecks,
   'iconCheckCircle': CheckCircle,
   'iconCheckCircleUn': CheckCircleUn,

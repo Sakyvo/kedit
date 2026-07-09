@@ -8,7 +8,7 @@
     </div>
     <!-- Side bar -->
     <div class="navigation-bar__inner navigation-bar__inner--right navigation-bar__inner--button">
-      <button class="navigation-bar__button navigation-bar__button--sync-quick button" :class="'navigation-bar__button--' + syncStatus" v-title="'立即同步'" tour-step-anchor="theme" :disabled="!isSyncPossible || isSyncRequested || offline" @click="requestSync"><icon-sync></icon-sync></button>
+      <button class="navigation-bar__button navigation-bar__button--sync-quick button" :class="'navigation-bar__button--' + syncStatus" v-if="styles.hideLocations" v-title="'立即同步'" tour-step-anchor="theme" :disabled="syncDisabled" @click="requestSync"><icon-sync></icon-sync></button>
       <a class="navigation-bar__button navigation-bar__button--kedit button" v-if="light" href="app" target="_blank" v-title="'打开KEDIT'"><icon-provider provider-id="kedit"></icon-provider></a>
       <button class="navigation-bar__button navigation-bar__button--kedit button" v-else tour-step-anchor="menu" @click="toggleSideBar()" v-title="'切换侧边栏'"><icon-provider provider-id="kedit"></icon-provider></button>
     </div>
@@ -21,7 +21,7 @@
       <!-- Sync/Publish -->
       <div class="flex flex--row" :class="{'navigation-bar__hidden': styles.hideLocations}">
         <a class="navigation-bar__button navigation-bar__button--location button" :class="{'navigation-bar__button--blink': location.id === currentLocation.id}" v-for="location in syncLocations" :key="location.id" :href="location.url" target="_blank" v-title="'同步位置'"><icon-provider :provider-id="location.providerId"></icon-provider></a>
-        <button class="navigation-bar__button navigation-bar__button--sync button" :class="'navigation-bar__button--' + syncStatus" :disabled="!isSyncPossible || isSyncRequested || offline" @click="requestSync" v-title="'立即同步'"><icon-sync></icon-sync></button>
+        <button class="navigation-bar__button navigation-bar__button--sync button" :class="'navigation-bar__button--' + syncStatus" :disabled="syncDisabled" @click="requestSync" v-title="'立即同步'"><icon-sync></icon-sync></button>
         <a class="navigation-bar__button navigation-bar__button--location button" :class="{'navigation-bar__button--blink': location.id === currentLocation.id}" v-for="location in publishLocations" :key="location.id" :href="location.url" target="_blank" v-title="'发布位置'"><icon-provider :provider-id="location.providerId"></icon-provider></a>
         <button class="navigation-bar__button navigation-bar__button--publish button" :disabled="!publishLocations.length || isPublishRequested || offline" @click="requestPublish" v-title="'立即发布'"><icon-upload></icon-upload></button>
       </div>
@@ -50,6 +50,7 @@ import editorSvc from '../services/editorSvc';
 import syncSvc from '../services/syncSvc';
 import publishSvc from '../services/publishSvc';
 import tempFileSvc from '../services/tempFileSvc';
+import githubHelper from '../services/providers/helpers/githubHelper';
 import pagedownButtons from '../data/pagedownButtons';
 import store from '../store';
 
@@ -94,6 +95,9 @@ export default {
     ...mapGetters('layout', [
       'styles',
     ]),
+    ...mapGetters('workspace', [
+      'loginToken',
+    ]),
     ...mapGetters('syncLocation', {
       syncLocations: 'current',
     }),
@@ -111,6 +115,12 @@ export default {
     isSyncPossible() {
       return store.getters['workspace/syncToken'] ||
         store.getters['syncLocation/current'].length;
+    },
+    syncDisabled() {
+      // Logged out: keep the button clickable (opens the sign-in prompt)
+      return this.loginToken
+        ? (!this.isSyncPossible || this.isSyncRequested || this.offline)
+        : this.offline;
     },
     showSpinner() {
       return !store.state.queue.isEmpty;
@@ -145,7 +155,20 @@ export default {
     redo() {
       return editorSvc.clEditor.undoMgr.redo();
     },
-    requestSync() {
+    async requestSync() {
+      if (!this.loginToken) {
+        try {
+          await store.dispatch('modal/open', 'signInForSync');
+          // Same GitHub PAT sign-in flow as MainMenu
+          const { accessToken } = await store.dispatch('modal/open', { type: 'githubPat' });
+          await githubHelper.signinWithToken(accessToken);
+          await syncSvc.afterSignIn();
+          syncSvc.requestSync();
+        } catch (e) {
+          // Cancel
+        }
+        return;
+      }
       if (this.isSyncPossible && !this.isSyncRequested) {
         syncSvc.requestSync();
       }

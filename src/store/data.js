@@ -30,6 +30,9 @@ const empty = (id) => {
       return itemTemplate(id, defaultLocalSettings());
     case 'layoutSettings':
       return itemTemplate(id, defaultLayoutSettings());
+    case 'explorerOrder':
+      // Manual explorer sort order: { [parentId ('root' or folder id)]: orderedChildIds }
+      return itemTemplate(id, {});
     default:
       return itemTemplate(id);
   }
@@ -175,6 +178,7 @@ export default {
     },
     localSettings: getter('localSettings'),
     layoutSettings: getter('layoutSettings'),
+    explorerOrder: getter('explorerOrder'),
     templatesById: getter('templates'),
     allTemplatesById: (state, { templatesById }) => ({
       ...templatesById,
@@ -246,6 +250,8 @@ export default {
     },
     patchLocalSettings: patcher('localSettings'),
     patchLayoutSettings: patcher('layoutSettings'),
+    setExplorerOrder: setter('explorerOrder'),
+    patchExplorerOrder: patcher('explorerOrder'),
     toggleNavigationBar: layoutSettingsToggler('showNavigationBar', 'toggleNavigationBar'),
     toggleEditor: layoutSettingsToggler('showEditor', 'toggleEditor'),
     toggleSidePreview: layoutSettingsToggler('showSidePreview', 'toggleSidePreview'),

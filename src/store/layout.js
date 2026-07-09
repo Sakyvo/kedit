@@ -24,7 +24,7 @@ const minTitleMaxWidth = 200;
 
 const constants = {
   editorMinWidth: 320,
-  explorerWidth: 260,
+  explorerWidth: 300,
   gutterWidth: 250,
   sideBarWidth: 280,
   navigationBarHeight: 44,

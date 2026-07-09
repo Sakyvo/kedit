@@ -10,16 +10,19 @@ export default {
       top: 0,
     },
     items: [],
+    menuClass: null,
     resolve: () => {},
   },
   mutations: {
     setCoordinates: setter('coordinates'),
     setItems: setter('items'),
+    setMenuClass: setter('menuClass'),
     setResolve: setter('resolve'),
   },
   actions: {
-    open({ commit, rootState }, { coordinates, items }) {
+    open({ commit, rootState }, { coordinates, items, menuClass }) {
       commit('setItems', items);
+      commit('setMenuClass', menuClass || null);
       // Place the context menu outside the screen
       commit('setCoordinates', { top: 0, left: -9999 });
       // Let the UI refresh itself
@@ -49,6 +52,7 @@ export default {
     },
     close({ commit }) {
       commit('setItems', []);
+      commit('setMenuClass', null);
       commit('setResolve', () => {});
     },
   },

@@ -96,6 +96,12 @@ export default {
       value: 'github',
     }],
   ),
+  signInForSync: simpleModal(
+    `<p>登录以使用同步功能。登录后可将文档同步到云端。</p>
+    <div class="modal__info"><b>注意:</b> 这将同步您的主文档空间。</div>`,
+    '取消',
+    '登录',
+  ),
   sponsorOnly: simpleModal(
     '<p>此功能仅限于赞助商，因为它依赖于服务器资源。</p>',
     '好的，我明白了',
@@ -123,6 +129,11 @@ export default {
   trashDeletion: simpleModal(
     '<p>回收站中的文件在不活动7天后会自动删除。</p>',
     '好的',
+  ),
+  trashPermanentDeletion: simpleModal(
+    config => `<p>您将永久删除文件<b>${config.item.name}</b>，该操作不可恢复。你确定吗？</p>`,
+    '取消',
+    '确认删除',
   ),
   unauthorizedName: simpleModal(
     config => `<p><b>${config.item.name}</b>>是未经授权的名称。</p>`,

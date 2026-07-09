@@ -1,9 +1,9 @@
 <template>
-  <div class="explorer-node" :class="{'explorer-node--selected': isSelected, 'explorer-node--folder': node.isFolder, 'explorer-node--open': isOpen, 'explorer-node--trash': node.isTrash, 'explorer-node--temp': node.isTemp, 'explorer-node--drag-target': isDragTargetFolder}" @dragover.prevent @dragenter.stop="node.noDrop || setDragTarget(node)" @dragleave.stop="isDragTarget && setDragTarget()" @drop.prevent.stop="onDrop" @contextmenu="onContextMenu">
+  <div class="explorer-node" :class="{'explorer-node--selected': isSelected, 'explorer-node--folder': node.isFolder, 'explorer-node--open': isOpen, 'explorer-node--trash': node.isTrash, 'explorer-node--temp': node.isTemp, 'explorer-node--drag-target': isDragTargetFolder}" :data-id="node.item.id" @dragover.prevent @dragenter.stop="node.noDrop || setDragTarget({ node })" @dragleave.stop="isDragTarget && setDragTarget()" @drop.prevent.stop="onDrop" @contextmenu="onContextMenu">
     <div class="explorer-node__item-editor" v-if="isEditing" :style="{paddingLeft: leftPadding}" draggable="true" @dragstart.stop.prevent>
       <input type="text" ref="editInput" class="text-input" @blur="submitEdit()" @keydown.stop @keydown.enter="submitEdit()" @keydown.esc.stop="submitEdit(true)" v-model="editingValue">
     </div>
-    <div class="explorer-node__item" v-else :style="{paddingLeft: leftPadding}" @click="onItemClick" draggable="true" @dragstart.stop="setDragSourceId" @dragend.stop="setDragTarget()" @touchstart.passive="onTouchStart" @touchend="clearLongPress" @touchmove="clearLongPress" @touchcancel="clearLongPress">
+    <div class="explorer-node__item" v-else :class="{'explorer-node__item--drop-above': dropPosition === 'above', 'explorer-node__item--drop-below': dropPosition === 'below'}" :style="{paddingLeft: leftPadding}" @click="onItemClick" :draggable="isDraggable" @dragstart.stop="setDragSourceId" @dragend.stop="setDragTarget()" @dragover.prevent.stop="onItemDragOver" @touchstart.passive="onTouchStart" @touchend="onTouchEnd" @touchmove="onTouchMove" @touchcancel="onTouchCancel">
       {{node.item.name}}
       <icon-provider class="explorer-node__location" v-for="location in node.locations" :key="location.id" :provider-id="location.providerId"></icon-provider>
     </div>
@@ -50,7 +50,24 @@ export default {
       return this.equalNode(store.getters['explorer/dragTargetNode'], this.node);
     },
     isDragTargetFolder() {
+      // In positional mode the whole-folder highlight only applies to "drop into"
+      const { dragTargetPosition } = store.state.explorer;
+      if (dragTargetPosition && dragTargetPosition !== 'inside') {
+        return false;
+      }
       return this.equalNode(store.getters['explorer/dragTargetNodeFolder'], this.node);
+    },
+    isManualSortDrag() {
+      const { sortBy, manualSortEnabled } = store.state.explorer;
+      return sortBy === 'manual' && manualSortEnabled;
+    },
+    isDraggable() {
+      // Manual mode with the toggle off disables dragging entirely
+      return !this.node.noDrag
+        && (store.state.explorer.sortBy !== 'manual' || store.state.explorer.manualSortEnabled);
+    },
+    dropPosition() {
+      return this.isDragTarget ? store.state.explorer.dragTargetPosition : null;
     },
     isOpen() {
       return store.state.explorer.openNodes[this.node.item.id] || this.node.isRoot;
@@ -168,17 +185,138 @@ export default {
     },
     onDrop() {
       const sourceNode = store.getters['explorer/dragSourceNode'];
-      const targetNode = store.getters['explorer/dragTargetNodeFolder'];
+      const targetNode = store.getters['explorer/dragTargetNode'];
+      const targetFolderNode = store.getters['explorer/dragTargetNodeFolder'];
+      const position = store.state.explorer.dragTargetPosition;
+      const positional = this.isManualSortDrag;
       this.setDragTarget();
-      if (!sourceNode.isNil
-        && !targetNode.isNil
-        && sourceNode.item.id !== targetNode.item.id
+      if (sourceNode.isNil) {
+        return;
+      }
+      if (positional) {
+        this.executeManualDrop(sourceNode, targetNode, position);
+        return;
+      }
+      // Legacy behavior: drop re-parents into the target folder
+      if (!targetFolderNode.isNil
+        && sourceNode.item.id !== targetFolderNode.item.id
       ) {
         workspaceSvc.storeItem({
           ...sourceNode.item,
-          parentId: targetNode.item.id,
+          parentId: targetFolderNode.item.id,
         });
       }
+    },
+    getDropPosition(node, clientY, rect) {
+      // Positional intent from the pointer Y within the item row
+      if (node.isRoot || node.isTrash || node.item.id === 'fake'
+        || (node.parentNode && node.parentNode.isTrash)
+      ) {
+        return 'inside';
+      }
+      const offset = (clientY - rect.top) / (rect.height || 1);
+      if (node.isFolder) {
+        if (offset < 1 / 3) {
+          return 'above';
+        }
+        return offset > 2 / 3 ? 'below' : 'inside';
+      }
+      return offset < 0.5 ? 'above' : 'below';
+    },
+    onItemDragOver(evt) {
+      if (!this.isManualSortDrag || this.node.noDrop) {
+        return;
+      }
+      const position = this
+        .getDropPosition(this.node, evt.clientY, evt.currentTarget.getBoundingClientRect());
+      if (this.isDragTarget && store.state.explorer.dragTargetPosition === position) {
+        return;
+      }
+      this.setDragTarget({ node: this.node, position });
+    },
+    async executeManualDrop(sourceNode, targetNode, position) {
+      if (targetNode.isNil || sourceNode.item.id === targetNode.item.id) {
+        return;
+      }
+      const rootNode = store.getters['explorer/rootNode'];
+      const sourceId = sourceNode.item.id;
+
+      // Resolve the destination parent
+      let pos = position || 'inside';
+      let parentNode;
+      if (targetNode.item.id === 'fake') {
+        parentNode = rootNode;
+        pos = 'inside';
+      } else if (targetNode.isTrash || targetNode.isTemp) {
+        parentNode = targetNode;
+      } else if (pos === 'inside') {
+        parentNode = targetNode.isFolder ? targetNode : (targetNode.parentNode || rootNode);
+        if (!targetNode.isFolder) {
+          pos = 'below';
+        }
+      } else {
+        parentNode = targetNode.parentNode || rootNode;
+      }
+      if (parentNode.isTrash) {
+        // Keep the legacy "drop onto trash deletes" behavior; no reordering inside
+        if (sourceNode.item.parentId !== 'trash') {
+          workspaceSvc.storeItem({
+            ...sourceNode.item,
+            parentId: 'trash',
+          });
+        }
+        return;
+      }
+      if (parentNode.isTemp) {
+        return;
+      }
+
+      const newParentId = parentNode.isRoot ? null : parentNode.item.id;
+      const crossParent = (sourceNode.item.parentId || null) !== newParentId;
+
+      // Rebuild the destination parent's entry from its rendered order
+      const folderIds = parentNode.folders
+        .filter(child => !child.isTrash && !child.isTemp && child.item.id !== sourceId)
+        .map(child => child.item.id);
+      const fileIds = parentNode.files
+        .filter(child => child.item.id !== 'fake' && child.item.id !== sourceId)
+        .map(child => child.item.id);
+      const group = sourceNode.isFolder ? folderIds : fileIds;
+      let insertIdx = group.length;
+      if (pos !== 'inside') {
+        const idxInGroup = group.indexOf(targetNode.item.id);
+        if (idxInGroup !== -1) {
+          insertIdx = pos === 'above' ? idxInGroup : idxInGroup + 1;
+        } else {
+          // Target belongs to the other group: clamp to the folders/files boundary
+          insertIdx = sourceNode.isFolder ? folderIds.length : 0;
+        }
+      }
+      group.splice(insertIdx, 0, sourceId);
+      const orderPatch = {
+        [parentNode.isRoot ? 'root' : parentNode.item.id]: [...folderIds, ...fileIds],
+      };
+
+      if (crossParent) {
+        const oldParentNode = sourceNode.parentNode;
+        if (oldParentNode && !oldParentNode.isTrash && !oldParentNode.isTemp) {
+          orderPatch[oldParentNode.isRoot ? 'root' : oldParentNode.item.id] = [
+            ...oldParentNode.folders.filter(child => !child.isTrash && !child.isTemp),
+            ...oldParentNode.files.filter(child => child.item.id !== 'fake'),
+          ]
+            .map(child => child.item.id)
+            .filter(id => id !== sourceId);
+        }
+        try {
+          await workspaceSvc.storeItem({
+            ...sourceNode.item,
+            parentId: newParentId,
+          });
+        } catch (e) {
+          return; // Canceled (e.g. path conflict dialog)
+        }
+      }
+      store.dispatch('data/patchExplorerOrder', orderPatch);
     },
     onContextMenu(evt) {
       evt.preventDefault();
@@ -222,7 +360,10 @@ export default {
         }, {
           name: '删除',
           perform: () => explorerSvc.deleteItem(),
-        }, {
+        }, ...(isFile && this.node.item.parentId === 'trash' ? [{
+          name: '永久删除',
+          perform: () => explorerSvc.permanentlyDeleteItem(),
+        }] : []), {
           type: 'separator',
         }, {
           name: '复制路径',
@@ -280,18 +421,161 @@ export default {
       const coordinates = touch
         ? { left: touch.clientX, top: touch.clientY }
         : { left: 0, top: 0 };
+      if (this.isManualSortDrag && !this.node.noDrag && !this.node.isRoot) {
+        // Long-press starts a positional touch drag (context menu suppressed)
+        this.touchStart = { x: coordinates.left, y: coordinates.top };
+        this.longPressTimer = setTimeout(() => {
+          this.longPressTimer = null;
+          this.startTouchDrag(coordinates.left, coordinates.top);
+        }, 350);
+        return;
+      }
       this.longPressTimer = setTimeout(() => {
         this.longPressTimer = null;
         this.suppressClick = true;
         this.openContextMenu(coordinates);
       }, 500);
     },
+    onTouchMove(evt) {
+      const touch = evt.touches && evt.touches[0];
+      if (!touch) {
+        return;
+      }
+      if (this.touchGhost) {
+        // Dragging: track the finger and keep the page from scrolling
+        evt.preventDefault();
+        this.lastTouch = { x: touch.clientX, y: touch.clientY };
+        this.moveTouchGhost(touch.clientX, touch.clientY);
+        this.updateTouchTarget(touch.clientX, touch.clientY);
+        return;
+      }
+      if (this.longPressTimer && this.touchStart) {
+        // Waiting for the drag long press: tolerate small jitter
+        const dx = touch.clientX - this.touchStart.x;
+        const dy = touch.clientY - this.touchStart.y;
+        if ((dx * dx) + (dy * dy) > 64) {
+          this.clearLongPress();
+        }
+        return;
+      }
+      this.clearLongPress();
+    },
+    onTouchEnd() {
+      if (this.touchGhost) {
+        const sourceNode = store.getters['explorer/dragSourceNode'];
+        const targetNode = store.getters['explorer/dragTargetNode'];
+        const position = store.state.explorer.dragTargetPosition;
+        this.stopTouchDrag();
+        if (!sourceNode.isNil) {
+          this.executeManualDrop(sourceNode, targetNode, position);
+        }
+        return;
+      }
+      this.clearLongPress();
+    },
+    onTouchCancel() {
+      if (this.touchGhost) {
+        this.stopTouchDrag();
+        return;
+      }
+      this.clearLongPress();
+    },
+    startTouchDrag(x, y) {
+      this.suppressClick = true;
+      store.commit('explorer/setDragSourceId', this.node.item.id);
+      const ghost = document.createElement('div');
+      ghost.className = 'explorer-node__touch-ghost';
+      ghost.textContent = this.node.item.name;
+      document.body.appendChild(ghost);
+      this.touchGhost = ghost;
+      this.lastTouch = { x, y };
+      this.moveTouchGhost(x, y);
+      this.touchScroller = this.$el.closest('.explorer__tree');
+      // Auto-scroll while the finger stays near the scroller edges
+      this.touchScrollTimer = setInterval(() => this.touchEdgeScroll(), 50);
+    },
+    moveTouchGhost(x, y) {
+      this.touchGhost.style.left = `${x}px`;
+      this.touchGhost.style.top = `${y - 10}px`;
+    },
+    updateTouchTarget(x, y) {
+      const elt = document.elementFromPoint(x, y);
+      const itemElt = elt && elt.closest && elt.closest('.explorer-node__item');
+      const nodeElt = itemElt && itemElt.closest('.explorer-node');
+      const nodeId = nodeElt && nodeElt.dataset.id;
+      if (!nodeId) {
+        return;
+      }
+      if (nodeId === 'fake') {
+        store.commit('explorer/setDragTargetId', 'fake');
+        store.commit('explorer/setDragTargetPosition', 'inside');
+        return;
+      }
+      const node = store.getters['explorer/nodeMap'][nodeId];
+      if (!node || node.noDrop) {
+        return;
+      }
+      const position = this.getDropPosition(node, y, itemElt.getBoundingClientRect());
+      if (store.state.explorer.dragTargetId === nodeId
+        && store.state.explorer.dragTargetPosition === position
+      ) {
+        return;
+      }
+      this.setDragTarget({ node, position });
+    },
+    touchEdgeScroll() {
+      if (!this.touchScroller || !this.lastTouch) {
+        return;
+      }
+      const rect = this.touchScroller.getBoundingClientRect();
+      let delta = 0;
+      if (this.lastTouch.y < rect.top + 40) {
+        delta = -10;
+      } else if (this.lastTouch.y > rect.bottom - 40) {
+        delta = 10;
+      }
+      if (delta) {
+        this.touchScroller.scrollTop += delta;
+        this.updateTouchTarget(this.lastTouch.x, this.lastTouch.y);
+      }
+    },
+    stopTouchDrag() {
+      clearInterval(this.touchScrollTimer);
+      this.touchScrollTimer = null;
+      if (this.touchGhost && this.touchGhost.parentNode) {
+        this.touchGhost.parentNode.removeChild(this.touchGhost);
+      }
+      this.touchGhost = null;
+      this.lastTouch = null;
+      this.touchScroller = null;
+      this.setDragTarget();
+      store.commit('explorer/setDragSourceId', null);
+      // A synthetic click may follow touchend; stop suppressing right after
+      setTimeout(() => {
+        this.suppressClick = false;
+      }, 100);
+    },
     clearLongPress() {
       if (this.longPressTimer) {
         clearTimeout(this.longPressTimer);
         this.longPressTimer = null;
       }
+      this.touchStart = null;
     },
+  },
+  created() {
+    // Non-reactive touch drag state
+    this.touchStart = null;
+    this.touchGhost = null;
+    this.lastTouch = null;
+    this.touchScroller = null;
+    this.touchScrollTimer = null;
+  },
+  beforeUnmount() {
+    this.clearLongPress();
+    if (this.touchGhost) {
+      this.stopTouchDrag();
+    }
   },
 };
 </script>
@@ -311,6 +595,9 @@ $item-font-size: 14px;
   white-space: nowrap;
   text-overflow: ellipsis;
   padding-right: 5px;
+  /* long-press drag on touch devices must not trigger text selection */
+  user-select: none;
+  -webkit-touch-callout: none;
 
   .explorer-node--selected > & {
     background-color: rgba(0, 0, 0, 0.2);
@@ -335,6 +622,31 @@ $item-font-size: 14px;
     height: 18px;
     margin: 2px 1px;
   }
+}
+
+/* insertion indicators for positional (manual) drag */
+.explorer-node__item--drop-above {
+  box-shadow: inset 0 2px 0 0 #338dfc;
+}
+
+.explorer-node__item--drop-below {
+  box-shadow: inset 0 -2px 0 0 #338dfc;
+}
+
+.explorer-node__touch-ghost {
+  position: fixed;
+  z-index: 1000;
+  max-width: 240px;
+  padding: 2px 10px;
+  font-size: $item-font-size;
+  background-color: rgba(51, 141, 252, 0.85);
+  color: #fff;
+  border-radius: 3px;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .explorer-node--trash,

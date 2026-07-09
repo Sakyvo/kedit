@@ -54,7 +54,7 @@ export default {
 }
 
 .icon-provider--kedit {
-  background-image: url(../assets/iconKedit.svg);
+  background-image: url(../assets/logo.png);
 }
 
 .icon-provider--google-drive {

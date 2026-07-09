@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/07-06-ux-batch-fixes-manual-sort/prd.md", "reason": "需求清单、已决策、验收标准（18 项的唯一权威来源）"}
+{"file": ".trellis/tasks/07-06-ux-batch-fixes-manual-sort/design.md", "reason": "技术设计：explorerOrder 数据模型、拖拽双路径、各修复方案"}
+{"file": ".trellis/tasks/07-06-ux-batch-fixes-manual-sort/implement.md", "reason": "分阶段执行清单与验证命令"}
+{"file": ".trellis/tasks/07-06-ux-batch-fixes-manual-sort/research/sidebar-explorer.md", "reason": "侧边栏/排序/回收站/重命名 现状证据（file:line 级）"}
+{"file": ".trellis/tasks/07-06-ux-batch-fixes-manual-sort/research/editor-modal-scroll.md", "reason": "编辑器语法/侧栏面板/logo资产/滚动 现状证据（file:line 级）"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Vuex 模块与 IndexedDB data 条目模式（explorerOrder 新条目须遵循）"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Vue SFC 约定（ExplorerNode/ContextMenu/SideBar 改动）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "构建与回归检查预期"}

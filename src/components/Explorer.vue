@@ -20,6 +20,9 @@
         <button class="side-title__button side-title__button--sort button" @click="openSortMenu" v-title="'排序'">
           <icon-view-list></icon-view-list>
         </button>
+        <button class="side-title__button side-title__button--manual-sort button" :class="{'side-title__button--on': manualSortEnabled}" v-if="sortBy === 'manual'" @click="toggleManualSort" v-title="manualSortEnabled ? '关闭手动排序' : '开启手动排序'">
+          <icon-menu></icon-menu>
+        </button>
       </div>
       <div class="flex flex--row" v-else>
         <button class="side-title__button button" @click="back()" v-title="'返回资源管理器'">
@@ -76,6 +79,8 @@ export default {
     ]),
     ...mapState('explorer', [
       'newChildNode',
+      'sortBy',
+      'manualSortEnabled',
     ]),
     ...mapGetters('explorer', [
       'rootNode',
@@ -153,32 +158,56 @@ export default {
     },
     openSortMenu(evt) {
       const { sortBy, sortDirection } = store.state.explorer;
+      // For timestamps, desc = larger stamp first = newest on top = 新-旧
       const options = [
-        ['name', 'asc', '名称 ↑'],
-        ['name', 'desc', '名称 ↓'],
-        ['updatedOn', 'desc', '修改时间（新→旧）'],
-        ['updatedOn', 'asc', '修改时间（旧→新）'],
-        ['createdOn', 'desc', '创建时间（新→旧）'],
-        ['createdOn', 'asc', '创建时间（旧→新）'],
+        ['manual', null, '手动 [推荐]'],
+        null,
+        ['name', 'asc', '名称 (A-Z)'],
+        ['name', 'desc', '名称 (Z-A)'],
+        null,
+        ['updatedOn', 'desc', '修改时间 (新-旧)'],
+        ['updatedOn', 'asc', '修改时间 (旧-新)'],
+        null,
+        ['createdOn', 'desc', '创建时间 (新-旧)'],
+        ['createdOn', 'asc', '创建时间 (旧-新)'],
       ];
-      const items = options.map(([field, direction, label]) => ({
-        name: `${sortBy === field && sortDirection === direction ? '● ' : '　'}${label}`,
-        perform: () => {
-          store.commit('explorer/setSortBy', field);
-          store.commit('explorer/setSortDirection', direction);
-        },
-      }));
+      const items = options.map((option) => {
+        if (!option) {
+          return { type: 'separator' };
+        }
+        const [field, direction, label] = option;
+        return {
+          name: label,
+          selected: sortBy === field && (field === 'manual' || sortDirection === direction),
+          perform: () => store.dispatch('explorer/setSortMode', {
+            sortBy: field,
+            sortDirection: direction,
+          }),
+        };
+      });
       store.dispatch('contextMenu/open', {
         coordinates: { left: evt.clientX, top: evt.clientY },
         items,
+        menuClass: 'context-menu__inner--compact',
       }).then((item) => {
         if (item) {
           item.perform();
         }
       });
     },
+    toggleManualSort() {
+      store.commit('explorer/setManualSortEnabled', !store.state.explorer.manualSortEnabled);
+    },
   },
   created() {
+    store.dispatch('explorer/init');
+    this.$watch(
+      () => store.getters['explorer/rootNode'],
+      () => store.dispatch('explorer/materializeOrder'),
+      {
+        immediate: true,
+      },
+    );
     this.$watch(
       () => store.getters['file/current'].id,
       (currentFileId) => {
@@ -199,6 +228,17 @@ export default {
 .explorer,
 .explorer__tree {
   height: 100%;
+}
+
+/* narrower than the global 38px so all toolbar buttons fit on a single row */
+.explorer .side-title__button {
+  width: 36px;
+}
+
+/* pressed state of the manual sort toggle */
+.explorer .side-title__button--on {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.15);
 }
 
 .explorer__tree {

@@ -1,4 +1,8 @@
 export default [{
+  method: 'image',
+  title: '图片',
+  icon: 'file-image',
+}, {
 }, {
   method: 'bold',
   title: '加粗',
@@ -45,10 +49,6 @@ export default [{
   method: 'link',
   title: '链接',
   icon: 'link-variant',
-}, {
-  method: 'image',
-  title: '图片',
-  icon: 'file-image',
 }, {
   method: 'chatgpt',
   title: 'AI内容生成',

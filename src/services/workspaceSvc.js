@@ -66,8 +66,31 @@ export default {
       this.makePathUnique(id);
     }
 
+    // New file appears at the bottom of its parent in manual sort mode
+    this.appendToExplorerOrder(store.state.file.itemsById[id]);
+
     // Return the new file item
     return store.state.file.itemsById[id];
+  },
+
+  /**
+   * In manual sort mode, append a newly created item to its parent's order entry.
+   * If the parent has no entry yet, materialization will snapshot it later.
+   */
+  appendToExplorerOrder(item) {
+    if (!item || store.state.explorer.sortBy !== 'manual') {
+      return;
+    }
+    const parentKey = item.parentId || 'root';
+    if (parentKey === 'trash' || parentKey === 'temp') {
+      return;
+    }
+    const entry = store.getters['data/explorerOrder'][parentKey];
+    if (entry && entry.indexOf(item.id) === -1) {
+      store.dispatch('data/patchExplorerOrder', {
+        [parentKey]: [...entry, item.id],
+      });
+    }
   },
 
   /**
@@ -122,7 +145,12 @@ export default {
         patch.updatedOn = item.updatedOn || now;
       }
     }
-    return this.setOrPatchItem(patch);
+    const storedItem = this.setOrPatchItem(patch);
+    if (!item.id && storedItem) {
+      // Newly created item lands at the bottom of its parent in manual sort mode
+      this.appendToExplorerOrder(storedItem);
+    }
+    return storedItem;
   },
 
   /**

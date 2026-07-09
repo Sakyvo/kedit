@@ -94,14 +94,25 @@ export default {
       grammars.deflist.deflist.inside['pre gfm cn-code'] = grammars.list['pre gfm cn-code'];
     }
 
+    // YAML front matter, document start only (sections are split on every block
+    // token, so only the first section can start with a `---` + closing marker pair).
+    // `cl` class reuses the muted markup-character styling.
+    grammars.main['frontmatter cl'] = {
+      pattern: /^ {0,3}---[ \t]*\n(?:[^\n]*\n)*? {0,3}(?:---|\.\.\.)[ \t]*(?=\n|$)/,
+      inside: {
+        'cl cl-pre': /^ {0,3}(?:---|\.\.\.)[ \t]*$/gm,
+      },
+    };
+    // Setext headings: the first line must not itself be another block construct
+    // (ATX heading, blockquote, list item, code fence or table row)
     grammars.main['h1 alt cn-head'] = {
-      pattern: /^.+\n[=]{2,}[ \t]*$/gm,
+      pattern: /^(?!(?:#{1,6}(?:[ \t]|$)|>|(?:[-*+]|\d+\.)[ \t]|```|~~~|\|)).+\n[=]{2,}[ \t]*$/gm,
       inside: {
         'cl cl-hash': /=+[ \t]*$/,
       },
     };
     grammars.main['h2 alt cn-head'] = {
-      pattern: /^.+\n[-]{2,}[ \t]*$/gm,
+      pattern: /^(?!(?:#{1,6}(?:[ \t]|$)|>|(?:[-*+]|\d+\.)[ \t]|```|~~~|\|)).+\n[-]{2,}[ \t]*$/gm,
       inside: {
         'cl cl-hash': /-+[ \t]*$/,
       },

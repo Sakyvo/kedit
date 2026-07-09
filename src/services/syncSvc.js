@@ -769,6 +769,7 @@ const syncWorkspace = async (skipContents = false) => {
     if (workspace.id === 'main') {
       // await syncDataItem('settings');
       await syncDataItem('workspaces');
+      await syncDataItem('explorerOrder');
       // await syncDataItem('templates');
     }
 

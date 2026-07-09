@@ -2,6 +2,7 @@
 .npm-cache/
 node_modules/
 dist/
+diststyle/
 .agents/
 .claude/
 .codex/

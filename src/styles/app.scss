@@ -1,5 +1,9 @@
 @import './variables.scss';
 
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background-color: #fff;
   top: 0;
@@ -13,6 +17,29 @@ body {
   /* Prevent body overscroll on Chrome */
   overflow: hidden;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Touch devices only: give the window a 2px scroll range so browser
+   "scroll to top/bottom" gestures can be proxied to the active scroller
+   (see App.vue mounted). body stays fixed. */
+html.app--touch {
+  height: calc(100% + 2px);
+  overflow-y: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Prevent inner scrollers from chaining into the window scroll range
+     and suppress pull-to-refresh interference */
+  .editor,
+  .preview__inner-1,
+  .side-bar__panel,
+  .explorer__tree,
+  .explorer__search {
+    overscroll-behavior: contain;
+  }
 }
 
 * {
@@ -40,6 +67,8 @@ body {
 ::-webkit-scrollbar-thumb {
   border-radius: 4px;
   background-color: #bbb;
+  min-width: 48px;
+  min-height: 48px;
 
   .app--dark & {
     background-color: #666;
@@ -344,7 +373,7 @@ textarea {
 }
 
 .logo-background {
-  background: no-repeat center url('../assets/logo.svg');
+  background: no-repeat center url('../assets/logo.png');
   background-size: contain;
 }
 

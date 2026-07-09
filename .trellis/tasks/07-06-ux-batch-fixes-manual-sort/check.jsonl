@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/07-06-ux-batch-fixes-manual-sort/prd.md", "reason": "验收标准逐项核对清单"}
+{"file": ".trellis/tasks/07-06-ux-batch-fixes-manual-sort/design.md", "reason": "核对实现与设计契约一致（数据模型、拖拽语义、回滚点）"}
+{"file": ".trellis/tasks/07-06-ux-batch-fixes-manual-sort/implement.md", "reason": "全局验证命令与真机验收项"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "构建/回归检查标准"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "explorerOrder 跨 store/service/sync 层数据流检查"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "确认复用既有原语（simpleModal、trash 清理、拖拽 store）而非新造"}

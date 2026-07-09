@@ -20,6 +20,7 @@ import SplashScreen from './SplashScreen';
 import syncSvc from '../services/syncSvc';
 import networkSvc from '../services/networkSvc';
 import tempFileSvc from '../services/tempFileSvc';
+import editorSvc from '../services/editorSvc';
 import store from '../store';
 //import './common/vueGlobals';
 import utils from '../services/utils';
@@ -81,6 +82,31 @@ export default {
         }
       }
     },
+  },
+  mounted() {
+    // Touch devices only: body is position: fixed so the window has no scroll
+    // range and browser "scroll to top/bottom" gestures are no-ops. Give the
+    // window a 2px range (html.app--touch, see app.scss), park the position in
+    // the middle and proxy reaching either end to the active scroller.
+    if (!('ontouchstart' in window)) {
+      return;
+    }
+    document.documentElement.classList.add('app--touch');
+    window.addEventListener('scroll', () => {
+      const y = window.scrollY;
+      if (y > 0 && y < 2) {
+        // Parked position (also where our own re-park lands)
+        return;
+      }
+      const scroller = store.getters['layout/styles'].showEditor
+        ? editorSvc.editorElt && editorSvc.editorElt.parentNode
+        : editorSvc.previewElt && editorSvc.previewElt.parentNode;
+      if (scroller) {
+        scroller.scrollTop = y <= 0 ? 0 : scroller.scrollHeight;
+      }
+      window.scrollTo(0, 1); // Re-park
+    }, { passive: true });
+    window.scrollTo(0, 1);
   },
   async created() {
     window.viewFileByPath = this.viewFileByPath;

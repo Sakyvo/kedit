@@ -4,7 +4,7 @@ import store from '../../store';
 
 // Global directives
 this.$app.directive('focus', {
-  inserted(el) {
+  mounted(el) {
     el.focus();
     const { value } = el;
     if (value && el.setSelectionRange) {
@@ -22,10 +22,10 @@ const setVisible = (el, value) => {
   }
 };
 this.$app.directive('show', {
-  bind(el, { value }) {
+  mounted(el, { value }) {
     setVisible(el, value);
   },
-  update(el, { value, oldValue }) {
+  updated(el, { value, oldValue }) {
     if (value !== oldValue) {
       setVisible(el, value);
     }
@@ -37,10 +37,10 @@ const setElTitle = (el, title) => {
   el.setAttribute('aria-label', title);
 };
 this.$app.directive('title', {
-  bind(el, { value }) {
+  mounted(el, { value }) {
     setElTitle(el, value);
   },
-  update(el, { value, oldValue }) {
+  updated(el, { value, oldValue }) {
     if (value !== oldValue) {
       setElTitle(el, value);
     }
@@ -58,16 +58,16 @@ const destroyClipboard = (el) => {
   }
 };
 this.$app.directive('clipboard', {
-  bind(el, { value }) {
+  mounted(el, { value }) {
     createClipboard(el, value);
   },
-  update(el, { value, oldValue }) {
+  updated(el, { value, oldValue }) {
     if (value !== oldValue) {
       destroyClipboard(el);
       createClipboard(el, value);
     }
   },
-  unbind(el) {
+  unmounted(el) {
     destroyClipboard(el);
   },
 });

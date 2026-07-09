@@ -15,6 +15,36 @@ export default {
       parentId,
     });
   },
+  async permanentlyDeleteItem() {
+    const selectedNode = store.getters['explorer/selectedNode'];
+    if (selectedNode.isNil || selectedNode.isFolder || selectedNode.item.parentId !== 'trash') {
+      return;
+    }
+    try {
+      await store.dispatch('modal/open', {
+        type: 'trashPermanentDeletion',
+        item: selectedNode.item,
+      });
+    } catch (e) {
+      return; // Cancel
+    }
+    const fileId = selectedNode.item.id;
+    const doClose = fileId === store.getters['file/current'].id;
+    // Same deletion primitive as the 7-day trash auto-clean;
+    // remote copy is removed by the existing syncData cleanup in syncSvc
+    workspaceSvc.deleteFile(fileId);
+    if (doClose) {
+      // Close the current file by opening the last opened, not deleted one
+      store.getters['data/lastOpenedIds'].some((id) => {
+        const file = store.state.file.itemsById[id];
+        if (file.parentId === 'trash') {
+          return false;
+        }
+        store.commit('file/setCurrentId', id);
+        return true;
+      });
+    }
+  },
   async deleteItem() {
     const selectedNode = store.getters['explorer/selectedNode'];
     if (selectedNode.isNil) {

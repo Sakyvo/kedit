@@ -1,13 +1,10 @@
 <template>
   <div class="side-bar flex flex--column">
     <div class="side-title flex flex--row">
-      <button v-if="panel !== 'menu'" class="side-title__button button" @click="setPanel('menu')" v-title="'主菜单'">
-        <icon-dots-horizontal></icon-dots-horizontal>
-      </button>
       <div class="side-title__title">
         {{panelName}}
       </div>
-      <button class="side-title__button button" @click="toggleSideBar(false)" v-title="'关闭侧边栏'">
+      <button class="side-title__button button" @click="panel === 'menu' ? toggleSideBar(false) : setPanel('menu')" v-title="panel === 'menu' ? '关闭侧边栏' : '返回主菜单'">
         <icon-close></icon-close>
       </button>
     </div>

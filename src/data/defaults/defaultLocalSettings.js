@@ -1,6 +1,8 @@
 export default () => ({
   welcomeFileHashes: {},
   filePropertiesTab: '',
+  explorerSortBy: 'manual',
+  explorerSortDirection: 'desc',
   htmlExportTemplate: 'styledHtml',
   pdfExportTemplate: 'styledHtml',
   pandocExportFormat: 'pdf',

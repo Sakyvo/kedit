@@ -118,11 +118,7 @@ git:
   deleteFileMessage: '{{path}} deleted with KEDIT'
 
 # Default content for new files
-newFileContent: |
-
-
-
-  > Written with KEDIT.
+newFileContent: ''
 
 # Default properties for new files
 newFileProperties: |
