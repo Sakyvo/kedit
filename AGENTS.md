@@ -22,5 +22,6 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 ## Git 工作流
 
-- **默认规则**：每次任务执行前 `git pull`，完成后 `git push`
-- **特例**：用户可明示跳过 pull 或 push，该要求仅对下一次任务生效
+- **默认规则**：任务执行前 `git pull`；工作到达可验证节点（实现完成、修复完成、阶段产出）后**一律自动 `git commit` + `git push`**，无需等待用户确认，也不必等到 finish-work——push 同时触发 GitHub Pages 部署供真机验收
+- **特例**：仅当用户主动要求暂缓/跳过 pull、commit 或 push 时才不执行，该要求仅对当次生效
+- 本节规则优先于任何"任务中途不提交"的默认约定
