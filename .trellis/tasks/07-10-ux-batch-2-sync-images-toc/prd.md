@@ -1,0 +1,91 @@
+# PRD: 第二批 UX 修复：同步按钮显示/图片流程/目录/手动排序同步
+
+## 背景
+
+07-06 批次上线后（真机/桌面实测）的第二轮反馈：含 1 个上批交付缺陷（M1 手动排序未同步）、若干新 bug 与体验改进。截图证据：`research/assets/001-010.png`。
+
+## 需求清单（原始输入整理）
+
+### S. 同步按钮显示（逻辑不变，仅显示）
+- S1. 打开文档时同步按钮默认红色——错误。未编辑时应绿色（已同步），做出改动后才红色（未同步）
+- S2. 精简：移除"白色同步"按钮，由彩色三态按钮统一承担；同步进行中用旋转图标表达（省一个位置）
+- S3. 红色态按钮似乎比绿色态高几 px，若属实修复
+- S4. 预览模式中也应显示同步按钮
+
+### I. 插图按钮与图片流程（001/002.png）
+- I1. URL 弹窗（001.png）：移除下方"取消"按钮（右上 X 已代替）
+- I2. 外部 URL 支持一次插入多张图，以 `,` 或回车分隔
+- I3. 上传图片后自动插入文章（当前是先转 URL 填入输入框再手动确认）；同样支持多张
+- I4. 多张图插入文章时以回车分割（每图独立一行）
+- I5. bug（002.png）：点击编辑视图图片下方灰色区域（含图片 URL 文字）也触发放大镜；应只在点击真实图片时触发（原版 StackEdit 无此问题）
+
+### T. 目录面板（003.png）
+- T1. 增大目录各级字体，且更贴边（减小左侧缩进/留白）
+- T2. 目录右上角 X 当前回到"菜单"页（07-06 C9 的层级返回逻辑）——目录面板例外：X 直接关闭侧栏回到文档；在 X 左侧新增"自动跳转"开关按钮（SVG 绘制，默认开启）：开启时点击标题后自动关闭目录菜单
+
+### R. 回收站菜单
+- R1. trash 内文件菜单移除"删除"项，只留"永久删除"，且permanent删除项显示为红色（danger 样式）
+
+### B. 滚动条拖拽断触
+- B1. 按住滚动条拖动时，指针/手指横向移出滚动条区域即断触（原生滚动条行为）。要求：只要按住，无论光标在哪都继续滚动 → 需评估自定义滚动条方案
+
+### M. 手动排序（上批缺陷 + 优化）
+- M1. **缺陷**：手动排序结果没有随 kedit-app-data 同步（explorerOrder 未上传/未下载，需根因调查）
+- M2. 开关按钮（004/005.png）：禁用态与启用态几乎无差别；禁用后应无任何背景；图标改为更表达"移动"语义的图标
+
+### G. imgs 目录与"移动到"（006.png）
+- G1. "移动到…"文件夹选择器中隐藏 imgs（不应作为移动目标）
+- G2. "移动到…"从浮动菜单改为固定弹窗（modal）：嵌套树默认全展开 + 滚动条，右上角 X 关闭
+- G3. 侧栏中 imgs 文件夹不可交互 → 定义为特殊"图片文件夹"：蓝色显示，位于"临时目录"下方作占位；点击不展开，弹窗询问是否跳转 GitHub 数据仓库（kedit-app-data）图片目录
+- G4. "回收站"显示为红色，"临时目录"显示为黄色
+
+### U. 下划线斜体
+- U1. 移除 `_` 作为斜体符号的功能（编辑与预览一致），同时消除其导致斜体样式在编辑视图出现的问题
+
+### H. 标题大小平衡（007.png）
+- H1. H6 也应比正文大；H1 过大，缩小到略大于 H2（编辑高亮与预览需一致调整）
+
+### X. 插图错乱 bug（008/009.png）
+- X1. 随机触发：编辑模式显示的图片与预览不同（编辑显示错图、预览正确），刷新恢复。需定位编辑视图图片预览的复用/缓存根因
+
+### N. 列表缩进优化（010.png）
+- N1. 缩进宽度从约"两个汉字"改为约"一个汉字"，排版更紧凑
+- N2. 列表符号仅 3 级循环，扩展为 6 级：4=空心正方形(□)、5=实心菱形(◆)、6=空心菱形(◇)
+
+## 确认的事实（代码探索结论，详见 research/*.md）
+
+- **M1 根因**：同步三件套（data item/syncDataItem/白名单）均有效，`.stackedit-data/explorerOrder.json` 可往返；坏在数据键——map 存本地 Vuex id，git 型主空间每台设备对同一文件生成不同随机 id（gitWorkspaceSvc.js:65 `utils.uid()`），跨设备互不相识；materializeOrder 压缩（explorer.js:292）会剔除外来 id 并回传本机 id，双端互相覆盖。修复=以 git 路径为键（`gitPathsByItemId`/`itemIdsByGitPath` getter 已存在，主空间路径唯一）。附带发现：数据项首次上传 syncData 丢 `id` 字段（落 `"undefined"` 键）、syncData 内嵌整份 data。
+- **S1**：三态色的判定用会话级 `lastSyncSuccess`（初始 0 → 刚打开必红）+ `updatedOn` 墙钟启发式；正确判据应复用 syncSvc.js:784-819 的"内容 hash vs syncData hash"预内。
+- **S2/S4**：`--syncing` 类无 CSS 规则（旋转未实现）；预览模式 `hideLocations` 恒 false（layout.js:138 只在 showEditor 分支置 true）→ 预览完全没有同步按钮。
+- **S3**：三个状态类只差 color，无尺寸差异——高度差非状态类所致（实现时真机复核）。
+- **I1-I4**：对话框 = `modals/ImageModal.vue`；X 走 `config.reject()` 不调 `callback(null)`（与"取消"不一致，pagedown 焦点恢复不执行）；"上传图片"仅回填 URL 输入框（ImageModal.vue:56）；file input 无 `multiple`；确认经 pagedown `doLinkOrImage`（pagedown.js:799-840）生成单条 `![输入图片说明](url)`，多图扩展点=让回调接受数组。
+- **I5**：编辑区图片包 `.token.img-wrapper`（img + 灰色原文，editorSvc.js:745-749），放大命中整个 wrapper（Editor.vue:52-54）；预览只认 IMG（Preview.vue:134）可对照收窄。
+- **X1 根因**：imgCache key=`src:w:h`（editorSvc.js:670），本地图缓存时 src 为空串 → 全部碰撞 `":-1:-1"`，重渲染 `getFromImgCache` 换入任意旧图；仅本地 `/imgs/` 图受影响，刷新清缓存恢复。修法：URI 参与 key 或空 src 不进缓存。
+- **U1**：markdown-it 14 无内置开关；需包装 `inline.ruler.at('emphasis')` 拦截 `0x5F`——**会连 `__strong__` 一起禁**，仅禁 `_em_` 实现复杂。编辑器侧 markdownGrammarSvc.js:323-354 有 4 条含 `_` 规则。
+- **T1/T2**：TOC 字号基准 13px + 左右 20px padding（Toc.vue:77-78），层级缩进 margin-left；X 特例=SideBar.vue:7 三元加 `|| panel === 'toc'`；"自动跳转"存 layoutSettings（toggler 工厂 data.js:70-81），跳转后收起挂点 Toc.vue:36-37。
+- **H1**：编辑区标题梯度 1.7/1.4/1.2/1.1/1.0/0.9em（markdownHighlighting.scss:189-213）；预览区无显式字号（UA 默认，h6≈0.67 小于正文），需 base.scss 新增显式梯度；导出 HTML 模板是否复用 base.scss 需实现时核对。
+- **N1/N2**：编辑区列表为纯文本高亮（无真实 ul/li）→ 只改预览；缩进为全局 `ul,ol{padding-left:30px}`（base.scss:42）；4-6 级符号可用 `li::marker`/`list-style-type: '□ '` 字符串（CSS `square` 是实心，空心方/菱需字符 marker）。
+- **M2**：开关两态只差 `rgba(0,0,0,0.15)` 背景；库内无拖拽语义图标，新增=单 svg-path 组件 + index.js 注册一行。
+- **R1**：ContextMenu 不支持 per-item 颜色，需渲染分支加 `:class="item.className"`（opt-in）。
+- **G 组**：imgs 是同步生成的真实 folder item（图片 blob 不是 item，故子层空且不可交互，本地改名会被下次同步复活）；"移动到…"是二级 contextMenu（列表长会溢出屏幕）；无现成树选择 modal，按 `${Type}Modal` 约定新建即可；GitHub 跳转 URL 用 `githubAppDataProvider.getFilePathUrl`（owner=token.name，repo 硬编码）。
+- **B1**：全库无自定义滚动条组件（仅 app.scss webkit 样式）；断触是浏览器原生滚动条行为（无法用 CSS/事件改变），关键容器 `.editor` 与 `.preview__inner-1`，editorSvc.js:624-625 已有 scroll 监听可挂钩。
+
+## 验收标准
+
+（待细化）
+
+## 范围外
+
+（待定）
+
+## 已决策
+
+- **B1**（用户确认 2026-07-10）：自定义覆盖式滚动条，范围仅编辑区 `.editor` 与预览区 `.preview__inner-1`；pointer capture 实现"按住即持续拖动"；隐藏这两处原生条；滑块最小长度沿用 48px；侧栏/文件树维持原生。
+- **U1**（用户确认 2026-07-10）：`_em_` 与 `__strong__` 一起移除（拦截 emphasis 分词器 `0x5F` + 编辑器语法 4 条 `_` 规则同步删除）；`*`/`**` 不受影响。
+
+## 开放问题
+
+1. M1 根因待调查（explorerOrder 上传/下载链路）
+2. B1 自定义滚动条的方案与范围（工作量大，需用户确认取舍）
+3. U1 是否连同 `__` 加粗一起移除（待确认）
+4. 07-06 任务 finish-work 被中断：spec 沉淀改一半未提交、未归档——收尾方式待确认
