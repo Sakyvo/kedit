@@ -138,8 +138,8 @@ return { url: path.replaceAll(' ', '%20') };
   `updatedOn`.
 - `store.dispatch('content/patchCurrent', patch)` updates current Document
   content and refreshes the owning file's `updatedOn`.
-- `explorer` sort state accepts `sortBy: 'name' | 'updatedOn' | 'createdOn'`
-  and `sortDirection: 'asc' | 'desc'`.
+- `explorer` sort state accepts `sortBy: 'manual' | 'name' | 'updatedOn' | 'createdOn'`
+  and `sortDirection: 'asc' | 'desc'`; `'manual'` ignores direction.
 
 ### 3. Contracts
 
@@ -158,7 +158,7 @@ return { url: path.replaceAll(' ', '%20') };
 - Missing/non-numeric stamp -> explorer treats it as `0` so legacy Documents
   sort as oldest.
 - Invalid sort field/direction -> explorer normalizes to
-  `updatedOn`/`desc`.
+  `manual`/`desc`.
 
 ### 5. Good/Base/Bad Cases
 
