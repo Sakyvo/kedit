@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 11
-- **Last Active**: 2026-07-05
+- **Total Sessions**: 12
+- **Last Active**: 2026-07-10
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~379 | Active |
+| `journal-1.md` | ~413 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 12 | 2026-07-10 | 07-06 批量UX修复与手动排序上线 | `506787cb`, `31fe3372` | `master` |
 | 11 | 2026-07-05 | Hotfix toggles + app-data migration to kedit-app-data | `bf7aca6e`, `d22f6bed` | `master` |
 | 10 | 2026-07-05 | Preview frontend CSS + PWA stale-cache diagnosis | `0cb21efd`, `a74882c9` | `master` |
 | 9 | 2026-07-03 | Preview frontmatter render rule | `9444d679` | `master` |

@@ -377,3 +377,37 @@ preview-frontend: frontmatter 胶囊/长链接换行/去标题分隔线(0cb21efd
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: 07-06 批量UX修复与手动排序上线
+
+**Date**: 2026-07-10
+**Task**: 07-06 批量UX修复与手动排序上线
+**Branch**: `master`
+
+### Summary
+
+18项UX需求全量交付并部署: v-focus/v-title Vue3钩子迁移(修重命名遮罩+复活tooltip); 新建文件去模板; 插图按钮移位; TOC去tap蓝框; 滚动条最小滑块; 侧栏X层级返回; 桌面单同步按钮+侧边栏300px; logo全量替换; 编辑区伪标题正则修复+frontmatter; 未登录同步登录提示; 回收站永久删除; 移动端代理滚动手势; 排序菜单重构+手动排序(explorerOrder同步数据项+桌面/移动拖拽+开关). 已知缺陷: explorerOrder以本地id为键不能跨设备同步, 转入07-10任务修复(根因已定位:git型工作区每设备随机uid).
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `506787cb` | (see git log) |
+| `31fe3372` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
