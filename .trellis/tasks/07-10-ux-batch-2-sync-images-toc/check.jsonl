@@ -1,1 +1,6 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/07-10-ux-batch-2-sync-images-toc/prd.md", "reason": "验收标准逐项核对"}
+{"file": ".trellis/tasks/07-10-ux-batch-2-sync-images-toc/design.md", "reason": "实现与设计契约一致性（v2 数据形状、状态判定、组件边界、回滚点）"}
+{"file": ".trellis/tasks/07-10-ux-batch-2-sync-images-toc/implement.md", "reason": "全局验证命令与真机/双设备终验项"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "构建/回归检查标准"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "explorerOrder v2 跨 store/service/provider 数据流检查"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用既有原语（simpleModal、toggler 工厂、gitPaths getter、hash 判据）而非新造"}

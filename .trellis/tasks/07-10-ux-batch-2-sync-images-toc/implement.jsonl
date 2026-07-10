@@ -1,1 +1,8 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/07-10-ux-batch-2-sync-images-toc/prd.md", "reason": "需求清单、已决策（B1/U1）、验收标准的唯一权威来源"}
+{"file": ".trellis/tasks/07-10-ux-batch-2-sync-images-toc/design.md", "reason": "技术设计：explorerOrder v2 路径化、同步按钮状态判定、自定义滚动条、FolderPickerModal 等"}
+{"file": ".trellis/tasks/07-10-ux-batch-2-sync-images-toc/implement.md", "reason": "三阶段执行清单与验证命令"}
+{"file": ".trellis/tasks/07-10-ux-batch-2-sync-images-toc/research/sync-explorer.md", "reason": "M1 根因链路、同步按钮状态源、imgs/移动到/开关按钮 现状证据（file:line）"}
+{"file": ".trellis/tasks/07-10-ux-batch-2-sync-images-toc/research/images-editor-toc.md", "reason": "ImageModal/imgCache/下划线语法/TOC/标题梯度/列表样式 现状证据（file:line）"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Vuex/data 条目/时间戳与排序契约（explorerOrder v2 变更须遵循并更新）"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Vue SFC 约定（新组件 CustomScrollbar/FolderPickerModal）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "构建与回归检查预期"}
