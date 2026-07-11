@@ -32,9 +32,8 @@ export default modalTemplate({
       }
     },
     reject() {
-      const { callback } = this.config;
+      // editorSvc's modal/open catch runs callback(null)
       this.config.reject();
-      callback(null);
     },
   },
 });

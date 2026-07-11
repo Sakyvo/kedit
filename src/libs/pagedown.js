@@ -798,6 +798,18 @@ commandProto.doLinkOrImage = function (chunk, postProcessing, isImage) {
     // Marks up the link and adds the ref.
     var linkEnteredCallback = function (link) {
 
+      if (Array.isArray(link)) {
+        // Multiple URLs: insert one markdown link/image per line, replacing the selection
+        var description = that.getString(isImage ? "imagedescription" : "linkdescription");
+        chunk.startTag = "";
+        chunk.endTag = "";
+        chunk.selection = link.map(function (url) {
+          return (isImage ? "![" : "[") + description + "](" + properlyEncoded(url) + ")";
+        }).join("\n");
+        postProcessing();
+        return;
+      }
+
       if (link !== null) {
         // (                          $1
         //     [^\\]                  anything that's not a backslash

@@ -8,7 +8,7 @@
     </div>
     <!-- Side bar -->
     <div class="navigation-bar__inner navigation-bar__inner--right navigation-bar__inner--button">
-      <button class="navigation-bar__button navigation-bar__button--sync-quick button" :class="'navigation-bar__button--' + syncStatus" v-if="styles.hideLocations" v-title="'立即同步'" tour-step-anchor="theme" :disabled="syncDisabled" @click="requestSync"><icon-sync></icon-sync></button>
+      <button class="navigation-bar__button navigation-bar__button--sync-quick button" :class="'navigation-bar__button--' + syncStatus" v-title="'立即同步'" tour-step-anchor="theme" :disabled="syncDisabled" @click="requestSync"><icon-sync></icon-sync></button>
       <a class="navigation-bar__button navigation-bar__button--kedit button" v-if="light" href="app" target="_blank" v-title="'打开KEDIT'"><icon-provider provider-id="kedit"></icon-provider></a>
       <button class="navigation-bar__button navigation-bar__button--kedit button" v-else tour-step-anchor="menu" @click="toggleSideBar()" v-title="'切换侧边栏'"><icon-provider provider-id="kedit"></icon-provider></button>
     </div>
@@ -21,7 +21,6 @@
       <!-- Sync/Publish -->
       <div class="flex flex--row" :class="{'navigation-bar__hidden': styles.hideLocations}">
         <a class="navigation-bar__button navigation-bar__button--location button" :class="{'navigation-bar__button--blink': location.id === currentLocation.id}" v-for="location in syncLocations" :key="location.id" :href="location.url" target="_blank" v-title="'同步位置'"><icon-provider :provider-id="location.providerId"></icon-provider></a>
-        <button class="navigation-bar__button navigation-bar__button--sync button" :class="'navigation-bar__button--' + syncStatus" :disabled="syncDisabled" @click="requestSync" v-title="'立即同步'"><icon-sync></icon-sync></button>
         <a class="navigation-bar__button navigation-bar__button--location button" :class="{'navigation-bar__button--blink': location.id === currentLocation.id}" v-for="location in publishLocations" :key="location.id" :href="location.url" target="_blank" v-title="'发布位置'"><icon-provider :provider-id="location.providerId"></icon-provider></a>
         <button class="navigation-bar__button navigation-bar__button--publish button" :disabled="!publishLocations.length || isPublishRequested || offline" @click="requestPublish" v-title="'立即发布'"><icon-upload></icon-upload></button>
       </div>
@@ -129,13 +128,17 @@ export default {
       if (this.isSyncRequested) {
         return 'syncing';
       }
-      const { lastSyncSuccess } = store.state;
-      if (!lastSyncSuccess) {
-        return 'unsynced';
+      // Same predicate as syncSvc: the current file is in sync iff its
+      // content hash matches its syncData hash (no wall-clock heuristics)
+      const fileId = store.getters['file/current'].id;
+      const contentId = `${fileId}/content`;
+      const content = fileId && store.state.content.itemsById[contentId];
+      if (!content) {
+        // No document opened or content not loaded yet
+        return 'synced';
       }
-      const dirty = store.getters['file/items']
-        .some(file => (file.updatedOn || 0) > lastSyncSuccess);
-      return dirty ? 'unsynced' : 'synced';
+      const syncData = store.getters['data/syncDataByItemId'][contentId];
+      return syncData && syncData.hash === content.hash ? 'synced' : 'unsynced';
     },
   },
   methods: {
@@ -337,13 +340,12 @@ export default {
   background-color: transparent;
 }
 
-.navigation-bar__button--sync,
 .navigation-bar__button--publish {
   padding: 0 6px;
   margin: 0 5px;
 }
 
-/* Sync state colors: unsynced red, syncing default, synced green */
+/* Sync state: unsynced red, synced green, syncing spins the icon */
 .navigation-bar__button--unsynced:not([disabled]) {
   &,
   &:active,
@@ -360,6 +362,10 @@ export default {
   &:hover {
     color: #5cb85c;
   }
+}
+
+.navigation-bar__button--syncing .icon {
+  animation: spin 1.5s linear infinite;
 }
 
 .navigation-bar__button[disabled] {

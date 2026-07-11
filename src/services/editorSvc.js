@@ -597,17 +597,19 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     });
     this.pagedownEditor.run();
     this.pagedownEditor.hooks.set('insertLinkDialog', (callback) => {
+      // Closing the dialog (X button / Escape) rejects the modal promise:
+      // call the pagedown callback so editor focus/selection is restored
       store.dispatch('modal/open', {
         type: 'link',
         callback,
-      });
+      }).catch(() => callback(null));
       return true;
     });
     this.pagedownEditor.hooks.set('insertImageDialog', (callback) => {
       store.dispatch('modal/open', {
         type: 'image',
         callback,
-      });
+      }).catch(() => callback(null));
       return true;
     });
     this.pagedownEditor.hooks.set('insertChatGptDialog', (callback, editorContext = {}) => {
