@@ -194,6 +194,55 @@ store.dispatch('content/patchCurrent', { text });
 Use the action so the Document content and the owning file's modified timestamp
 stay in sync.
 
+## Explorer Manual Order (explorerOrder) Contract
+
+### 1. Scope / Trigger
+
+- Manual explorer sorting persists per-folder child order in the `explorerOrder`
+  data item (IndexedDB; synced in the main workspace via `syncDataItem` and the
+  gitWorkspaceSvc data whitelist).
+
+### 2. Signatures
+
+- Shape: `{ version: 2, orders: { [parentKey]: string[] } }`.
+- `parentKey` and elements are GIT PATHS (folder `path/`, file `path.md`);
+  root children use parentKey `'root'`.
+- Read via `data/explorerOrder` getter (normalizes: non-v2 payload -> `{}`).
+- Write via `data/patchExplorerOrder` (merges `orders` locally, then writes the
+  full v2 payload) or `data/setExplorerOrder` (full replace; required for key
+  deletion).
+
+### 3. Contracts
+
+- Never persist local Vuex item ids cross-device: git workspaces generate a
+  random local id per device (`gitWorkspaceSvc` `utils.uid()`), so only git
+  paths are stable keys.
+- Do NOT use the generic `patcher` factory for nested payloads — it merges
+  top-level keys only and would clobber sibling `orders` entries.
+- Rename/move flows must remap affected keys/elements
+  (`workspaceSvc.remapExplorerOrderPaths`, called from `setOrPatchItem`),
+  otherwise renamed items silently fall to the tail.
+- Paths missing from an entry render at the tail ordered by `createdOn` asc.
+- `explorer/materializeOrder` snapshots/compacts entries; it must stay
+  convergent (only dispatch a write when content actually changed) and store
+  writes never happen inside getters.
+- trash/temp/imgs subtrees are excluded from `orders`.
+
+### 4. Wrong vs Correct
+
+Wrong:
+
+```js
+dispatch('data/patchExplorerOrder', { [folderItem.id]: childIds });
+```
+
+Correct:
+
+```js
+const key = gitPathsByItemId[folderItem.id]; // 'docs/notes/'
+dispatch('data/patchExplorerOrder', { [key]: childGitPaths });
+```
+
 ## Common Mistakes
 
 - Writing directly to IndexedDB from components.
