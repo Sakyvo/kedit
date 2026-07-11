@@ -7,6 +7,7 @@ import markdownitMark from 'markdown-it-mark';
 import { imgSize } from '@mdit/plugin-img-size';
 import markdownitSub from 'markdown-it-sub';
 import markdownitSup from 'markdown-it-sup';
+import emphasis from 'markdown-it/lib/rules_inline/emphasis.mjs';
 import markdownitTasklist from './libs/markdownItTasklist';
 import markdownitAnchor from './libs/markdownItAnchor';
 import frontmatterRule from './frontmatterRule';
@@ -53,6 +54,16 @@ const inlineBaseRules2 = [
   // 'text_collapse',
 ];
 
+// Underscores no longer trigger emphasis (`_em_`/`__strong__` render as plain
+// text); asterisks keep the stock behavior. Since no `_` delimiter is ever
+// pushed, the ruler2 post-processing (balance_pairs/emphasis) has nothing to
+// pair and needs no wrapping.
+const emphasisAsteriskOnly = (state, silent) => (
+  state.src.charCodeAt(state.pos) === 0x5F /* _ */
+    ? false
+    : emphasis.tokenize(state, silent)
+);
+
 extensionSvc.onGetOptions((options, properties) => Object
   .assign(options, properties.extensions.markdown));
 
@@ -85,6 +96,7 @@ extensionSvc.onInitConverter(0, (markdown, options) => {
   }
   markdown.inline.ruler.enable(inlineRules);
   markdown.inline.ruler2.enable(inlineRules2);
+  markdown.inline.ruler.at('emphasis', emphasisAsteriskOnly);
 
   if (options.abbr) {
     markdown.use(markdownitAbbr);

@@ -8,6 +8,7 @@
 <script>
 import { mapGetters } from 'vuex';
 import editorSvc from '../services/editorSvc';
+import store from '../store';
 
 export default {
   data: () => ({
@@ -29,7 +30,7 @@ export default {
       if (!sectionElt) {
         return;
       }
-      editorSvc.previewCtx.sectionDescList.some((sectionDesc) => {
+      const jumped = editorSvc.previewCtx.sectionDescList.some((sectionDesc) => {
         if (sectionDesc.tocElt !== sectionElt) {
           return false;
         }
@@ -37,6 +38,10 @@ export default {
         editorSvc.previewElt.parentNode.scrollTop = sectionDesc.previewDimension.startOffset;
         return true;
       });
+      // With auto-jump enabled, close the side bar once the jump happened
+      if (jumped && store.getters['data/layoutSettings'].tocAutoJump) {
+        store.dispatch('data/toggleSideBar', false);
+      }
     });
 
     // Snap the mask to the current section's entry on scroll
@@ -74,8 +79,8 @@ export default {
   position: relative;
   color: rgba(0, 0, 0, 0.67);
   cursor: pointer;
-  font-size: 13px;
-  padding: 10px 20px 40px;
+  font-size: 15px;
+  padding: 10px 8px 40px;
   white-space: nowrap;
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -101,27 +106,27 @@ export default {
 
     h2 {
       margin: 0.5rem 0;
-      margin-left: 8px;
+      margin-left: 5px;
     }
 
     h3 {
       margin: 0.33rem 0;
-      margin-left: 16px;
+      margin-left: 11px;
     }
 
     h4 {
       margin: 0.22rem 0;
-      margin-left: 24px;
+      margin-left: 16px;
     }
 
     h5 {
       margin: 0.11rem 0;
-      margin-left: 32px;
+      margin-left: 21px;
     }
 
     h6 {
       margin: 0;
-      margin-left: 40px;
+      margin-left: 27px;
     }
   }
 }

@@ -21,7 +21,7 @@
           <icon-view-list></icon-view-list>
         </button>
         <button class="side-title__button side-title__button--manual-sort button" :class="{'side-title__button--on': manualSortEnabled}" v-if="sortBy === 'manual'" @click="toggleManualSort" v-title="manualSortEnabled ? '关闭手动排序' : '开启手动排序'">
-          <icon-menu></icon-menu>
+          <icon-arrow-all></icon-arrow-all>
         </button>
       </div>
       <div class="flex flex--row" v-else>
@@ -235,10 +235,15 @@ export default {
   width: 36px;
 }
 
-/* pressed state of the manual sort toggle */
-.explorer .side-title__button--on {
-  opacity: 1;
-  background-color: rgba(0, 0, 0, 0.15);
+/* manual sort toggle: the off state carries no background at all
+   (the pressed state comes from the global .side-title__button--on rule) */
+.explorer .side-title__button--manual-sort:not(.side-title__button--on) {
+  &,
+  &:active,
+  &:focus,
+  &:hover {
+    background-color: transparent;
+  }
 }
 
 .explorer__tree {

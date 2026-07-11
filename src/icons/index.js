@@ -23,6 +23,8 @@ import Close from './Close';
 import Pen from './Pen';
 import Target from './Target';
 import ArrowLeft from './ArrowLeft';
+import ArrowAll from './ArrowAll';
+import CrosshairsGps from './CrosshairsGps';
 import HelpCircle from './HelpCircle';
 import Toc from './Toc';
 import Login from './Login';
@@ -93,6 +95,8 @@ export default ({
   'iconPen': Pen,
   'iconTarget': Target,
   'iconArrowLeft': ArrowLeft,
+  'iconArrowAll': ArrowAll,
+  'iconCrosshairsGps': CrosshairsGps,
   'iconHelpCircle': HelpCircle,
   'iconToc': Toc,
   'iconLogin': Login,

@@ -45,12 +45,11 @@ export default {
       });
     },
     findZoomableImage(elt, editorElt) {
+      // Only the rendered image itself zooms, not the whole .img-wrapper
+      // (which also contains the raw markdown text)
       while (elt && elt !== editorElt) {
         if (elt.tagName === 'IMG' && editorElt.contains(elt)) {
           return elt;
-        }
-        if (elt.classList && elt.classList.contains('img-wrapper')) {
-          return elt.querySelector('img');
         }
         elt = elt.parentNode;
       }
@@ -189,8 +188,7 @@ export default {
     display: none;
   }
 
-  .img-wrapper,
-  img {
+  .img-wrapper img {
     cursor: zoom-in;
   }
 

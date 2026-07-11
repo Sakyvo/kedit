@@ -357,13 +357,14 @@ export default {
           name: '导出 .md',
           disabled: !isFile || locked,
           perform: () => workspaceSvc.exportMarkdown(this.node.item.id),
-        }, {
-          name: '删除',
-          perform: () => explorerSvc.deleteItem(),
         }, ...(isFile && this.node.item.parentId === 'trash' ? [{
           name: '永久删除',
+          className: 'context-menu__item--danger',
           perform: () => explorerSvc.permanentlyDeleteItem(),
-        }] : []), {
+        }] : [{
+          name: '删除',
+          perform: () => explorerSvc.deleteItem(),
+        }]), {
           type: 'separator',
         }, {
           name: '复制路径',
@@ -655,6 +656,23 @@ $item-font-size: 14px;
 
   .app--dark & {
     color: rgba(255, 255, 255, 0.5);
+  }
+}
+
+/* special node labels: trash red, temp yellow */
+.explorer-node--trash > .explorer-node__item {
+  color: #d32f2f;
+
+  .app--dark & {
+    color: #ef5350;
+  }
+}
+
+.explorer-node--temp > .explorer-node__item {
+  color: #a67c00;
+
+  .app--dark & {
+    color: #f8bb39;
   }
 }
 

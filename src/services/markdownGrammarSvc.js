@@ -320,36 +320,30 @@ export default {
     rest.tag = markup.tag;
     rest.url = urlPattern;
     rest.email = emailPattern;
+    // Underscore emphasis is disabled (matching the markdown-it side):
+    // only the `*` variants highlight, `_`/`__` stay plain text
     rest['strong cn-strong'] = {
-      pattern: /(^|[^.*])(__|\*\*)(?![_*])[\s\S]*?\2(?=([^.*]|$))/gm,
+      pattern: /(^|[^.*])(\*\*)(?!\*)[\s\S]*?\2(?=([^.*]|$))/gm,
       lookbehind: true,
       inside: {
-        'cl cl-strong cl-start': /^(__|\*\*)/,
-        'cl cl-strong cl-close': /(__|\*\*)$/,
+        'cl cl-strong cl-start': /^\*\*/,
+        'cl cl-strong cl-close': /\*\*$/,
       },
     };
     rest.em = {
-      pattern: /(^|[^.*])(_|\*)(?![_*])[\s\S]*?\2(?=([^.*]|$))/gm,
+      pattern: /(^|[^.*])(\*)(?!\*)[\s\S]*?\2(?=([^.*]|$))/gm,
       lookbehind: true,
       inside: {
-        'cl cl-em cl-start': /^(_|\*)/,
-        'cl cl-em cl-close': /(_|\*)$/,
+        'cl cl-em cl-start': /^\*/,
+        'cl cl-em cl-close': /\*$/,
       },
     };
     rest['strong em'] = {
-      pattern: /(^|[^.*])(__|\*\*)(_|\*)(?![_*])[\s\S]*?\3\2(?=([^.*]|$))/gm,
+      pattern: /(^|[^.*])(\*\*)(\*)(?!\*)[\s\S]*?\3\2(?=([^.*]|$))/gm,
       lookbehind: true,
       inside: {
-        'cl cl-strong cl-start': /^(__|\*\*)(_|\*)/,
-        'cl cl-strong cl-close': /(_|\*)(__|\*\*)$/,
-      },
-    };
-    rest['strong em inv'] = {
-      pattern: /(^|[^.*])(_|\*)(__|\*\*)(?![_*])[\s\S]*?\3\2(?=([^.*]|$))/gm,
-      lookbehind: true,
-      inside: {
-        'cl cl-strong cl-start': /^(_|\*)(__|\*\*)/,
-        'cl cl-strong cl-close': /(__|\*\*)(_|\*)$/,
+        'cl cl-strong cl-start': /^\*\*\*/,
+        'cl cl-strong cl-close': /\*\*\*$/,
       },
     };
     if (options.del) {

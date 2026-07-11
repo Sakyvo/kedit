@@ -3,8 +3,8 @@
     <div class="context-menu__inner flex flex--column" :class="menuClass" :style="{ left: coordinates.left + 'px', top: coordinates.top + 'px' }" @click.stop>
       <div v-for="(item, idx) in items" :key="idx">
         <div class="context-menu__separator" v-if="item.type === 'separator'"></div>
-        <div class="context-menu__item context-menu__item--disabled" v-else-if="item.disabled"><span class="context-menu__item-check" v-if="hasSelectionColumn">{{item.selected ? '●' : ''}}</span>{{item.name}}</div>
-        <a class="context-menu__item" href="javascript:void(0)" v-else @click="close(item)"><span class="context-menu__item-check" v-if="hasSelectionColumn">{{item.selected ? '●' : ''}}</span>{{item.name}}</a>
+        <div class="context-menu__item context-menu__item--disabled" :class="item.className" v-else-if="item.disabled"><span class="context-menu__item-check" v-if="hasSelectionColumn">{{item.selected ? '●' : ''}}</span>{{item.name}}</div>
+        <a class="context-menu__item" :class="item.className" href="javascript:void(0)" v-else @click="close(item)"><span class="context-menu__item-check" v-if="hasSelectionColumn">{{item.selected ? '●' : ''}}</span>{{item.name}}</a>
       </div>
     </div>
   </div>
@@ -37,6 +37,8 @@ export default {
 </script>
 
 <style lang="scss">
+@import '../styles/variables.scss';
+
 .context-menu {
   position: absolute;
   width: 100%;
@@ -75,6 +77,20 @@ a.context-menu__item {
 
 .context-menu__item--disabled {
   color: #aaa;
+}
+
+/* Opt-in per-item danger styling (e.g. permanent deletion) */
+.context-menu__item--danger {
+  color: $error-color;
+}
+
+a.context-menu__item--danger {
+  &:active,
+  &:focus,
+  &:hover {
+    background-color: rgba(243, 49, 17, 0.1);
+    color: $error-color;
+  }
 }
 
 .context-menu__item-check {

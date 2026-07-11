@@ -363,6 +363,21 @@ textarea {
   }
 }
 
+/* pressed state of side-title toggle buttons */
+.side-title__button--on {
+  &,
+  &:active,
+  &:focus,
+  &:hover {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.25);
+
+    .app--dark & {
+      background-color: rgba(0, 0, 0, 0.4);
+    }
+  }
+}
+
 .side-title__title {
   text-transform: uppercase;
   padding: 0 5px;

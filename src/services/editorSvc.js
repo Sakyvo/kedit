@@ -54,6 +54,7 @@ const pathUrlMap = Object.create(null);
 const pathUrlRefCountMap = Object.create(null);
 const localImageSrcAttr = 'data-ws-src';
 const localImagePathAttr = 'data-ws-path';
+const imgUriAttr = 'data-img-uri';
 const localImageSrcMatcher = /(<img\b[^>]*?)\ssrc=(['"])([^'"]+)\2/ig;
 
 const isWorkspaceLocalUri = uri => !!uri && !/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(uri);
@@ -667,7 +668,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       );
     };
 
-    const hashImgElt = imgElt => `${imgElt.src}:${imgElt.width || -1}:${imgElt.height || -1}`;
+    // Key the cache by the markdown URI as well: workspace-local images are
+    // cached before their async src resolves and distinct ones must not collide
+    const hashImgElt = imgElt => `${imgElt.getAttribute(imgUriAttr)}:${imgElt.src}:${imgElt.width || -1}:${imgElt.height || -1}`;
 
     const addToImgCache = (imgElt) => {
       const hash = hashImgElt(imgElt);
@@ -740,6 +743,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
                   imgElt.height = parseInt(match[2], 10);
                 }
               }
+              imgElt.setAttribute(imgUriAttr, uri);
               imgEltsToCache.push(imgElt);
             }
             const imgTokenWrapper = document.createElement('span');
@@ -771,6 +775,11 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     }
     this.clEditor.highlighter.on('highlighted', () => {
       imgEltsToCache.forEach((imgElt) => {
+        if (!imgElt.getAttribute('src')) {
+          // Workspace-local images get their src asynchronously; an element
+          // with an empty src must be neither reused nor cached
+          return;
+        }
         const cachedImgElt = getFromImgCache(imgElt);
         if (cachedImgElt) {
           // Found a previously loaded image that has just been released

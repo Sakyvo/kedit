@@ -258,6 +258,7 @@ export default {
     toggleStatusBar: layoutSettingsToggler('showStatusBar', 'toggleStatusBar'),
     toggleScrollSync: layoutSettingsToggler('scrollSync', 'toggleScrollSync'),
     toggleFocusMode: layoutSettingsToggler('focusMode', 'toggleFocusMode'),
+    toggleTocAutoJump: layoutSettingsToggler('tocAutoJump'),
     toggleSideBar: ({ getters, dispatch, rootGetters }, value) => {
       // Reset side bar
       dispatch('setSideBarPanel');
