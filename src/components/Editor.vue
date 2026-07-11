@@ -1,10 +1,13 @@
 <template>
-  <div ref="editorRoot" class="editor" ondrop="return false;">
-    <pre class="editor__inner markdown-highlighting" :style="{padding: styles.editorPadding}" :class="{monospaced: computedSettings.editor.monospacedFontOnly}"></pre>
-    <div class="gutter" :style="{left: styles.editorGutterLeft + 'px'}">
-      <comment-list v-if="styles.editorGutterWidth"></comment-list>
-      <editor-new-discussion-button v-if="!isCurrentTemp"></editor-new-discussion-button>
+  <div class="editor-container">
+    <div ref="editorRoot" class="editor" ondrop="return false;">
+      <pre class="editor__inner markdown-highlighting" :style="{padding: styles.editorPadding}" :class="{monospaced: computedSettings.editor.monospacedFontOnly}"></pre>
+      <div class="gutter" :style="{left: styles.editorGutterLeft + 'px'}">
+        <comment-list v-if="styles.editorGutterWidth"></comment-list>
+        <editor-new-discussion-button v-if="!isCurrentTemp"></editor-new-discussion-button>
+      </div>
     </div>
+    <custom-scrollbar v-if="scrollerElt" :target="scrollerElt"></custom-scrollbar>
   </div>
 </template>
 
@@ -12,6 +15,7 @@
 import { mapGetters } from 'vuex';
 import CommentList from './gutters/CommentList';
 import EditorNewDiscussionButton from './gutters/EditorNewDiscussionButton';
+import CustomScrollbar from './common/CustomScrollbar';
 import store from '../store';
 import editorSvc from '../services/editorSvc';
 import imageSvc from '../services/imageSvc';
@@ -21,7 +25,11 @@ export default {
   components: {
     CommentList,
     EditorNewDiscussionButton,
+    CustomScrollbar,
   },
+  data: () => ({
+    scrollerElt: null,
+  }),
   computed: {
     ...mapGetters('file', [
       'isCurrentTemp',
@@ -89,6 +97,8 @@ export default {
     },
   },
   mounted() {
+    // Overlay scrollbar target (the .editor element is the scroller)
+    this.scrollerElt = this.$refs.editorRoot;
     // 当前选择的图片存储图床
     const currImgStorageStr = localStorage.getItem('img/checkedStorage');
     if (currImgStorageStr) {
@@ -161,11 +171,23 @@ export default {
 <style lang="scss">
 @import '../styles/variables.scss';
 
+.editor-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
 .editor {
   position: absolute;
   width: 100%;
   height: 100%;
   overflow: auto;
+  /* the overlay CustomScrollbar replaces the native bar (this container only) */
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .editor__inner {

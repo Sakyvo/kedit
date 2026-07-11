@@ -75,20 +75,26 @@ export default {
 
   /**
    * In manual sort mode, append a newly created item to its parent's order entry.
+   * Entries are keyed and valued with git paths (explorerOrder v2).
    * If the parent has no entry yet, materialization will snapshot it later.
    */
   appendToExplorerOrder(item) {
     if (!item || store.state.explorer.sortBy !== 'manual') {
       return;
     }
-    const parentKey = item.parentId || 'root';
-    if (parentKey === 'trash' || parentKey === 'temp') {
+    if (item.parentId === 'trash' || item.parentId === 'temp') {
+      return;
+    }
+    const gitPaths = store.getters.gitPathsByItemId;
+    const parentKey = item.parentId ? gitPaths[item.parentId] : 'root';
+    const itemPath = gitPaths[item.id];
+    if (!parentKey || !itemPath) {
       return;
     }
     const entry = store.getters['data/explorerOrder'][parentKey];
-    if (entry && entry.indexOf(item.id) === -1) {
+    if (Array.isArray(entry) && entry.indexOf(itemPath) === -1) {
       store.dispatch('data/patchExplorerOrder', {
-        [parentKey]: [...entry, item.id],
+        [parentKey]: [...entry, itemPath],
       });
     }
   },
@@ -182,6 +188,8 @@ export default {
       }
     }
 
+    const oldGitPath = store.getters.gitPathsByItemId[item.id];
+
     // Save item in the store
     store.commit(`${item.type}/setItem`, item);
 
@@ -193,7 +201,49 @@ export default {
       this.makePathUnique(item.id);
     }
 
+    // Keep manual order entries pointing at the new path (rename/move)
+    this.remapExplorerOrderPaths(oldGitPath, store.getters.gitPathsByItemId[item.id]);
+
     return store.getters.allItemsById[item.id];
+  },
+
+  /**
+   * explorerOrder v2 stores git paths: when a file/folder path changes
+   * (rename/move), remap its occurrences so the manual order is preserved
+   * instead of falling back to the tail. Runs in every sort mode to keep
+   * the persisted data coherent.
+   */
+  remapExplorerOrderPaths(oldPath, newPath) {
+    if (!oldPath || !newPath || oldPath === newPath) {
+      return;
+    }
+    const isFolder = oldPath.slice(-1) === '/';
+    const mapPath = (path) => {
+      if (path === oldPath) {
+        return newPath;
+      }
+      // Folder move/rename also relocates every descendant entry
+      if (isFolder && path.indexOf(oldPath) === 0) {
+        return newPath + path.slice(oldPath.length);
+      }
+      return path;
+    };
+    let changed = false;
+    const newOrders = {};
+    Object.entries(store.getters['data/explorerOrder']).forEach(([key, entry]) => {
+      const newKey = key === 'root' ? key : mapPath(key);
+      const newEntry = Array.isArray(entry) ? entry.map(mapPath) : entry;
+      if (newKey !== key
+        || (Array.isArray(entry) && newEntry.some((path, idx) => path !== entry[idx]))
+      ) {
+        changed = true;
+      }
+      newOrders[newKey] = newEntry;
+    });
+    if (changed) {
+      // Full replace: key renames require deleting the old key
+      store.dispatch('data/setExplorerOrder', newOrders);
+    }
   },
 
   async moveItem(itemId, parentId = null) {

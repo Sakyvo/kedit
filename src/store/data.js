@@ -31,8 +31,9 @@ const empty = (id) => {
     case 'layoutSettings':
       return itemTemplate(id, defaultLayoutSettings());
     case 'explorerOrder':
-      // Manual explorer sort order: { [parentId ('root' or folder id)]: orderedChildIds }
-      return itemTemplate(id, {});
+      // Manual explorer sort order, v2 (device-portable):
+      // { version: 2, orders: { [parentKey ('root' or parent git path)]: orderedChildGitPaths } }
+      return itemTemplate(id, { version: 2, orders: {} });
     default:
       return itemTemplate(id);
   }
@@ -178,7 +179,10 @@ export default {
     },
     localSettings: getter('localSettings'),
     layoutSettings: getter('layoutSettings'),
-    explorerOrder: getter('explorerOrder'),
+    explorerOrderData: getter('explorerOrder'),
+    // Normalized path-keyed orders map; legacy id-keyed data (no version) reads as empty
+    explorerOrder: (state, { explorerOrderData }) =>
+      (explorerOrderData.version === 2 && explorerOrderData.orders) || {},
     templatesById: getter('templates'),
     allTemplatesById: (state, { templatesById }) => ({
       ...templatesById,
@@ -250,8 +254,20 @@ export default {
     },
     patchLocalSettings: patcher('localSettings'),
     patchLayoutSettings: patcher('layoutSettings'),
-    setExplorerOrder: setter('explorerOrder'),
-    patchExplorerOrder: patcher('explorerOrder'),
+    // explorerOrder v2 nests the map under `orders`: both actions take a path-keyed
+    // orders map. The generic patcher merges TOP-LEVEL keys only (it would replace
+    // the whole `orders` object and clobber sibling parents), so patching merges
+    // the orders locally and always writes the full v2 payload.
+    setExplorerOrder: ({ commit }, orders) =>
+      commit('setItem', itemTemplate('explorerOrder', { version: 2, orders })),
+    patchExplorerOrder: ({ getters, commit }, patch) =>
+      commit('setItem', itemTemplate('explorerOrder', {
+        version: 2,
+        orders: {
+          ...getters.explorerOrder,
+          ...patch,
+        },
+      })),
     toggleNavigationBar: layoutSettingsToggler('showNavigationBar', 'toggleNavigationBar'),
     toggleEditor: layoutSettingsToggler('showEditor', 'toggleEditor'),
     toggleSidePreview: layoutSettingsToggler('showSidePreview', 'toggleSidePreview'),

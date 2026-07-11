@@ -211,15 +211,16 @@ export default new Provider({
       sha: gitWorkspaceSvc.shaByPath[path],
     });
 
-    return {
-      syncData: {
-        ...syncData,
-        type: item.type,
-        hash: item.hash,
-        data: item.data,
-        sha: res.content.sha,
-      },
+    // Return new sync data; only what the sync flow consumes (id/type/hash/sha),
+    // the data payload itself must not be duplicated into syncData
+    const newSyncData = {
+      ...syncData,
+      type: item.type,
+      hash: item.hash,
+      sha: res.content.sha,
     };
+    delete newSyncData.data;
+    return { syncData: newSyncData };
   },
   async listFileRevisions({ token, fileSyncDataId }) {
     const { owner, repo, branch } = {

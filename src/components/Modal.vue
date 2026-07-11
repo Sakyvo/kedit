@@ -44,6 +44,7 @@ import WorkspaceImgPathModal from './modals/WorkspaceImgPathModal';
 import WorkspaceBackupExportModal from './modals/WorkspaceBackupExportModal';
 import ChatGptModal from './modals/ChatGptModal';
 import ChatGptConfigModal from './modals/ChatGptConfigModal';
+import FolderPickerModal from './modals/FolderPickerModal';
 
 // Providers
 import GooglePhotoModal from './modals/providers/GooglePhotoModal';
@@ -122,6 +123,7 @@ export default {
     WorkspaceBackupExportModal,
     ChatGptModal,
     ChatGptConfigModal,
+    FolderPickerModal,
     // Providers
     GooglePhotoModal,
     GoogleDriveAccountModal,

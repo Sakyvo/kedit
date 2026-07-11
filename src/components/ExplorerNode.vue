@@ -1,5 +1,5 @@
 <template>
-  <div class="explorer-node" :class="{'explorer-node--selected': isSelected, 'explorer-node--folder': node.isFolder, 'explorer-node--open': isOpen, 'explorer-node--trash': node.isTrash, 'explorer-node--temp': node.isTemp, 'explorer-node--drag-target': isDragTargetFolder}" :data-id="node.item.id" @dragover.prevent @dragenter.stop="node.noDrop || setDragTarget({ node })" @dragleave.stop="isDragTarget && setDragTarget()" @drop.prevent.stop="onDrop" @contextmenu="onContextMenu">
+  <div class="explorer-node" :class="{'explorer-node--selected': isSelected, 'explorer-node--folder': node.isFolder, 'explorer-node--open': isOpen, 'explorer-node--trash': node.isTrash, 'explorer-node--temp': node.isTemp, 'explorer-node--imgs': node.isImgs, 'explorer-node--drag-target': isDragTargetFolder}" :data-id="node.item.id" @dragover.prevent @dragenter.stop="node.noDrop || setDragTarget({ node })" @dragleave.stop="isDragTarget && setDragTarget()" @drop.prevent.stop="onDrop" @contextmenu="onContextMenu">
     <div class="explorer-node__item-editor" v-if="isEditing" :style="{paddingLeft: leftPadding}" draggable="true" @dragstart.stop.prevent>
       <input type="text" ref="editInput" class="text-input" @blur="submitEdit()" @keydown.stop @keydown.enter="submitEdit()" @keydown.esc.stop="submitEdit(true)" v-model="editingValue">
     </div>
@@ -7,7 +7,7 @@
       {{node.item.name}}
       <icon-provider class="explorer-node__location" v-for="location in node.locations" :key="location.id" :provider-id="location.providerId"></icon-provider>
     </div>
-    <div class="explorer-node__children" v-if="node.isFolder && isOpen">
+    <div class="explorer-node__children" v-if="node.isFolder && isOpen && !node.isImgs">
       <explorer-node v-for="node in node.folders" :key="node.item.id" :node="node" :depth="depth + 1"></explorer-node>
       <div v-if="newChild" class="explorer-node__new-child" :class="{'explorer-node__new-child--folder': newChild.isFolder}" :style="{paddingLeft: childLeftPadding}">
         <input type="text" class="text-input" v-focus @blur="submitNewChild()" @keydown.stop @keydown.enter="submitNewChild()" @keydown.esc.stop="submitNewChild(true)" v-model.trim="newChildName">
@@ -22,6 +22,7 @@
 import { mapMutations, mapActions } from 'vuex';
 import workspaceSvc from '../services/workspaceSvc';
 import explorerSvc from '../services/explorerSvc';
+import providerRegistry from '../services/providers/common/providerRegistry';
 import store from '../store';
 import utils from '../services/utils';
 
@@ -276,7 +277,8 @@ export default {
 
       // Rebuild the destination parent's entry from its rendered order
       const folderIds = parentNode.folders
-        .filter(child => !child.isTrash && !child.isTemp && child.item.id !== sourceId)
+        .filter(child => !child.isTrash && !child.isTemp && !child.isImgs
+          && child.item.id !== sourceId)
         .map(child => child.item.id);
       const fileIds = parentNode.files
         .filter(child => child.item.id !== 'fake' && child.item.id !== sourceId)
@@ -293,20 +295,9 @@ export default {
         }
       }
       group.splice(insertIdx, 0, sourceId);
-      const orderPatch = {
-        [parentNode.isRoot ? 'root' : parentNode.item.id]: [...folderIds, ...fileIds],
-      };
 
+      const oldParentNode = sourceNode.parentNode;
       if (crossParent) {
-        const oldParentNode = sourceNode.parentNode;
-        if (oldParentNode && !oldParentNode.isTrash && !oldParentNode.isTemp) {
-          orderPatch[oldParentNode.isRoot ? 'root' : oldParentNode.item.id] = [
-            ...oldParentNode.folders.filter(child => !child.isTrash && !child.isTemp),
-            ...oldParentNode.files.filter(child => child.item.id !== 'fake'),
-          ]
-            .map(child => child.item.id)
-            .filter(id => id !== sourceId);
-        }
         try {
           await workspaceSvc.storeItem({
             ...sourceNode.item,
@@ -314,6 +305,32 @@ export default {
           });
         } catch (e) {
           return; // Canceled (e.g. path conflict dialog)
+        }
+      }
+
+      // explorerOrder v2 entries store git paths: translate ids AFTER the
+      // potential move so the source maps to its new path
+      const gitPaths = store.getters.gitPathsByItemId;
+      const toPaths = ids => ids.map(id => gitPaths[id]).filter(path => path);
+      const parentKey = parentNode.isRoot ? 'root' : gitPaths[parentNode.item.id];
+      if (!parentKey) {
+        return;
+      }
+      const orderPatch = {
+        [parentKey]: toPaths([...folderIds, ...fileIds]),
+      };
+      if (crossParent && oldParentNode
+        && !oldParentNode.isTrash && !oldParentNode.isTemp
+      ) {
+        const oldParentKey = oldParentNode.isRoot ? 'root' : gitPaths[oldParentNode.item.id];
+        if (oldParentKey && oldParentKey !== parentKey) {
+          orderPatch[oldParentKey] = toPaths([
+            ...oldParentNode.folders
+              .filter(child => !child.isTrash && !child.isTemp && !child.isImgs),
+            ...oldParentNode.files.filter(child => child.item.id !== 'fake'),
+          ]
+            .map(child => child.item.id)
+            .filter(id => id !== sourceId));
         }
       }
       store.dispatch('data/patchExplorerOrder', orderPatch);
@@ -324,6 +341,10 @@ export default {
       this.openContextMenu({ left: evt.clientX, top: evt.clientY });
     },
     async openContextMenu(coordinates) {
+      if (this.node.isImgs) {
+        // The imgs placeholder is not a managed folder: no context menu
+        return;
+      }
       if (!this.select(undefined, false)) {
         return;
       }
@@ -348,7 +369,7 @@ export default {
         }, {
           name: '移动到…',
           disabled: locked || this.node.noDrag,
-          perform: () => this.openMovePicker(coordinates),
+          perform: () => this.openFolderPicker(),
         }, {
           name: '复制副本',
           disabled: !isFile || locked,
@@ -376,42 +397,41 @@ export default {
         item.perform();
       }
     },
-    async openMovePicker(coordinates) {
-      const target = await store.dispatch('contextMenu/open', {
-        coordinates,
-        items: this.buildMoveTargets(),
-      });
-      if (target) {
-        target.perform();
+    async openFolderPicker() {
+      try {
+        const target = await store.dispatch('modal/open', {
+          type: 'folderPicker',
+          item: this.node.item,
+        });
+        const parentId = (target && target.id) || null;
+        workspaceSvc.moveItem(this.node.item.id, parentId);
+      } catch (e) {
+        // Cancel
       }
     },
-    buildMoveTargets() {
-      const sourceId = this.node.item.id;
-      const currentParentId = this.node.item.parentId || null;
-      const targets = [{
-        name: '根目录',
-        disabled: currentParentId === null,
-        perform: () => workspaceSvc.moveItem(sourceId, null),
-      }];
-      const walk = (folderNode, depth) => {
-        folderNode.folders.forEach((folder) => {
-          if (folder.isTrash || folder.isTemp || folder.item.id === sourceId) {
-            return;
-          }
-          targets.push({
-            name: `${'　'.repeat(depth + 1)}${folder.item.name}`,
-            disabled: folder.item.id === currentParentId,
-            perform: () => workspaceSvc.moveItem(sourceId, folder.item.id),
-          });
-          walk(folder, depth + 1);
-        });
-      };
-      walk(store.getters['explorer/rootNode'], 0);
-      return targets;
+    async openImgsRepo() {
+      const workspace = store.getters['workspace/currentWorkspace'];
+      const provider = providerRegistry.providersById[workspace.providerId];
+      const url = provider && provider.getFilePathUrl && provider.getFilePathUrl('/imgs');
+      if (!url) {
+        this.info('登录后才能访问数据仓库的图片目录。');
+        return;
+      }
+      try {
+        await store.dispatch('modal/open', 'imgsFolderJump');
+        window.open(url, '_blank');
+      } catch (e) {
+        // Cancel
+      }
     },
     onItemClick() {
       if (this.suppressClick) {
         this.suppressClick = false;
+        return;
+      }
+      if (this.node.isImgs) {
+        // Placeholder node: never expands, offers a jump to the git repo instead
+        this.openImgsRepo();
         return;
       }
       this.select();
@@ -673,6 +693,15 @@ $item-font-size: 14px;
 
   .app--dark & {
     color: #f8bb39;
+  }
+}
+
+/* imgs placeholder: blue, jump-to-repo only */
+.explorer-node--imgs > .explorer-node__item {
+  color: #1565c0;
+
+  .app--dark & {
+    color: #64b5f6;
   }
 }
 

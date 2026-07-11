@@ -37,16 +37,16 @@ const compare = ({ sortBy, sortDirection }) => (node1, node2) => {
 const compareCreatedAsc = (node1, node2) =>
   (getStamp(node1.item, 'createdOn') - getStamp(node2.item, 'createdOn'))
     || compareNames(node1, node2);
-// Manual mode: order by index in the explorerOrder entry,
-// ids missing from the entry go to the end, oldest first
-const sortNodesManually = (nodes, orderList) => {
-  const indexById = {};
-  orderList.forEach((id, index) => {
-    indexById[id] = index;
+// Manual mode: order by index in the explorerOrder entry (git paths, v2),
+// nodes missing from the entry go to the end, oldest first
+const sortNodesManually = (nodes, orderList, getNodePath) => {
+  const indexByPath = {};
+  orderList.forEach((path, index) => {
+    indexByPath[path] = index;
   });
   nodes.sort((node1, node2) => {
-    const index1 = indexById[node1.item.id];
-    const index2 = indexById[node2.item.id];
+    const index1 = indexByPath[getNodePath(node1)];
+    const index2 = indexByPath[getNodePath(node2)];
     if (index1 !== undefined && index2 !== undefined) {
       return index1 - index2;
     }
@@ -71,19 +71,24 @@ class Node {
     }
   }
 
-  sortChildren(sortOptions) {
+  sortChildren(sortOptions, path = '') {
     if (this.isFolder) {
-      if (sortOptions.sortBy === 'manual' && !this.isTrash && !this.isTemp) {
-        const orderList = sortOptions.explorerOrder[this.isRoot ? 'root' : this.item.id] || [];
+      if (sortOptions.sortBy === 'manual' && !this.isTrash && !this.isTemp && !this.isImgs) {
+        // explorerOrder v2 entries are keyed and valued with git paths (device-portable).
+        // Paths are derived inline from the ancestry: the gitPathsByItemId getter can't
+        // be used here since it derives from rootNode, which is being computed right now.
+        const entry = sortOptions.explorerOrder[this.isRoot ? 'root' : path];
+        const orderList = Array.isArray(entry) ? entry : [];
+        const getNodePath = node => path + node.item.name + (node.isFolder ? '/' : '.md');
         // Folders always render above files; each group follows the entry's relative order
-        sortNodesManually(this.folders, orderList);
-        sortNodesManually(this.files, orderList);
+        sortNodesManually(this.folders, orderList, getNodePath);
+        sortNodesManually(this.files, orderList, getNodePath);
       } else {
         const compareNodes = compare(sortOptions);
         this.folders.sort(compareNodes);
         this.files.sort(compareNodes);
       }
-      this.folders.forEach(child => child.sortChildren(sortOptions));
+      this.folders.forEach(child => child.sortChildren(sortOptions, `${path}${child.item.name}/`));
     }
   }
 }
@@ -201,13 +206,29 @@ export default {
         }
         node.parentNode = parentNode;
       });
+      // Detach the top-level imgs folder (git image storage, G3). It must STAY in the
+      // tree (pathsByItemId/gitPathsByItemId walk rootNode; dropping it would make the
+      // sync tree scan recreate the folder items) but renders as a special placeholder
+      // pinned below the Temp node, with its whole subtree hidden.
+      let imgsFolderNode = null;
+      const imgsIdx = rootNode.folders.findIndex(node => node.item.name === 'imgs');
+      if (imgsIdx !== -1) {
+        [imgsFolderNode] = rootNode.folders.splice(imgsIdx, 1);
+        imgsFolderNode.isImgs = true;
+        imgsFolderNode.noDrag = true;
+        imgsFolderNode.noDrop = true;
+      }
+
       rootNode.sortChildren({
         sortBy: state.sortBy,
         sortDirection: state.sortDirection,
         explorerOrder: rootGetters['data/explorerOrder'],
       });
 
-      // Add Trash and Temp nodes
+      // Add Trash, Temp and imgs nodes (final order: trash, temp, imgs)
+      if (imgsFolderNode) {
+        rootNode.folders.unshift(imgsFolderNode);
+      }
       rootNode.folders.unshift(tempFolderNode);
       tempFolderNode.files.forEach((node) => {
         node.noDrop = true;
@@ -268,31 +289,40 @@ export default {
         return;
       }
       const oldOrder = rootGetters['data/explorerOrder'];
+      const rawData = rootGetters['data/explorerOrderData'];
+      const gitPaths = rootGetters.gitPathsByItemId;
       const newOrder = {};
-      let changed = false;
+      // Legacy id-keyed data (no version) or leftover junk keys force a clean v2 rewrite
+      let changed = rawData.version !== 2
+        || Object.keys(rawData).some(key => key !== 'version' && key !== 'orders');
       const walk = (node) => {
-        if (node.isTrash || node.isTemp) {
+        if (node.isTrash || node.isTemp || node.isImgs) {
           return;
         }
-        const key = node.isRoot ? 'root' : node.item.id;
-        const childIds = [
-          ...node.folders.filter(child => !child.isTrash && !child.isTemp),
-          ...node.files.filter(child => child.item.id !== 'fake'),
-        ].map(child => child.item.id);
-        const entry = oldOrder[key];
-        if (!entry) {
-          if (childIds.length) {
-            // Snapshot the current rendered order (createdOn asc for unmapped ids)
-            newOrder[key] = childIds;
-            changed = true;
-          }
-        } else {
-          // Compact: drop ids that are no longer children of this parent
-          const childIdSet = new Set(childIds);
-          const compacted = entry.filter(id => childIdSet.has(id));
-          newOrder[key] = compacted;
-          if (compacted.length !== entry.length) {
-            changed = true;
+        const key = node.isRoot ? 'root' : gitPaths[node.item.id];
+        if (key) {
+          // Entries store git paths; items without a git path are never written
+          const childPaths = [
+            ...node.folders.filter(child => !child.isTrash && !child.isTemp && !child.isImgs),
+            ...node.files.filter(child => child.item.id !== 'fake'),
+          ]
+            .map(child => gitPaths[child.item.id])
+            .filter(path => path);
+          const entry = oldOrder[key];
+          if (!Array.isArray(entry)) {
+            if (childPaths.length) {
+              // Snapshot the current rendered order (createdOn asc for unmapped paths)
+              newOrder[key] = childPaths;
+              changed = true;
+            }
+          } else {
+            // Compact: drop paths that are no longer children of this parent
+            const childPathSet = new Set(childPaths);
+            const compacted = entry.filter(path => childPathSet.has(path));
+            newOrder[key] = compacted;
+            if (compacted.length !== entry.length) {
+              changed = true;
+            }
           }
         }
         node.folders.forEach(walk);

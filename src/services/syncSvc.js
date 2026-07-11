@@ -635,7 +635,9 @@ const syncDataItem = async (dataId) => {
     updateSyncData(await workspaceProvider.uploadWorkspaceData({
       token,
       item: mergedItem,
-      syncData: store.getters['data/syncDataById'][dataId],
+      // On first upload there is no sync data yet: default the id so the
+      // resulting syncData is not stored under the "undefined" key
+      syncData: store.getters['data/syncDataById'][dataId] || { id: dataId },
       ifNotTooLate: tooLateChecker(restartContentSyncAfter),
     }));
   }

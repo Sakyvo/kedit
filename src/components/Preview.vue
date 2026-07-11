@@ -8,6 +8,7 @@
         <preview-new-discussion-button v-if="!isCurrentTemp"></preview-new-discussion-button>
       </div>
     </div>
+    <custom-scrollbar v-if="scrollerElt" :target="scrollerElt"></custom-scrollbar>
     <div v-if="!styles.showEditor" class="preview__corner">
       <button class="preview__button button" @click="toggleEditor(true)" v-title="'编辑文件'">
         <icon-pen></icon-pen>
@@ -21,6 +22,7 @@
 import { mapGetters, mapActions } from 'vuex';
 import CommentList from './gutters/CommentList';
 import PreviewNewDiscussionButton from './gutters/PreviewNewDiscussionButton';
+import CustomScrollbar from './common/CustomScrollbar';
 import store from '../store';
 import editorSvc from '../services/editorSvc';
 import { rerenderMermaidDiagrams } from '../extensions/mermaidExtension';
@@ -49,10 +51,12 @@ export default {
   components: {
     CommentList,
     PreviewNewDiscussionButton,
+    CustomScrollbar,
   },
   data: () => ({
     previewTop: true,
     offPreviewCtx: null,
+    scrollerElt: null,
   }),
   computed: {
     ...mapGetters('file', [
@@ -151,6 +155,8 @@ export default {
     },
   },
   mounted() {
+    // Overlay scrollbar target (.preview__inner-1 is the scroller)
+    this.scrollerElt = this.$el.querySelector('.preview__inner-1');
     const previewElt = this.$el.querySelector('.preview__inner-2');
     const enhanceCodeBlocks = () => this.enhanceCodeBlocks(previewElt);
     this.enhanceCodeBlocks(previewElt);
@@ -229,6 +235,12 @@ export default {
 
 .preview__inner-1 {
   overflow: auto;
+  /* the overlay CustomScrollbar replaces the native bar (this container only) */
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .preview__inner-2 {

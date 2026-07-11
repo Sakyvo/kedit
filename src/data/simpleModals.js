@@ -37,6 +37,11 @@ export default {
     '取消',
     '确认删除',
   ),
+  imgsFolderJump: simpleModal(
+    '<p>是否跳转到 GitHub 数据仓库的图片目录？</p>',
+    '取消',
+    '跳转',
+  ),
   pathConflict: simpleModal(
     config => `<p><b>${config.item.name}</b>已经存在。您要添加后缀吗？</p>`,
     '取消',
