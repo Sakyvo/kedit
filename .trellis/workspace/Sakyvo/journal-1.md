@@ -411,3 +411,38 @@ preview-frontend: frontmatter 胶囊/长链接换行/去标题分隔线(0cb21efd
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: 07-10 第二批UX修复上线(排序同步/图片流程/滚动条)
+
+**Date**: 2026-07-11
+**Task**: 07-10 第二批UX修复上线(排序同步/图片流程/滚动条)
+**Branch**: `master`
+
+### Summary
+
+22项验收全量交付并部署,check结论pass-with-notes. 核心: explorerOrder v2以git路径为键修复跨设备排序同步(附带修syncData丢id与内嵌冗余两个存量bug, 改名/移动自动重映射保序); 同步按钮统一为hash判据三态(打开未编辑=绿,恒显示含预览,移除白色按钮); 编辑区随机串图修复(缓存键加URI+空src不入缓存); 图片弹窗多URL/多文件直插+X焦点修复; 自定义滚动条CustomScrollbar(pointer capture防断触,编辑+预览); 移动到改FolderPickerModal(排除imgs/trash/temp/自身); imgs蓝色占位文件夹+GitHub跳转; _/__语法移除; 标题梯度1.5-1.05; 列表缩进16px+6级符号; TOC增字贴边+X直接关闭+自动跳转开关; 回收站仅红色永久删除. 待真机终验: 双设备排序一致性/触摸拖滚动条. spec沉淀: explorerOrder v2契约(禁本地id跨设备,patch语义,remap).
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ca7a4b67` | (see git log) |
+| `28ef4f68` | (see git log) |
+| `ac627787` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
