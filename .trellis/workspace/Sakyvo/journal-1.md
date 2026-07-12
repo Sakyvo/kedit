@@ -446,3 +446,36 @@ preview-frontend: frontmatter 胶囊/长链接换行/去标题分隔线(0cb21efd
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: 07-11 第三批UX修复上线(回归与精修7项)
+
+**Date**: 2026-07-12
+**Task**: 07-11 第三批UX修复上线(回归与精修7项)
+**Branch**: `master`
+
+### Summary
+
+7项修复全部交付并部署,check通过含1处自修. Z1同步中蓝色旋转(白色态根因=syncing无配色+disabled灰化,非按钮残留); Z2浮层阶梯确立(滚动条1<modal 100<通知200<菜单300<灯箱1000,检查代理抓住并修正单改modal引发的通知/菜单倒置); Z3目录编辑区精确跳转(活DOM offsetTop+贴底钳制+scrollSync以编辑区为源,弃500ms防抖缓存); Z4自动跳转开关修复(根因@click少括号,MouseEvent当value恒true); Z5列表1em字宽阶梯对齐+4-6级marker换▫/⬩/⋄并逐级调字号; Z6上传占位符替换并入同一undo批次(setContent noUndo+addDiffs),Ctrl+Z一步消失; Z7图片行视口稳定(本地图创建时同步查pathUrlMap设src重获缓存复用+per-URI预设宽高,X1守卫不变). spec沉淀: z-index阶梯契约.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4c0f3211` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
