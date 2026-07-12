@@ -37,9 +37,14 @@ dl {
   margin: 0 0 1.1em;
 }
 
-ul,
+/* em-based indent so each nesting level steps exactly one char column
+   of the dynamic preview font size (16/17/18px) */
+ul {
+  padding-left: 1em;
+}
+
 ol {
-  padding-left: 16px;
+  padding-left: 1.5em; /* decimal numbers need extra room */
 }
 
 /* 6-level unordered list marker cycle:
@@ -57,16 +62,30 @@ ul ul ul {
   list-style-type: square;
 }
 
+/* L4-6 use smoother/smaller glyphs (\FE0E forces text presentation),
+   ::marker font-size tuned so their area matches the L3 square */
 ul ul ul ul {
-  list-style-type: '\25A1\20'; /* □ */
+  list-style-type: '\25AB\FE0E\20'; /* ▫ white small square */
+
+  & > li::marker {
+    font-size: 0.9em;
+  }
 }
 
 ul ul ul ul ul {
-  list-style-type: '\25C6\20'; /* ◆ */
+  list-style-type: '\2B29\20'; /* ⬩ black small diamond */
+
+  & > li::marker {
+    font-size: 0.9em;
+  }
 }
 
 ul ul ul ul ul ul {
-  list-style-type: '\25C7\20'; /* ◇ */
+  list-style-type: '\22C4\20'; /* ⋄ diamond operator, smooth hollow */
+
+  & > li::marker {
+    font-size: 0.95em;
+  }
 }
 
 h1,

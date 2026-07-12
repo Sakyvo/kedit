@@ -4,7 +4,7 @@
       <div class="side-title__title">
         {{panelName}}
       </div>
-      <button class="side-title__button button" :class="{'side-title__button--on': tocAutoJump}" v-if="panel === 'toc'" @click="toggleTocAutoJump" v-title="tocAutoJump ? '自动跳转：开' : '自动跳转：关'">
+      <button class="side-title__button button" :class="{'side-title__button--on': tocAutoJump}" v-if="panel === 'toc'" @click="toggleTocAutoJump()" v-title="tocAutoJump ? '自动跳转：开' : '自动跳转：关'">
         <icon-crosshairs-gps></icon-crosshairs-gps>
       </button>
       <button class="side-title__button button" @click="panel === 'menu' || panel === 'toc' ? toggleSideBar(false) : setPanel('menu')" v-title="panel === 'menu' || panel === 'toc' ? '关闭侧边栏' : '返回主菜单'">

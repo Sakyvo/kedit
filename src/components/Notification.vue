@@ -34,6 +34,7 @@ export default {
 
 .notification {
   position: absolute;
+  z-index: 200; /* above .modal (100), below .image-lightbox (1000) */
   bottom: 0;
   right: 0;
   width: 100%;

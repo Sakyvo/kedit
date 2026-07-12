@@ -118,7 +118,7 @@ export default {
   right: 0;
   bottom: 0;
   width: 8px;
-  z-index: 10;
+  z-index: 1;
   /* the bar handles its own pointer gestures, incl. touch drags */
   touch-action: none;
 }

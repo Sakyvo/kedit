@@ -34,8 +34,24 @@ export default {
         if (sectionDesc.tocElt !== sectionElt) {
           return false;
         }
-        editorSvc.editorElt.parentNode.scrollTop = sectionDesc.editorDimension.startOffset;
-        editorSvc.previewElt.parentNode.scrollTop = sectionDesc.previewDimension.startOffset;
+        if (this.styles.showEditor) {
+          // Edit mode (incl. side preview): read the live section element
+          // instead of the debounced dimension cache (stale after image loads).
+          // Scrolling the editor makes it the scroll-sync source, so the
+          // preview follows without being re-dragged by stale dimensions.
+          const editorScrollerElt = editorSvc.editorElt.parentNode;
+          let offset = 0;
+          let elt = sectionDesc.editorElt;
+          while (elt && elt !== editorScrollerElt) {
+            offset += elt.offsetTop;
+            elt = elt.offsetParent;
+          }
+          const maxScrollTop = editorScrollerElt.scrollHeight - editorScrollerElt.clientHeight;
+          editorScrollerElt.scrollTop = Math.max(0, Math.min(offset, maxScrollTop));
+        } else if (sectionDesc.previewDimension) {
+          // Preview-only mode: unchanged
+          editorSvc.previewElt.parentNode.scrollTop = sectionDesc.previewDimension.startOffset;
+        }
         return true;
       });
       // With auto-jump enabled, close the side bar once the jump happened

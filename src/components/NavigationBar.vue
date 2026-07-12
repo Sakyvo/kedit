@@ -377,6 +377,17 @@ export default {
   }
 }
 
+/* Syncing state stays blue even while disabled */
+.navigation-bar__button--syncing,
+.navigation-bar__button--syncing[disabled] {
+  &,
+  &:active,
+  &:focus,
+  &:hover {
+    color: #4a90e2;
+  }
+}
+
 .navigation-bar__button {
   &:active,
   &:focus,

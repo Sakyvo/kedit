@@ -41,6 +41,7 @@ export default {
 
 .context-menu {
   position: absolute;
+  z-index: 300; /* above .modal (100) and .notification (200) */
   width: 100%;
   height: 100%;
   font-size: 14px;

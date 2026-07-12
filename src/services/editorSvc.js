@@ -714,6 +714,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     }, 100);
 
     let imgEltsToCache = [];
+    // Natural size per markdown URI, recorded on load and preset on creation
+    // so re-rendered images keep their box (no 0->H collapse/expand jump)
+    const uriNaturalDimensionMap = Object.create(null);
     if (store.getters['data/computedSettings'].editor.inlineImages) {
       this.clEditor.highlighter.on('sectionHighlighted', (section) => {
         const loadImgs = [];
@@ -728,9 +731,24 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
             if (!/^unsafe/.test(htmlSanitizer.sanitizeUri(uri, true))) {
               imgElt.onload = () => {
                 imgElt.style.display = '';
+                if (imgElt.naturalWidth && imgElt.naturalHeight) {
+                  uriNaturalDimensionMap[uri] = {
+                    width: imgElt.naturalWidth,
+                    height: imgElt.naturalHeight,
+                  };
+                }
               };
               if (isWorkspaceLocalUri(uri)) {
-                loadImgs.push({ imgElt, uri: decodeURIComponent(uri) });
+                // Resolve the blob src synchronously when already cached, so
+                // the element re-enters the imgCache reuse pool (non-empty src)
+                const absoluteImgPath = getAbsoluteWorkspaceImgPath(decodeURIComponent(uri));
+                const cachedUrl = pathUrlMap[absoluteImgPath];
+                if (cachedUrl) {
+                  imgElt.src = cachedUrl;
+                  imgElt.setAttribute(localImagePathAttr, absoluteImgPath);
+                } else {
+                  loadImgs.push({ imgElt, uri: decodeURIComponent(uri) });
+                }
               } else {
                 imgElt.src = uri;
               }
@@ -744,6 +762,13 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
                 if (match[2]) {
                   imgElt.height = parseInt(match[2], 10);
                 }
+              }
+              // Preset the known natural size so the box is reserved right away
+              const naturalDimension = uriNaturalDimensionMap[uri];
+              if (naturalDimension && !imgElt.width && !imgElt.height) {
+                imgElt.width = naturalDimension.width;
+                imgElt.height = naturalDimension.height;
+                imgElt.style.display = '';
               }
               imgElt.setAttribute(imgUriAttr, uri);
               imgEltsToCache.push(imgElt);

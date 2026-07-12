@@ -266,6 +266,7 @@ export default {
 
 .modal {
   position: absolute;
+  z-index: 100;
   width: 100%;
   height: 100%;
   background-color: rgba(160, 160, 160, 0.5);

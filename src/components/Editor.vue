@@ -13,6 +13,7 @@
 
 <script>
 import { mapGetters } from 'vuex';
+import DiffMatchPatch from 'diff-match-patch';
 import CommentList from './gutters/CommentList';
 import EditorNewDiscussionButton from './gutters/EditorNewDiscussionButton';
 import CustomScrollbar from './common/CustomScrollbar';
@@ -63,6 +64,22 @@ export default {
       }
       return null;
     },
+    // Replace the upload placeholder without creating a new undo state:
+    // patches join the same undo batch as the placeholder insertion,
+    // so one Ctrl+Z returns to the pre-insert state.
+    replacePlaceholder(search, replacement) {
+      const { clEditor } = editorSvc;
+      const oldContent = clEditor.getContent();
+      const newContent = oldContent.replace(search, replacement);
+      if (newContent === oldContent) {
+        return;
+      }
+      const offset = clEditor.setContent(newContent, true);
+      const diffs = new DiffMatchPatch().diff_main(oldContent, newContent);
+      clEditor.undoMgr.addDiffs(oldContent, newContent, diffs);
+      clEditor.selectionMgr.setSelectionStartEnd(offset.end, offset.end);
+      clEditor.selectionMgr.updateCursorCoordinates(true);
+    },
     async processUpload(items) {
       let file = null;
       if (!items || items.length === 0) {
@@ -84,14 +101,14 @@ export default {
         const { url, error } = await imageSvc.updateImg(file);
         // 存在错误
         if (error) {
-          editorSvc.clEditor.replaceAll(`[图片上传中...(image-${imgId})]`, `[图片上传失败...(image-${imgId})]`);
+          this.replacePlaceholder(`[图片上传中...(image-${imgId})]`, `[图片上传失败...(image-${imgId})]`);
           store.dispatch('notification/error', error);
           return;
         }
-        editorSvc.clEditor.replaceAll(`[图片上传中...(image-${imgId})]`, `![输入图片说明](${url})`);
+        this.replacePlaceholder(`[图片上传中...(image-${imgId})]`, `![输入图片说明](${url})`);
       } catch (err) {
         console.error(err); // eslint-disable-line no-console
-        editorSvc.clEditor.replaceAll(`[图片上传中...(image-${imgId})]`, `[图片上传失败...(image-${imgId})]`);
+        this.replacePlaceholder(`[图片上传中...(image-${imgId})]`, `[图片上传失败...(image-${imgId})]`);
         store.dispatch('notification/error', err);
       }
     },
