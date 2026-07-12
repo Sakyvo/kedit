@@ -72,3 +72,18 @@ recursive component with:
   API without a task-level reason.
 - Renaming visible StackEdit strings together with persisted identifiers. Only
   user-visible branding was rebranded to KEDIT.
+
+## Overlay Z-Index Ladder
+
+Fixed stacking order for app-level overlays (established 2026-07; keep new
+overlays consistent and never rely on DOM order alone once any layer has an
+explicit z-index):
+
+- `CustomScrollbar` 1 (panel-local)
+- `.modal` 100
+- `.notification` 200
+- `.context-menu` 300
+- `ImageLightbox` 1000
+
+`.editor`/`.layout` ancestors create no stacking context, so any explicit
+z-index inside them competes at root level — pick values from this ladder.
