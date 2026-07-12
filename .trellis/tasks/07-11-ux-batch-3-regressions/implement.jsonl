@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/07-11-ux-batch-3-regressions/prd.md", "reason": "7 项需求、根因结论、验收标准"}
+{"file": ".trellis/tasks/07-11-ux-batch-3-regressions/design.md", "reason": "各项修复方案（Z1-Z7）"}
+{"file": ".trellis/tasks/07-11-ux-batch-3-regressions/implement.md", "reason": "单阶段执行清单与验证"}
+{"file": ".trellis/tasks/07-11-ux-batch-3-regressions/research/quick-locates.md", "reason": "Z1/Z2/Z4/Z5 根因与 CSS 事实（file:line）"}
+{"file": ".trellis/tasks/07-11-ux-batch-3-regressions/research/editor-deep.md", "reason": "Z3/Z6/Z7 编辑器机制深潜（测量/undo/图片生命周期）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "构建与回归检查预期"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Vue SFC 约定"}
