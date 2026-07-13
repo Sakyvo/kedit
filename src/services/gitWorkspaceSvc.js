@@ -298,13 +298,22 @@ export default {
       }));
 
     // Deletions
+    // W4: keep the stale syncData of tombstoned paths (file, content and
+    // location forms) so the remove loop deletes the remote blobs instead
+    // of leaking them once their syncData is dropped
+    const locationOfTombstoneMatcher = /^([\s\S]+)\.[\w-]+\.(?:sync|publish)$/;
+    const isTombstonedPath = (path) => {
+      if (tombstonedPaths[path]) {
+        return true;
+      }
+      if (path[0] === '/' && tombstonedPaths[path.slice(1)]) {
+        return true;
+      }
+      const [, filePath] = path.match(locationOfTombstoneMatcher) || [];
+      return !!filePath && !!tombstonedPaths[`${filePath}.md`];
+    };
     Object.keys(syncDataByPath).forEach((path) => {
-      if (!idsByPath[path]
-        // W4: keep the stale syncData of tombstoned paths (file + content
-        // forms) so the remove loop deletes the remote blob
-        && !tombstonedPaths[path]
-        && !(path[0] === '/' && tombstonedPaths[path.slice(1)])
-      ) {
+      if (!idsByPath[path] && !isTombstonedPath(path)) {
         changes.push({ syncDataId: path });
       }
     });

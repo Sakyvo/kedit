@@ -189,9 +189,14 @@ export default {
     explorerOrder: (state, { explorerOrderData }) =>
       (explorerOrderData.version === 2 && explorerOrderData.orders) || {},
     imgCleanupData: getter('imgCleanup'),
-    // Normalized unreferenced-image tracker; non-v1 payload reads as empty
+    // Normalized unreferenced-image tracker; non-v1 payload reads as empty,
+    // v1 payload gets field-level fallbacks (merge artifacts)
     imgCleanup: (state, { imgCleanupData }) => (imgCleanupData.version === 1
-      ? imgCleanupData
+      ? {
+        version: 1,
+        unreferencedSince: imgCleanupData.unreferencedSince || {},
+        log: imgCleanupData.log || [],
+      }
       : empty('imgCleanup').data),
     templatesById: getter('templates'),
     allTemplatesById: (state, { templatesById }) => ({

@@ -222,12 +222,13 @@ export default {
       || !store.getters['workspace/currentWorkspaceIsGit']) {
       return;
     }
-    // Blob sha from the last tree scan; shaByPath is in-memory only, so
-    // right after a reload fall back to the persisted content syncData sha
-    // (same blob sha, kept in sync by upload/download)
+    // Blob sha as this device last knew it: content syncData first (same
+    // blob sha, refreshed on every upload/download), tree-scan shaByPath as
+    // fallback (in-memory only and stale between an own upload and the next
+    // scan, which would wrongly invalidate the tombstone after edit+rename)
     const syncDataByPath = store.getters['data/syncDataById'];
-    const getPathSha = path => gitWorkspaceSvc.shaByPath[path]
-      || (syncDataByPath[`/${path}`] || {}).sha;
+    const getPathSha = path => (syncDataByPath[`/${path}`] || {}).sha
+      || gitWorkspaceSvc.shaByPath[path];
     const shaByTombstonePath = {
       [oldPath]: getPathSha(oldPath),
     };
