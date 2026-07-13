@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/07-12-ux-batch-4-data-safety/prd.md", "reason": "6 项需求、已决策（W5口径/W6范围/W2取舍/W3格式）、验收标准"}
+{"file": ".trellis/tasks/07-12-ux-batch-4-data-safety/design.md", "reason": "各项方案：墓碑机制、imgCleanup 数据条目、触摸链路三处修复"}
+{"file": ".trellis/tasks/07-12-ux-batch-4-data-safety/implement.md", "reason": "两阶段执行清单与验证场景"}
+{"file": ".trellis/tasks/07-12-ux-batch-4-data-safety/research/bugs-syntax.md", "reason": "W1/W2/W6 根因逐条核实（file:line + 10 条主张裁定）"}
+{"file": ".trellis/tasks/07-12-ux-batch-4-data-safety/research/data-flows.md", "reason": "W3/W4/W5 数据链路（makePathUnique/复活根因/引用扫描管线/删除原语）"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "同步 data 条目契约（imgCleanup 须循 explorerOrder 模式）+ 时间戳哈希契约（W4 不得动 getItemHash）"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "浮层 z-index 阶梯 + SFC 约定（ImageCleanupModal）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "构建与回归检查预期"}

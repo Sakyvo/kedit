@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/07-12-ux-batch-4-data-safety/prd.md", "reason": "验收标准逐项核对"}
+{"file": ".trellis/tasks/07-12-ux-batch-4-data-safety/design.md", "reason": "方案一致性核对（墓碑 path+sha 双匹配、imgs 前缀硬校验、setext 删除范围）"}
+{"file": ".trellis/tasks/07-12-ux-batch-4-data-safety/research/data-flows.md", "reason": "W4 复活机制证据（核对闸门位置正确）"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "data 条目契约与 explorerOrder 不受破坏"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "构建/回归检查标准"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "W4/W5 跨 store/service/provider 数据流检查"}
