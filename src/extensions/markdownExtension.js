@@ -29,7 +29,6 @@ const blockBaseRules = [
   'list',
   'reference',
   'heading',
-  'lheading',
   'html_block',
   'table',
   'paragraph',

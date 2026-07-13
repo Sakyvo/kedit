@@ -103,20 +103,8 @@ export default {
         'cl cl-pre': /^ {0,3}(?:---|\.\.\.)[ \t]*$/gm,
       },
     };
-    // Setext headings: the first line must not itself be another block construct
-    // (ATX heading, blockquote, list item, code fence or table row)
-    grammars.main['h1 alt cn-head'] = {
-      pattern: /^(?!(?:#{1,6}(?:[ \t]|$)|>|(?:[-*+]|\d+\.)[ \t]|```|~~~|\|)).+\n[=]{2,}[ \t]*$/gm,
-      inside: {
-        'cl cl-hash': /=+[ \t]*$/,
-      },
-    };
-    grammars.main['h2 alt cn-head'] = {
-      pattern: /^(?!(?:#{1,6}(?:[ \t]|$)|>|(?:[-*+]|\d+\.)[ \t]|```|~~~|\|)).+\n[-]{2,}[ \t]*$/gm,
-      inside: {
-        'cl cl-hash': /-+[ \t]*$/,
-      },
-    };
+    // Setext headings are disabled: `text` + `---`/`===` underlines are not
+    // headings (`---` falls through to the hr rule below)
     grammars.main['cn-toc'] = {
       pattern: /^\[(TOC|toc)\]$/gm,
     };
@@ -387,8 +375,6 @@ export default {
     for (let c = 6; c >= 1; c -= 1) {
       grammars.main[`h${c} cn-head`].inside.rest = rest;
     }
-    grammars.main['h1 alt cn-head'].inside.rest = rest;
-    grammars.main['h2 alt cn-head'].inside.rest = rest;
     grammars.table.table.inside.rest = rest;
     grammars.main.rest = rest;
     grammars.list.rest = rest;

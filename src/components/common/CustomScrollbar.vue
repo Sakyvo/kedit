@@ -1,5 +1,5 @@
 <template>
-  <div class="custom-scrollbar" v-show="visible" @pointerdown="onTrackPointerDown" @wheel.prevent="onWheel">
+  <div class="custom-scrollbar" v-show="visible" @wheel.prevent="onWheel">
     <div class="custom-scrollbar__thumb" :style="{height: thumbHeight + 'px', transform: 'translateY(' + thumbTop + 'px)'}" @pointerdown.stop="onThumbPointerDown" @pointermove="onThumbPointerMove" @pointerup="onThumbPointerUp" @pointercancel="onThumbPointerUp"></div>
   </div>
 </template>
@@ -72,12 +72,6 @@ export default {
     onThumbPointerUp() {
       this.dragging = false;
     },
-    onTrackPointerDown(evt) {
-      // Click on the empty track: page toward the click
-      const rect = this.$el.getBoundingClientRect();
-      const direction = evt.clientY - rect.top < this.thumbTop ? -1 : 1;
-      this.target.scrollTop += direction * this.target.clientHeight * 0.9;
-    },
     onWheel(evt) {
       this.target.scrollTop += evt.deltaY;
     },
@@ -119,14 +113,17 @@ export default {
   bottom: 0;
   width: 8px;
   z-index: 1;
-  /* the bar handles its own pointer gestures, incl. touch drags */
-  touch-action: none;
+  /* only the visible thumb is interactive: the full-height track must not
+     intercept taps/scrolls meant for the content or the adjacent buttons */
+  pointer-events: none;
 }
 
 .custom-scrollbar__thumb {
   width: 100%;
   border-radius: 4px;
   background-color: #bbb;
+  pointer-events: auto;
+  /* the thumb handles its own pointer gestures, incl. touch drags */
   touch-action: none;
 
   .app--dark & {

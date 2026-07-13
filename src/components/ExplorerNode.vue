@@ -338,6 +338,11 @@ export default {
     onContextMenu(evt) {
       evt.preventDefault();
       evt.stopPropagation();
+      // Native long-press contextmenu (Android) while a touch drag is pending
+      // or active would stack the menu overlay on top of the drag: suppress it
+      if (this.touchGhost || (this.longPressTimer && this.touchStart)) {
+        return;
+      }
       this.openContextMenu({ left: evt.clientX, top: evt.clientY });
     },
     async openContextMenu(coordinates) {
@@ -476,6 +481,10 @@ export default {
         const dy = touch.clientY - this.touchStart.y;
         if ((dx * dx) + (dy * dy) > 64) {
           this.clearLongPress();
+        } else {
+          // Keep native scrolling from taking over (it would fire touchcancel
+          // and kill the upcoming drag)
+          evt.preventDefault();
         }
         return;
       }
@@ -521,6 +530,10 @@ export default {
     },
     updateTouchTarget(x, y) {
       const elt = document.elementFromPoint(x, y);
+      if (elt && elt.closest && elt.closest('.context-menu')) {
+        // An overlay backdrop poisons hit testing: keep the previous target
+        return;
+      }
       const itemElt = elt && elt.closest && elt.closest('.explorer-node__item');
       const nodeElt = itemElt && itemElt.closest('.explorer-node');
       const nodeId = nodeElt && nodeElt.dataset.id;

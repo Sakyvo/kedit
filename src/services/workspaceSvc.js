@@ -364,14 +364,14 @@ export default {
       path = path.slice(0, -1);
     }
     for (let suffix = 1; ; suffix += 1) {
-      let pathWithSuffix = `${path}.${suffix}`;
+      let pathWithSuffix = `${path} (${suffix})`;
       if (isFolder) {
         pathWithSuffix += '/';
       }
       if (!itemsByPath[pathWithSuffix]) {
         store.commit(`${item.type}/patchItem`, {
           id: item.id,
-          name: `${item.name}.${suffix}`,
+          name: `${item.name} (${suffix})`,
         });
         return true;
       }
