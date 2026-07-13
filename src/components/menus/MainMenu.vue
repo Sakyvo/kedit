@@ -95,6 +95,11 @@
       <template v-slot:icon><icon-printer></icon-printer></template>
       打印
     </menu-entry>
+    <menu-entry @click.native="imageCleanup">
+      <template v-slot:icon><icon-file-image></icon-file-image></template>
+      <div>图片引用检测</div>
+      <span>扫描并清理未被引用的图片。</span>
+    </menu-entry>
     <hr>
     <menu-entry @click.native="accounts">
       <template v-slot:icon><icon-key></icon-key></template>
@@ -205,6 +210,11 @@ export default {
     },
     print() {
       window.print();
+    },
+    async imageCleanup() {
+      try {
+        await store.dispatch('modal/open', 'imageCleanup');
+      } catch (e) { /* Cancel */ }
     },
     async settings() {
       try {

@@ -34,6 +34,11 @@ const empty = (id) => {
       // Manual explorer sort order, v2 (device-portable):
       // { version: 2, orders: { [parentKey ('root' or parent git path)]: orderedChildGitPaths } }
       return itemTemplate(id, { version: 2, orders: {} });
+    case 'imgCleanup':
+      // W5 unreferenced-image tracker (workspace-synced), v1:
+      // { version: 1, unreferencedSince: { [gitPath]: firstSeenTs },
+      //   log: [{ path, ts }] (newest first, capped at 50) }
+      return itemTemplate(id, { version: 1, unreferencedSince: {}, log: [] });
     default:
       return itemTemplate(id);
   }
@@ -183,6 +188,11 @@ export default {
     // Normalized path-keyed orders map; legacy id-keyed data (no version) reads as empty
     explorerOrder: (state, { explorerOrderData }) =>
       (explorerOrderData.version === 2 && explorerOrderData.orders) || {},
+    imgCleanupData: getter('imgCleanup'),
+    // Normalized unreferenced-image tracker; non-v1 payload reads as empty
+    imgCleanup: (state, { imgCleanupData }) => (imgCleanupData.version === 1
+      ? imgCleanupData
+      : empty('imgCleanup').data),
     templatesById: getter('templates'),
     allTemplatesById: (state, { templatesById }) => ({
       ...templatesById,
@@ -267,6 +277,14 @@ export default {
           ...getters.explorerOrder,
           ...patch,
         },
+      })),
+    // imgCleanup nests objects: same patcher pitfall as explorerOrder —
+    // callers merge locally, this action writes the full v1 payload
+    setImgCleanup: ({ commit }, { unreferencedSince, log }) =>
+      commit('setItem', itemTemplate('imgCleanup', {
+        version: 1,
+        unreferencedSince: unreferencedSince || {},
+        log: (log || []).slice(0, 50),
       })),
     toggleNavigationBar: layoutSettingsToggler('showNavigationBar', 'toggleNavigationBar'),
     toggleEditor: layoutSettingsToggler('showEditor', 'toggleEditor'),

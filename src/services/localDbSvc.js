@@ -244,6 +244,27 @@ const localDbSvc = {
       }, () => reject(new Error('indexeddb获取图片异常')));
     });
   },
+  /**
+   * 删除图片（并清理待上传队列）
+   */
+  async removeImgItem(id) {
+    await new Promise((resolve, reject) => {
+      this.connection.createTx((tx) => {
+        const dbStore = tx.objectStore(imgDbStoreName);
+        dbStore.delete(id);
+        resolve();
+      }, () => reject(new Error('删除图片异常')));
+    });
+    const waitUploadIdsItem = (await this.getImgItem(imgWaitUploadIdsKey))
+       || { id: imgWaitUploadIdsKey, ids: [] };
+    const waitUploadIds = Array.isArray(waitUploadIdsItem.ids) ? waitUploadIdsItem.ids.slice() : [];
+    const index = waitUploadIds.indexOf(id);
+    if (index >= 0) {
+      waitUploadIds.splice(index, 1);
+      waitUploadIdsItem.ids = waitUploadIds;
+      await this.writeImgItem(waitUploadIdsItem);
+    }
+  },
 
   /**
    * Write all changes from the store since previous transaction.

@@ -1,6 +1,7 @@
 import store from '../store';
 import utils from './utils';
 import constants from '../data/constants';
+import gitWorkspaceSvc from './gitWorkspaceSvc';
 
 const forbiddenFolderNameMatcher = /^\.stackedit-data$|^\.stackedit-trash$|\.md$|\.sync$|\.publish$/;
 
@@ -202,9 +203,47 @@ export default {
     }
 
     // Keep manual order entries pointing at the new path (rename/move)
-    this.remapExplorerOrderPaths(oldGitPath, store.getters.gitPathsByItemId[item.id]);
+    const newGitPath = store.getters.gitPathsByItemId[item.id];
+    this.remapExplorerOrderPaths(oldGitPath, newGitPath);
+
+    // W4: the old path must not resurrect from the next remote tree scan
+    this.recordGitTombstones(oldGitPath, newGitPath);
 
     return store.getters.allItemsById[item.id];
+  },
+
+  /**
+   * W4: record delete/rename tombstones for an old git path (for folders,
+   * also every descendant path) so gitWorkspaceSvc.makeChanges skips
+   * resurrecting them and the sync remove loop deletes the remote blobs.
+   */
+  recordGitTombstones(oldPath, newPath) {
+    if (!oldPath || oldPath === newPath
+      || !store.getters['workspace/currentWorkspaceIsGit']) {
+      return;
+    }
+    // Blob sha from the last tree scan; shaByPath is in-memory only, so
+    // right after a reload fall back to the persisted content syncData sha
+    // (same blob sha, kept in sync by upload/download)
+    const syncDataByPath = store.getters['data/syncDataById'];
+    const getPathSha = path => gitWorkspaceSvc.shaByPath[path]
+      || (syncDataByPath[`/${path}`] || {}).sha;
+    const shaByTombstonePath = {
+      [oldPath]: getPathSha(oldPath),
+    };
+    if (newPath && oldPath.slice(-1) === '/') {
+      // Folder rename/move: descendants moved along, tombstone their old paths
+      const { allItemsById } = store.getters;
+      Object.entries(store.getters.gitPathsByItemId).forEach(([id, path]) => {
+        const item = allItemsById[id];
+        if (item && (item.type === 'file' || item.type === 'folder')
+          && path !== newPath && path.indexOf(newPath) === 0) {
+          const oldDescPath = oldPath + path.slice(newPath.length);
+          shaByTombstonePath[oldDescPath] = getPathSha(oldDescPath);
+        }
+      });
+    }
+    gitWorkspaceSvc.recordTombstones(shaByTombstonePath);
   },
 
   /**
@@ -283,6 +322,9 @@ export default {
    * Delete a file in the store and all its related items.
    */
   deleteFile(fileId) {
+    // W4: tombstone the git path so the remote blob is deleted on next
+    // sync instead of resurrecting the file
+    this.recordGitTombstones(store.getters.gitPathsByItemId[fileId], null);
     // Delete the file
     store.commit('file/deleteItem', fileId);
     // Delete the content

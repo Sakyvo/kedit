@@ -234,6 +234,18 @@ const buildZipBlob = async (itemsById) => {
 };
 
 export default {
+  /**
+   * W5: git paths of every image referenced by any document of the
+   * workspace (markdown/HTML/reference-style matchers over the IDB cursor).
+   */
+  async collectReferencedImagePaths(workspaceId) {
+    const itemsById = await getWorkspaceItems(workspaceId);
+    const referenced = Object.create(null);
+    (await collectReferencedImages(itemsById)).forEach(({ path }) => {
+      referenced[getWorkspaceRemotePath(path)] = true;
+    });
+    return referenced;
+  },
   async exportWorkspace({ workspaceId, includeImages }) {
     const itemsById = await getWorkspaceItems(workspaceId);
     Object.keys(itemsById).forEach((id) => {

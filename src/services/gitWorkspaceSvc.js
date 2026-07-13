@@ -3,8 +3,61 @@ import utils from '../services/utils';
 
 const endsWith = (str, suffix) => str.slice(-suffix.length) === suffix;
 
+// W4: safety net, tombstones older than that are ignored and pruned
+const tombstoneMaxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 export default {
   shaByPath: Object.create(null),
+
+  /**
+   * W4 rename/delete tombstones ({ [gitPath]: { sha, ts } }), stored in
+   * localSettings: per-device by design, the delete obligation belongs to
+   * the device that renamed/deleted the item. Expired entries are filtered.
+   */
+  getTombstones() {
+    const tombstones = store.getters['data/localSettings'].gitTombstones || {};
+    const minTs = Date.now() - tombstoneMaxAge;
+    const result = {};
+    Object.entries(tombstones).forEach(([path, tombstone]) => {
+      if (tombstone && tombstone.ts > minTs) {
+        result[path] = tombstone;
+      }
+    });
+    return result;
+  },
+
+  /**
+   * Record tombstones ({ [gitPath]: sha }). The whole map is rewritten as
+   * the localSettings patcher only merges top level keys.
+   */
+  recordTombstones(shaByTombstonePath) {
+    const paths = Object.keys(shaByTombstonePath);
+    if (!paths.length) {
+      return;
+    }
+    const now = Date.now();
+    const gitTombstones = this.getTombstones();
+    paths.forEach((path) => {
+      gitTombstones[path] = { sha: shaByTombstonePath[path] || null, ts: now };
+    });
+    store.dispatch('data/patchLocalSettings', { gitTombstones });
+  },
+
+  /**
+   * Clear tombstones once the remote path has been deleted (or the
+   * tombstone turned out to be stale). Also prunes expired entries.
+   */
+  clearTombstones(paths) {
+    const rawTombstones = store.getters['data/localSettings'].gitTombstones || {};
+    const gitTombstones = this.getTombstones();
+    paths.forEach((path) => {
+      delete gitTombstones[path];
+    });
+    if (Object.keys(rawTombstones).length !== Object.keys(gitTombstones).length) {
+      store.dispatch('data/patchLocalSettings', { gitTombstones });
+    }
+  },
+
   makeChanges(tree) {
     const workspacePath = store.getters['workspace/currentWorkspace'].path || '';
 
@@ -102,7 +155,24 @@ export default {
     });
 
     // File/content creations/updates
+    // W4: paths renamed/deleted locally must not resurrect from the tree
+    // scan (path + sha double match). Skipping their changes before any
+    // getIdFromPath registration keeps their stale syncData alive so the
+    // sync remove loop deletes the remote blob in the same round.
+    const gitTombstones = this.getTombstones();
+    const tombstonedPaths = Object.create(null);
+    const staleTombstonePaths = [];
     Object.entries(treeFileMap).forEach(([path, parentPath]) => {
+      const tombstone = gitTombstones[path];
+      if (tombstone) {
+        if (!store.getters.itemsByGitPath[path] && tombstone.sha === this.shaByPath[path]) {
+          tombstonedPaths[path] = true;
+          return;
+        }
+        // Path re-occupied locally or rewritten remotely (foreign new
+        // content): never block it, drop the tombstone and download
+        staleTombstonePaths.push(path);
+      }
       const fileId = getIdFromPath(path, true);
       const contentPath = `/${path}`;
       const contentId = idsByPath[contentPath];
@@ -157,8 +227,8 @@ export default {
     // Data creations/updates
     const syncDataById = store.getters['data/syncDataById'];
     Object.keys(treeDataMap).forEach((path) => {
-      // Only settings、workspaces、template、explorerOrder data are stored
-      const [, id] = path.match(/^\.stackedit-data\/(settings|workspaces|badgeCreations|templates|explorerOrder)\.json$/) || [];
+      // Only settings、workspaces、template、explorerOrder、imgCleanup data are stored
+      const [, id] = path.match(/^\.stackedit-data\/(settings|workspaces|badgeCreations|templates|explorerOrder|imgCleanup)\.json$/) || [];
       if (id) {
         idsByPath[path] = id;
         idsByPath[id] = id;
@@ -229,10 +299,20 @@ export default {
 
     // Deletions
     Object.keys(syncDataByPath).forEach((path) => {
-      if (!idsByPath[path]) {
+      if (!idsByPath[path]
+        // W4: keep the stale syncData of tombstoned paths (file + content
+        // forms) so the remove loop deletes the remote blob
+        && !tombstonedPaths[path]
+        && !(path[0] === '/' && tombstonedPaths[path.slice(1)])
+      ) {
         changes.push({ syncDataId: path });
       }
     });
+
+    // W4: drop tombstones proven stale during this scan
+    if (staleTombstonePaths.length) {
+      this.clearTombstones(staleTombstonePaths);
+    }
 
     return changes;
   },

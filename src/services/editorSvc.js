@@ -186,6 +186,18 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   activeEditorImgPathCounts: Object.create(null),
 
   /**
+   * W5: force-drop a deleted workspace image from the blob URL cache so it
+   * is not served again; still-rendered occurrences show as broken images.
+   */
+  releaseImgCache(absoluteImgPath) {
+    if (pathUrlMap[absoluteImgPath]) {
+      URL.revokeObjectURL(pathUrlMap[absoluteImgPath]);
+      delete pathUrlMap[absoluteImgPath];
+      delete pathUrlRefCountMap[absoluteImgPath];
+    }
+  },
+
+  /**
    * Initialize the Prism grammar with the options
    */
   initPrism() {

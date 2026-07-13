@@ -32,6 +32,11 @@ export default {
     '取消',
     '确认删除',
   ),
+  imageCleanupDeletion: simpleModal(
+    config => `<p>您将永久删除 <b>${config.count}</b> 张未引用图片（仓库与本地缓存），该操作不可恢复。你确定吗？</p>`,
+    '取消',
+    '确认删除',
+  ),
   imgStorageDeletion: simpleModal(
     '<p>您将要删除图床，你确定吗？</p>',
     '取消',

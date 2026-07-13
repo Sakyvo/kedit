@@ -42,6 +42,7 @@ import SponsorModal from './modals/SponsorModal';
 import CommitMessageModal from './modals/CommitMessageModal';
 import WorkspaceImgPathModal from './modals/WorkspaceImgPathModal';
 import WorkspaceBackupExportModal from './modals/WorkspaceBackupExportModal';
+import ImageCleanupModal from './modals/ImageCleanupModal';
 import ChatGptModal from './modals/ChatGptModal';
 import ChatGptConfigModal from './modals/ChatGptConfigModal';
 import FolderPickerModal from './modals/FolderPickerModal';
@@ -121,6 +122,7 @@ export default {
     CommitMessageModal,
     WorkspaceImgPathModal,
     WorkspaceBackupExportModal,
+    ImageCleanupModal,
     ChatGptModal,
     ChatGptConfigModal,
     FolderPickerModal,

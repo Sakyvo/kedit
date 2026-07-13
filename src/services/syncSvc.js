@@ -16,6 +16,8 @@ import './providers/giteaWorkspaceProvider';
 import './providers/googleDriveWorkspaceProvider';
 import tempFileSvc from './tempFileSvc';
 import workspaceSvc from './workspaceSvc';
+import gitWorkspaceSvc from './gitWorkspaceSvc';
+import imgCleanupSvc from './imgCleanupSvc';
 import constants from '../data/constants';
 
 const minAutoSyncEvery = 60 * 1000; // 60 sec
@@ -764,6 +766,10 @@ const syncWorkspace = async (skipContents = false) => {
       const syncDataByIdCopy = { ...store.getters['data/syncDataById'] };
       delete syncDataByIdCopy[syncDataToRemove.id];
       store.dispatch('data/setSyncDataById', syncDataByIdCopy);
+      // W4: remote path removed, its tombstone (if any) has done its job
+      if (store.getters['workspace/currentWorkspaceIsGit']) {
+        gitWorkspaceSvc.clearTombstones([syncDataToRemove.id]);
+      }
       return true;
     }));
 
@@ -772,6 +778,7 @@ const syncWorkspace = async (skipContents = false) => {
       // await syncDataItem('settings');
       await syncDataItem('workspaces');
       await syncDataItem('explorerOrder');
+      await syncDataItem('imgCleanup');
       // await syncDataItem('templates');
     }
 
@@ -946,6 +953,9 @@ const requestSync = () => {
           }
           // 同步图片
           await uploadImgs();
+
+          // W5: unreferenced-image clocks + 7-day auto cleanup (never throws)
+          await imgCleanupSvc.sweepAfterSync();
 
           // Clean files
           Object.entries(fileHashesToClean).forEach(([fileId, fileHash]) => {

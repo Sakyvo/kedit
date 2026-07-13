@@ -1,5 +1,7 @@
 export default () => ({
   welcomeFileHashes: {},
+  // W4 rename/delete tombstones (per device): { [gitPath]: { sha, ts } }
+  gitTombstones: {},
   filePropertiesTab: '',
   explorerSortBy: 'manual',
   explorerSortDirection: 'desc',
