@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "Check badgeCreations removal and checkedStorage compatibility against persisted state rules."}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Use project validation commands and document Jest harness limitations if still present."}
-{"file": "docs/adr/0003-private-image-storage-base64-publish-projection.md", "reason": "Verify image upload routes preserve Private-until-Publish and keep external hosts dormant."}

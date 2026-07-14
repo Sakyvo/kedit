@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "Vuex/localStorage data ownership and persisted data compatibility while removing badgeCreations and neutralizing checkedStorage."}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Component/service boundary guidance for MainMenu, Modal, ImageModal, and badge side-effect removal."}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Required build/test verification and known Jest harness blocker."}
-{"file": "docs/adr/0003-private-image-storage-base64-publish-projection.md", "reason": "Product decision that external image hosts are rejected and images remain private until Publish."}
