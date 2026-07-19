@@ -2,10 +2,7 @@ import DiffMatchPatch from 'diff-match-patch';
 import TurndownService from 'turndown/lib/turndown.browser.umd';
 import htmlSanitizer from '../../../libs/htmlSanitizer';
 import store from '../../../store';
-import {
-  shouldInterceptBeforeInput,
-  textFromBeforeInput,
-} from '../beforeinputPaste';
+import { textFromBeforeInput } from '../beforeinputPaste';
 
 function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
   const scrollElt = scrollEltOpt || contentElt;
@@ -412,15 +409,13 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
 
   // IME clipboard paste (e.g. Baidu IME click-paste) skips the paste event and
   // arrives as beforeinput insertFromPaste / multiline insertText.
+  // Only preventDefault when non-empty text is resolved (data or dataTransfer).
   contentElt.addEventListener('beforeinput', (evt) => {
-    if (!shouldInterceptBeforeInput(evt.inputType, evt.data)) {
-      return;
-    }
-    evt.preventDefault();
-    const data = textFromBeforeInput(evt.inputType, evt.data);
+    const data = textFromBeforeInput(evt.inputType, evt.data, evt.dataTransfer);
     if (!data) {
       return;
     }
+    evt.preventDefault();
     undoMgr.setCurrentMode('single');
     selectionMgr.saveSelectionState();
     replace(selectionMgr.selectionStart, selectionMgr.selectionEnd, data);

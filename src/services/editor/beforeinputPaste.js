@@ -1,6 +1,9 @@
 /**
  * Classify beforeinput events that must go through the editor insert path
  * so newlines survive IME clipboard paste (e.g. Baidu IME click-paste).
+ *
+ * Browser paste often sets data=null and puts the payload on dataTransfer.
+ * Only preventDefault when a non-empty insert string is obtained.
  */
 
 const PASTE_INPUT_TYPES = new Set([
@@ -8,6 +11,14 @@ const PASTE_INPUT_TYPES = new Set([
   'insertFromPasteAsPlainText',
 ]);
 
+export function isPasteLikeInputType(inputType) {
+  return !!inputType && PASTE_INPUT_TYPES.has(inputType);
+}
+
+/**
+ * Candidate types: paste-like, or insertText that already carries newlines in data.
+ * Does not mean we will preventDefault — only after a non-empty string is resolved.
+ */
 export function shouldInterceptBeforeInput(inputType, data) {
   if (!inputType) {
     return false;
@@ -15,16 +26,12 @@ export function shouldInterceptBeforeInput(inputType, data) {
   if (PASTE_INPUT_TYPES.has(inputType)) {
     return true;
   }
-  // IME / synthetic paste often arrives as insertText with embedded newlines
   if (inputType === 'insertText' && typeof data === 'string' && data.indexOf('\n') !== -1) {
     return true;
   }
   return false;
 }
 
-/**
- * Normalize clipboard-ish payload to plain text with Unix newlines.
- */
 export function normalizeInsertText(data) {
   if (data == null) {
     return '';
@@ -32,13 +39,37 @@ export function normalizeInsertText(data) {
   return String(data).replace(/\r\n?/g, '\n');
 }
 
+function textFromDataTransfer(dataTransfer) {
+  if (!dataTransfer || typeof dataTransfer.getData !== 'function') {
+    return '';
+  }
+  try {
+    return dataTransfer.getData('text/plain')
+      || dataTransfer.getData('Text')
+      || '';
+  } catch (e) {
+    return '';
+  }
+}
+
 /**
- * Decide text to insert from a beforeinput event-like object.
- * Prefer data; if empty and paste-like, caller may still preventDefault.
+ * Resolve plain text to insert from a beforeinput event-like object.
+ * @returns {string|null} non-empty normalized text, or null if do not intercept
  */
-export function textFromBeforeInput(inputType, data) {
+export function textFromBeforeInput(inputType, data, dataTransfer) {
   if (!shouldInterceptBeforeInput(inputType, data)) {
     return null;
   }
-  return normalizeInsertText(data);
+  let raw = '';
+  if (typeof data === 'string' && data.length > 0) {
+    raw = data;
+  } else {
+    raw = textFromDataTransfer(dataTransfer);
+  }
+  const text = normalizeInsertText(raw);
+  // Empty: do not claim the event (avoid preventDefault no-op)
+  if (!text) {
+    return null;
+  }
+  return text;
 }

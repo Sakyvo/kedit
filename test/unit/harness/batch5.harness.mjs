@@ -42,6 +42,28 @@ assert.equal(normalizeInsertText('a\r\nb\rc'), 'a\nb\nc');
 assert.equal(textFromBeforeInput('insertFromPaste', 'line1\nline2'), 'line1\nline2');
 assert.equal(textFromBeforeInput('insertText', 'no-nl'), null);
 
+// Browser-normal paste: data=null, payload on dataTransfer (must NOT no-op)
+{
+  const dt = {
+    getData(type) {
+      if (type === 'text/plain' || type === 'Text') {
+        return 'line1\nline2\nline3';
+      }
+      return '';
+    },
+  };
+  const resolved = textFromBeforeInput('insertFromPaste', null, dt);
+  assert.equal(resolved, 'line1\nline2\nline3');
+  // Empty dataTransfer → null (do not preventDefault)
+  assert.equal(textFromBeforeInput('insertFromPaste', null, {
+    getData() { return ''; },
+  }), null);
+  assert.equal(textFromBeforeInput('insertFromPaste', null, null), null);
+  assert.equal(textFromBeforeInput('insertFromPasteAsPlainText', undefined, dt), 'line1\nline2\nline3');
+  // data wins over dataTransfer when non-empty
+  assert.equal(textFromBeforeInput('insertFromPaste', 'from-data\nx', dt), 'from-data\nx');
+}
+
 // --- 004 code fence ---
 {
   const empty = buildCodeBlockInsert('');
