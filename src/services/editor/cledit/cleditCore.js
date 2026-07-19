@@ -2,6 +2,10 @@ import DiffMatchPatch from 'diff-match-patch';
 import TurndownService from 'turndown/lib/turndown.browser.umd';
 import htmlSanitizer from '../../../libs/htmlSanitizer';
 import store from '../../../store';
+import {
+  shouldInterceptBeforeInput,
+  textFromBeforeInput,
+} from '../beforeinputPaste';
 
 function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
   const scrollElt = scrollEltOpt || contentElt;
@@ -402,6 +406,23 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
     if (!data) {
       return;
     }
+    replace(selectionMgr.selectionStart, selectionMgr.selectionEnd, data);
+    adjustCursorPosition();
+  });
+
+  // IME clipboard paste (e.g. Baidu IME click-paste) skips the paste event and
+  // arrives as beforeinput insertFromPaste / multiline insertText.
+  contentElt.addEventListener('beforeinput', (evt) => {
+    if (!shouldInterceptBeforeInput(evt.inputType, evt.data)) {
+      return;
+    }
+    evt.preventDefault();
+    const data = textFromBeforeInput(evt.inputType, evt.data);
+    if (!data) {
+      return;
+    }
+    undoMgr.setCurrentMode('single');
+    selectionMgr.saveSelectionState();
     replace(selectionMgr.selectionStart, selectionMgr.selectionEnd, data);
     adjustCursorPosition();
   });

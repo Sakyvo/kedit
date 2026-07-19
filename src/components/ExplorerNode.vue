@@ -25,6 +25,7 @@ import explorerSvc from '../services/explorerSvc';
 import providerRegistry from '../services/providers/common/providerRegistry';
 import store from '../store';
 import utils from '../services/utils';
+import { isExplorerNodeDraggable } from '../services/explorerDragGate';
 
 export default {
   name: 'explorer-node', // Required for recursivity
@@ -60,12 +61,23 @@ export default {
     },
     isManualSortDrag() {
       const { sortBy, manualSortEnabled } = store.state.explorer;
-      return sortBy === 'manual' && manualSortEnabled;
+      // Desktop: manual sort always positional; touch still needs move mode
+      if (sortBy !== 'manual') {
+        return false;
+      }
+      if (!('ontouchstart' in window)) {
+        return true;
+      }
+      return !!manualSortEnabled;
     },
     isDraggable() {
-      // Manual mode with the toggle off disables dragging entirely
-      return !this.node.noDrag
-        && (store.state.explorer.sortBy !== 'manual' || store.state.explorer.manualSortEnabled);
+      // Desktop: manual sort always draggable; touch still gated by move mode
+      return isExplorerNodeDraggable({
+        sortBy: store.state.explorer.sortBy,
+        manualSortEnabled: store.state.explorer.manualSortEnabled,
+        noDrag: this.node.noDrag,
+        isTouch: 'ontouchstart' in window,
+      });
     },
     dropPosition() {
       return this.isDragTarget ? store.state.explorer.dragTargetPosition : null;

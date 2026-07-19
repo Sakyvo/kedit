@@ -475,6 +475,9 @@ function UIManager(input, commandManager) {
     });
     buttons.quote = bindCommand("doBlockquote");
     buttons.code = bindCommand("doCode");
+    buttons.codeblock = bindCommand("doCodeBlock");
+    buttons.inlinecode = bindCommand("doInlineCode");
+    buttons.deleteSelection = bindCommand("doDeleteSelection");
     buttons.image = bindCommand(function (chunk, postProcessing) {
       return this.doLinkOrImage(chunk, postProcessing, true);
     });
@@ -1119,6 +1122,41 @@ commandProto.doCode = function (chunk) {
       chunk.startTag = chunk.endTag = "";
     }
   }
+};
+
+// Explicit fenced code block: empty → ```\n\n``` caret on blank; selection wrapped with fences on own lines
+commandProto.doCodeBlock = function (chunk) {
+  chunk.trimWhitespace();
+  if (/[\n]+```\n$/.test(chunk.before) && /^\n```[ ]*\n/.test(chunk.after)) {
+    chunk.before = chunk.before.replace(/```\n$/, "");
+    chunk.after = chunk.after.replace(/^\n```/, "");
+    return;
+  }
+  chunk.before += '```\n';
+  chunk.after = '\n```' + chunk.after;
+  if (!chunk.selection) {
+    chunk.selection = "";
+  }
+};
+
+// Single-backtick inline code
+commandProto.doInlineCode = function (chunk) {
+  chunk.trimWhitespace();
+  chunk.findTags(/`/, /`/);
+  if (!chunk.startTag && !chunk.endTag) {
+    chunk.startTag = chunk.endTag = "`";
+  } else if (chunk.endTag && !chunk.startTag) {
+    chunk.before += chunk.endTag;
+    chunk.endTag = "";
+  } else {
+    chunk.startTag = chunk.endTag = "";
+  }
+};
+
+commandProto.doDeleteSelection = function (chunk) {
+  chunk.selection = "";
+  chunk.startTag = "";
+  chunk.endTag = "";
 };
 
 commandProto.doList = function (chunk, postProcessing, isNumberedList, isCheckList) {

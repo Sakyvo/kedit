@@ -35,8 +35,14 @@ editor:
     clist: true
     # 块引用
     quote: true
-    # 代码
+    # 代码（三反引号围栏 / 旧 doCode）
     code: true
+    # 代码块（显式 fenced）
+    codeblock: true
+    # 行内代码（单反引号）
+    inlinecode: true
+    # 删除所选
+    deleteSelection: true
     # 表格
     table: true
     # 链接

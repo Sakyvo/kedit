@@ -9,6 +9,10 @@
 import { mapGetters } from 'vuex';
 import editorSvc from '../services/editorSvc';
 import store from '../store';
+import {
+  findSectionIndexByTocElt,
+  computeTocJumpScrollTop,
+} from '../services/editor/tocJump';
 
 export default {
   data: () => ({
@@ -23,39 +27,39 @@ export default {
   mounted() {
     const tocElt = this.$el.querySelector('.toc__inner');
 
-    // TOC click behaviour: exact DOM hit on an entry, instant jump to its heading
+    // TOC click: re-resolve live section DOM each time (cached editorElt detaches after re-highlight)
     tocElt.addEventListener('click', (e) => {
       e.preventDefault();
       const sectionElt = e.target.closest('.cl-toc-section');
       if (!sectionElt) {
         return;
       }
-      const jumped = editorSvc.previewCtx.sectionDescList.some((sectionDesc) => {
-        if (sectionDesc.tocElt !== sectionElt) {
-          return false;
-        }
-        if (this.styles.showEditor) {
-          // Edit mode (incl. side preview): read the live section element
-          // instead of the debounced dimension cache (stale after image loads).
-          // Scrolling the editor makes it the scroll-sync source, so the
-          // preview follows without being re-dragged by stale dimensions.
-          const editorScrollerElt = editorSvc.editorElt.parentNode;
-          let offset = 0;
-          let elt = sectionDesc.editorElt;
-          while (elt && elt !== editorScrollerElt) {
-            offset += elt.offsetTop;
-            elt = elt.offsetParent;
-          }
-          const maxScrollTop = editorScrollerElt.scrollHeight - editorScrollerElt.clientHeight;
-          editorScrollerElt.scrollTop = Math.max(0, Math.min(offset, maxScrollTop));
-        } else if (sectionDesc.previewDimension) {
-          // Preview-only mode: unchanged
-          editorSvc.previewElt.parentNode.scrollTop = sectionDesc.previewDimension.startOffset;
-        }
-        return true;
+      const sectionDescList = editorSvc.previewCtx.sectionDescList || [];
+      const index = findSectionIndexByTocElt(sectionDescList, sectionElt);
+      if (index < 0) {
+        return;
+      }
+      const sectionDesc = sectionDescList[index];
+      const mode = this.styles.showEditor ? 'editor' : 'preview';
+      const scrollTop = computeTocJumpScrollTop({
+        mode,
+        sectionDesc,
+        sectionList: editorSvc.sectionList || (editorSvc.parsingCtx && editorSvc.parsingCtx.sectionList),
+        index,
+        editorScroller: editorSvc.editorElt && editorSvc.editorElt.parentNode,
+        previewRoot: editorSvc.previewElt,
+        previewScroller: editorSvc.previewElt && editorSvc.previewElt.parentNode,
       });
+      if (scrollTop == null) {
+        return;
+      }
+      if (mode === 'editor') {
+        editorSvc.editorElt.parentNode.scrollTop = scrollTop;
+      } else {
+        editorSvc.previewElt.parentNode.scrollTop = scrollTop;
+      }
       // With auto-jump enabled, close the side bar once the jump happened
-      if (jumped && store.getters['data/layoutSettings'].tocAutoJump) {
+      if (store.getters['data/layoutSettings'].tocAutoJump) {
         store.dispatch('data/toggleSideBar', false);
       }
     });

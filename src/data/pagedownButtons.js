@@ -3,6 +3,14 @@ export default [{
   title: '图片',
   icon: 'file-image',
 }, {
+  method: 'codeblock',
+  title: '代码块',
+  icon: 'code-braces',
+}, {
+  method: 'inlinecode',
+  title: '行内代码',
+  icon: 'code-tags',
+}, {
 }, {
   method: 'bold',
   title: '加粗',
@@ -19,7 +27,6 @@ export default [{
   method: 'strikethrough',
   title: '删除线',
   icon: 'format-strikethrough',
-// }, {
 }, {
   method: 'ulist',
   title: '无序列表',
@@ -32,15 +39,10 @@ export default [{
   method: 'clist',
   title: '可选列表',
   icon: 'format-list-checks',
-// }, {
 }, {
   method: 'quote',
   title: '块引用',
   icon: 'format-quote-close',
-}, {
-  method: 'code',
-  title: '代码',
-  icon: 'code-tags',
 }, {
   method: 'table',
   title: '表格',
@@ -49,6 +51,10 @@ export default [{
   method: 'link',
   title: '链接',
   icon: 'link-variant',
+}, {
+  method: 'deleteSelection',
+  title: '删除所选',
+  icon: 'delete',
 }, {
   method: 'chatgpt',
   title: 'AI内容生成',

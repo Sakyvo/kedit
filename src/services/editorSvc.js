@@ -21,6 +21,11 @@ import store from '../store';
 import syncSvc from './syncSvc';
 import constants from '../data/constants';
 import localDbSvc from './localDbSvc';
+import {
+  shouldApplyNaturalSize,
+  shouldRecordNaturalSize,
+  dimensionsForPreset,
+} from './editor/imgSizeGuard';
 
 const allowDebounce = (action, wait) => {
   let timeoutId;
@@ -742,6 +747,17 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
             const uri = srcElt.textContent;
             if (!/^unsafe/.test(htmlSanitizer.sanitizeUri(uri, true))) {
               imgElt.onload = () => {
+                // Ignore stale onload if src/uri no longer match this element
+                if (!shouldRecordNaturalSize({
+                  eventSrc: imgElt.src,
+                  imgSrc: imgElt.src,
+                  mapUri: uri,
+                  imgUri: imgElt.getAttribute(imgUriAttr) || uri,
+                  naturalWidth: imgElt.naturalWidth,
+                  naturalHeight: imgElt.naturalHeight,
+                })) {
+                  return;
+                }
                 imgElt.style.display = '';
                 if (imgElt.naturalWidth && imgElt.naturalHeight) {
                   uriNaturalDimensionMap[uri] = {
@@ -775,12 +791,25 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
                   imgElt.height = parseInt(match[2], 10);
                 }
               }
-              // Preset the known natural size so the box is reserved right away
+              // Preset known natural width only when uri identity matches;
+              // height left to CSS height:auto to avoid stretch from stale cache
               const naturalDimension = uriNaturalDimensionMap[uri];
-              if (naturalDimension && !imgElt.width && !imgElt.height) {
-                imgElt.width = naturalDimension.width;
-                imgElt.height = naturalDimension.height;
-                imgElt.style.display = '';
+              if (shouldApplyNaturalSize({
+                mapUri: uri,
+                imgUri: uri,
+                hasExplicitWidth: !!imgElt.width,
+                hasExplicitHeight: !!imgElt.height,
+                naturalWidth: naturalDimension && naturalDimension.width,
+                naturalHeight: naturalDimension && naturalDimension.height,
+              })) {
+                const dims = dimensionsForPreset(naturalDimension, { stretchSafe: true });
+                if (dims) {
+                  imgElt.width = dims.width;
+                  if (dims.height != null) {
+                    imgElt.height = dims.height;
+                  }
+                  imgElt.style.display = '';
+                }
               }
               imgElt.setAttribute(imgUriAttr, uri);
               imgEltsToCache.push(imgElt);

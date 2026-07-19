@@ -15,8 +15,14 @@
               全选（共 {{entries.length}} 张）
             </label>
           </div>
-          <div class="image-cleanup__list">
-            <label class="image-cleanup__entry flex flex--row flex--align-center" v-for="entry in entries" :key="entry.path">
+          <div class="image-cleanup__list" ref="listEl">
+            <label
+              class="image-cleanup__entry flex flex--row flex--align-center"
+              v-for="entry in entries"
+              :key="entry.path"
+              :data-path="entry.path"
+              ref="entryEls"
+            >
               <input type="checkbox" v-model="entry.selected">
               <span class="image-cleanup__thumbnail flex flex--column flex--center">
                 <img v-if="entry.dataUrl" :src="entry.dataUrl">
@@ -51,8 +57,13 @@
 import modalTemplate from './common/modalTemplate';
 import imgCleanupSvc from '../../services/imgCleanupSvc';
 import workspaceImageSvc from '../../services/workspaceImageSvc';
-import utils from '../../services/utils';
 import store from '../../store';
+import syncSvc from '../../services/syncSvc';
+import {
+  shouldFetchRemoteThumb,
+  markInFlight,
+  clearInFlight,
+} from '../../services/imgThumbLazy';
 
 export default modalTemplate({
   data: () => ({
@@ -88,6 +99,76 @@ export default modalTemplate({
         entry.selected = selected;
       });
     },
+    async loadThumb(entry) {
+      if (!entry || entry.dataUrl || this._thumbInFlight.has(entry.path)) {
+        return;
+      }
+      if (!shouldFetchRemoteThumb({
+        dataUrl: entry.dataUrl,
+        path: entry.path,
+        visible: true,
+        inFlight: this._thumbInFlight.has(entry.path),
+      })) {
+        return;
+      }
+      markInFlight(this._thumbInFlight, entry.path);
+      const abs = imgCleanupSvc.getAbsolutePath(entry.path);
+      try {
+        let dataUrl = await workspaceImageSvc.getDataUrl(abs, true);
+        if (!dataUrl) {
+          // Lazy remote: pull into local IndexedDB via existing syncImg path, then re-read
+          try {
+            await syncSvc.syncImg(abs);
+          } catch (e) {
+            // offline / missing — keep placeholder
+          }
+          dataUrl = await workspaceImageSvc.getDataUrl(abs, true);
+        }
+        if (dataUrl) {
+          entry.dataUrl = dataUrl;
+        }
+      } catch (err) {
+        // Keep 无预览
+      } finally {
+        clearInFlight(this._thumbInFlight, entry.path);
+      }
+    },
+    setupLazyThumbs() {
+      this.teardownLazyThumbs();
+      const root = this.$refs.listEl;
+      if (!root || typeof IntersectionObserver === 'undefined') {
+        // Fallback: load first batch only
+        this.entries.slice(0, 8).forEach(entry => this.loadThumb(entry));
+        return;
+      }
+      this._thumbObserver = new IntersectionObserver((records) => {
+        records.forEach((record) => {
+          if (!record.isIntersecting) {
+            return;
+          }
+          const path = record.target.getAttribute('data-path');
+          const entry = this.entries.find(e => e.path === path);
+          if (entry) {
+            this.loadThumb(entry);
+          }
+        });
+      }, { root, rootMargin: '48px', threshold: 0.01 });
+      this.$nextTick(() => {
+        const els = this.$refs.entryEls;
+        const list = Array.isArray(els) ? els : (els ? [els] : []);
+        list.forEach((el) => {
+          if (el) {
+            this._thumbObserver.observe(el);
+          }
+        });
+      });
+    },
+    teardownLazyThumbs() {
+      if (this._thumbObserver) {
+        this._thumbObserver.disconnect();
+        this._thumbObserver = null;
+      }
+    },
     async scan() {
       try {
         const unreferenced = await imgCleanupSvc.scanUnreferenced();
@@ -102,15 +183,16 @@ export default modalTemplate({
       } finally {
         this.scanning = false;
       }
-      // Thumbnails from the local img store; missing ones keep the placeholder
-      await utils.awaitSequence(this.entries, async (entry) => {
+      // Local cache first (no remote); missing stay placeholder until visible
+      await Promise.all(this.entries.map(async (entry) => {
         try {
           entry.dataUrl = await workspaceImageSvc
             .getDataUrl(imgCleanupSvc.getAbsolutePath(entry.path), true);
         } catch (err) {
-          // Keep the placeholder
+          // placeholder
         }
-      });
+      }));
+      this.$nextTick(() => this.setupLazyThumbs());
     },
     async removeSelected() {
       const selected = this.entries.filter(entry => entry.selected);
@@ -142,7 +224,11 @@ export default modalTemplate({
     },
   },
   created() {
+    this._thumbInFlight = new Set();
     this.scan();
+  },
+  beforeUnmount() {
+    this.teardownLazyThumbs();
   },
 });
 </script>

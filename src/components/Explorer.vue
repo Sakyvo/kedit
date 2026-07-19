@@ -20,7 +20,13 @@
         <button class="side-title__button side-title__button--sort button" @click="openSortMenu" v-title="'排序'">
           <icon-view-list></icon-view-list>
         </button>
-        <button class="side-title__button side-title__button--manual-sort button" :class="{'side-title__button--on': manualSortEnabled}" v-if="sortBy === 'manual'" @click="toggleManualSort" v-title="manualSortEnabled ? '关闭手动排序' : '开启手动排序'">
+        <button
+          class="side-title__button side-title__button--manual-sort button"
+          :class="{'side-title__button--on': manualSortButtonOn}"
+          v-if="sortBy === 'manual'"
+          @click="toggleManualSort"
+          v-title="manualSortTooltip"
+        >
           <icon-arrow-all></icon-arrow-all>
         </button>
       </div>
@@ -87,6 +93,19 @@ export default {
       'selectedNode',
     ]),
     workspaceId: () => store.getters['workspace/currentWorkspace'].id,
+    isTouchDevice() {
+      return 'ontouchstart' in window;
+    },
+    // Desktop: always show "on" as placeholder that manual sort is active
+    manualSortButtonOn() {
+      return this.isTouchDevice ? this.manualSortEnabled : true;
+    },
+    manualSortTooltip() {
+      if (!this.isTouchDevice) {
+        return '手动排序（桌面可直接拖动）';
+      }
+      return this.manualSortEnabled ? '关闭手动排序' : '开启手动排序';
+    },
   },
   methods: {
     ...mapActions('data', [
@@ -196,6 +215,10 @@ export default {
       });
     },
     toggleManualSort() {
+      // Desktop: move toggle is a non-gating placeholder (tooltip only)
+      if (!('ontouchstart' in window)) {
+        return;
+      }
       store.commit('explorer/setManualSortEnabled', !store.state.explorer.manualSortEnabled);
     },
   },

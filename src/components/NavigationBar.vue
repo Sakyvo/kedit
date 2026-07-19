@@ -34,7 +34,13 @@
       <button class="navigation-bar__button button" @click="undo" v-title="'回退'" :disabled="!canUndo"><icon-undo></icon-undo></button>
       <button class="navigation-bar__button button" @click="redo" v-title="'重做'" :disabled="!canRedo"><icon-redo></icon-redo></button>
       <div v-for="button in pagedownButtons" :key="button.method">
-        <button class="navigation-bar__button button" v-if="button.method" @click="pagedownClick(button.method)" v-title="button.titleWithShortcut">
+        <button
+          class="navigation-bar__button button"
+          v-if="button.method"
+          @click="pagedownClick(button.method)"
+          v-title="button.titleWithShortcut"
+          :disabled="button.method === 'deleteSelection' && !hasEditorSelection"
+        >
           <component :is="button.iconClass"></component>
         </button>
         <div class="navigation-bar__spacer" v-else></div>
@@ -74,6 +80,9 @@ const getShortcut = (method) => {
 };
 
 export default {
+  data: () => ({
+    selectionTick: 0,
+  }),
   computed: {
     ...mapState([
       'light',
@@ -105,11 +114,21 @@ export default {
     }),
     pagedownButtons() {
       const buttonShowObj = store.getters['data/computedSettings'].editor.headButtons;
-      return pagedownButtons.filter(it => buttonShowObj[it.method]).map(button => ({
+      return pagedownButtons.filter(it => buttonShowObj[it.method] !== false).map(button => ({
         ...button,
         titleWithShortcut: `${button.title}${getShortcut(button.method)}`,
         iconClass: `icon-${button.icon}`,
       }));
+    },
+    hasEditorSelection() {
+      // Reactive via selection tick; also read live selection when available
+      void this.selectionTick;
+      const cl = editorSvc.clEditor;
+      if (!cl || !cl.selectionMgr) {
+        return false;
+      }
+      const { selectionStart, selectionEnd } = cl.selectionMgr;
+      return selectionStart !== selectionEnd;
     },
     isSyncPossible() {
       return store.getters['workspace/syncToken'] ||
@@ -211,6 +230,23 @@ export default {
       },
       { immediate: true },
     );
+  },
+  mounted() {
+    const bump = () => {
+      this.selectionTick += 1;
+    };
+    document.addEventListener('selectionchange', bump);
+    this._selectionBump = bump;
+    // Also refresh when editor selection API updates cursor coords
+    this._selectionInterval = setInterval(bump, 400);
+  },
+  beforeUnmount() {
+    if (this._selectionBump) {
+      document.removeEventListener('selectionchange', this._selectionBump);
+    }
+    if (this._selectionInterval) {
+      clearInterval(this._selectionInterval);
+    }
   },
 };
 </script>
