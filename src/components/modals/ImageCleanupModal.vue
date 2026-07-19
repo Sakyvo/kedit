@@ -4,49 +4,63 @@
       <div class="modal__image">
         <icon-file-image></icon-file-image>
       </div>
-      <p>扫描所有文档，列出未被任何文档引用的仓库图片。</p>
-      <p v-if="scanning">正在扫描文档引用…</p>
-      <template v-else>
-        <p v-if="!entries.length">未发现未引用图片。</p>
-        <template v-else>
-          <div class="image-cleanup__select-all form-entry__checkbox">
-            <label>
-              <input type="checkbox" :checked="allSelected" @change="toggleAll">
-              全选（共 {{entries.length}} 张）
-            </label>
-          </div>
-          <div class="image-cleanup__list" ref="listEl">
-            <label
-              class="image-cleanup__entry flex flex--row flex--align-center"
-              v-for="entry in entries"
-              :key="entry.path"
-              :data-path="entry.path"
-              ref="entryEls"
-            >
-              <input type="checkbox" v-model="entry.selected">
-              <span class="image-cleanup__thumbnail flex flex--column flex--center">
-                <img v-if="entry.dataUrl" :src="entry.dataUrl">
-                <span v-else class="image-cleanup__placeholder">无预览</span>
-              </span>
-              <span class="image-cleanup__info">
-                <span class="image-cleanup__path">{{entry.path}}</span>
-                <span class="image-cleanup__age">{{ageLabel(entry)}}</span>
-              </span>
-            </label>
-          </div>
-        </template>
+      <!-- Inline confirm: nested modal unmounts this component mid-delete (stack[0] only) -->
+      <template v-if="confirmCount">
+        <p>确定删除所选的 <b>{{confirmCount}}</b> 张未引用图片？此操作不可撤销。</p>
       </template>
-      <details class="image-cleanup__log" v-if="log.length">
-        <summary>最近清理记录（{{log.length}}）</summary>
-        <div class="image-cleanup__log-entry" v-for="(item, idx) in log" :key="idx">
-          <span class="image-cleanup__log-time">{{formatTime(item.ts)}}</span>
-          <span class="image-cleanup__log-path">{{item.path}}</span>
-        </div>
-      </details>
+      <template v-else>
+        <p>扫描所有文档，列出未被任何文档引用的仓库图片。</p>
+        <p v-if="scanning">正在扫描文档引用…</p>
+        <template v-else>
+          <p v-if="!entries.length">未发现未引用图片。</p>
+          <template v-else>
+            <div class="image-cleanup__select-all form-entry__checkbox">
+              <label>
+                <input type="checkbox" :checked="allSelected" @change="toggleAll">
+                全选（共 {{entries.length}} 张）
+              </label>
+            </div>
+            <div class="image-cleanup__list" ref="listEl">
+              <label
+                class="image-cleanup__entry flex flex--row flex--align-center"
+                v-for="entry in entries"
+                :key="entry.path"
+                :data-path="entry.path"
+                ref="entryEls"
+              >
+                <input type="checkbox" v-model="entry.selected">
+                <span class="image-cleanup__thumbnail flex flex--column flex--center">
+                  <img v-if="entry.dataUrl" :src="entry.dataUrl">
+                  <span v-else class="image-cleanup__placeholder">无预览</span>
+                </span>
+                <span class="image-cleanup__info">
+                  <span class="image-cleanup__path">{{entry.path}}</span>
+                  <span class="image-cleanup__age">{{ageLabel(entry)}}</span>
+                </span>
+              </label>
+            </div>
+          </template>
+        </template>
+        <details class="image-cleanup__log" v-if="log.length">
+          <summary>最近清理记录（{{log.length}}）</summary>
+          <div class="image-cleanup__log-scroll">
+            <div class="image-cleanup__log-entry" v-for="(item, idx) in log" :key="idx">
+              <span class="image-cleanup__log-time">{{formatTime(item.ts)}}</span>
+              <span class="image-cleanup__log-path">{{item.path}}</span>
+            </div>
+          </div>
+        </details>
+      </template>
     </div>
-    <div class="modal__button-bar">
+    <div class="modal__button-bar" v-if="confirmCount">
+      <button class="button" :disabled="deleting" @click="confirmCount = 0">取消</button>
+      <button class="button button--resolve" :disabled="deleting" @click="confirmRemove">
+        {{deleting ? '删除中…' : '确认删除'}}
+      </button>
+    </div>
+    <div class="modal__button-bar" v-else>
       <button class="button" @click="config.reject()">关闭</button>
-      <button class="button button--resolve" :disabled="!selectedCount || deleting" @click="removeSelected">
+      <button class="button button--resolve" :disabled="!selectedCount || deleting || scanning" @click="removeSelected">
         {{deleting ? '删除中…' : `删除所选 (${selectedCount})`}}
       </button>
     </div>
@@ -70,6 +84,8 @@ export default modalTemplate({
     scanning: true,
     deleting: false,
     entries: [],
+    confirmCount: 0,
+    pendingRemove: null,
   }),
   computed: {
     selectedCount() {
@@ -194,30 +210,40 @@ export default modalTemplate({
       }));
       this.$nextTick(() => this.setupLazyThumbs());
     },
-    async removeSelected() {
+    removeSelected() {
       const selected = this.entries.filter(entry => entry.selected);
       if (!selected.length || this.deleting) {
         return;
       }
-      try {
-        await store.dispatch('modal/open', {
-          type: 'imageCleanupDeletion',
-          count: selected.length,
-        });
-      } catch (e) {
-        return; // Cancel
+      // Keep confirm in-modal so this instance stays mounted and can refresh UI
+      this.pendingRemove = selected.map(entry => ({
+        path: entry.path,
+        sha: entry.sha,
+      }));
+      this.confirmCount = selected.length;
+    },
+    async confirmRemove() {
+      const selected = this.pendingRemove;
+      if (!selected || !selected.length || this.deleting) {
+        return;
       }
       this.deleting = true;
       try {
         const { removedPaths, failedPaths } = await imgCleanupSvc.deleteImgs(selected);
-        const removedSet = new Set(removedPaths);
-        this.entries = this.entries.filter(entry => !removedSet.has(entry.path));
+        this.pendingRemove = null;
+        this.confirmCount = 0;
+        // Drop removed rows immediately, then re-scan inventory for truth
         if (removedPaths.length) {
+          const removedSet = new Set(removedPaths);
+          this.entries = this.entries.filter(entry => !removedSet.has(entry.path));
           store.dispatch('notification/info', `已删除 ${removedPaths.length} 张未引用图片。`);
         }
         if (failedPaths.length) {
           store.dispatch('notification/error', `${failedPaths.length} 张图片删除失败，请稍后重试。`);
         }
+        // Re-sync list from git inventory + local clock (survives partial failure)
+        this.scanning = true;
+        await this.scan();
       } finally {
         this.deleting = false;
       }
@@ -303,6 +329,8 @@ export default modalTemplate({
 
 .image-cleanup__log {
   margin-top: 1em;
+  max-width: 100%;
+  min-width: 0;
 
   summary {
     cursor: pointer;
@@ -311,17 +339,39 @@ export default modalTemplate({
   }
 }
 
+.image-cleanup__log-scroll {
+  max-height: 160px;
+  overflow: auto;
+  margin-top: 0.35em;
+  max-width: 100%;
+  border: 1px solid $hr-color;
+  border-radius: $border-radius-base;
+  padding: 0.25em 0.4em;
+}
+
 .image-cleanup__log-entry {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.5em;
   font-size: 0.8em;
   opacity: 0.75;
   padding: 0.15em 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .image-cleanup__log-time {
-  margin-right: 0.5em;
+  flex: none;
   opacity: 0.75;
+  white-space: nowrap;
+}
+
+.image-cleanup__log-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 </style>
