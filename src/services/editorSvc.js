@@ -26,6 +26,7 @@ import {
   shouldRecordNaturalSize,
   dimensionsForPreset,
 } from './editor/imgSizeGuard';
+import { createLayoutRemeasure } from './editor/layoutRemeasure';
 
 const allowDebounce = (action, wait) => {
   let timeoutId;
@@ -942,16 +943,17 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       },
     );
 
-    let layoutMeasurementFrameId;
     store.watch(
       () => utils.serializeObject(store.getters['layout/styles']),
-      () => {
+      createLayoutRemeasure({
+        // Flush the live scroll position before the DOM rewraps, so the
+        // post-measure restore doesn't roll back to a stale debounced snapshot.
+        saveContentState: () => this.saveContentState(),
         // Wait for the layout DOM update before measuring section offsets.
-        window.cancelAnimationFrame(layoutMeasurementFrameId);
-        layoutMeasurementFrameId = window.requestAnimationFrame(() => {
-          this.measureSectionDimensions(false, true, true);
-        });
-      },
+        measure: () => this.measureSectionDimensions(false, true, true),
+        requestFrame: cb => window.requestAnimationFrame(cb),
+        cancelFrame: id => window.cancelAnimationFrame(id),
+      }),
     );
 
     this.initHighlighters();
