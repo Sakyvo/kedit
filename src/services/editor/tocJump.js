@@ -96,3 +96,40 @@ export function computeTocJumpScrollTop({
   }
   return null;
 }
+
+/**
+ * Targets for both panes. Side-by-side jumps teleport the preview too,
+ * so scrollSync's catch-up animation degenerates to a no-op.
+ */
+export function computeTocJumpTargets({
+  showEditor,
+  showSidePreview,
+  sectionDesc,
+  sectionList,
+  index,
+  editorScroller,
+  previewRoot,
+  previewScroller,
+}) {
+  const previewArgs = {
+    mode: 'preview',
+    sectionDesc,
+    sectionList,
+    index,
+    previewRoot,
+    previewScroller,
+  };
+  if (!showEditor) {
+    return { editor: null, preview: computeTocJumpScrollTop(previewArgs) };
+  }
+  return {
+    editor: computeTocJumpScrollTop({
+      mode: 'editor',
+      sectionDesc,
+      sectionList,
+      index,
+      editorScroller,
+    }),
+    preview: showSidePreview ? computeTocJumpScrollTop(previewArgs) : null,
+  };
+}

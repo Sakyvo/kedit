@@ -11,7 +11,7 @@ import editorSvc from '../services/editorSvc';
 import store from '../store';
 import {
   findSectionIndexByTocElt,
-  computeTocJumpScrollTop,
+  computeTocJumpTargets,
 } from '../services/editor/tocJump';
 
 export default {
@@ -40,9 +40,10 @@ export default {
         return;
       }
       const sectionDesc = sectionDescList[index];
-      const mode = this.styles.showEditor ? 'editor' : 'preview';
-      const scrollTop = computeTocJumpScrollTop({
-        mode,
+      // Teleport both panes directly (no scrollSync catch-up animation)
+      const targets = computeTocJumpTargets({
+        showEditor: this.styles.showEditor,
+        showSidePreview: this.styles.showSidePreview,
         sectionDesc,
         sectionList: editorSvc.sectionList || (editorSvc.parsingCtx && editorSvc.parsingCtx.sectionList),
         index,
@@ -50,13 +51,14 @@ export default {
         previewRoot: editorSvc.previewElt,
         previewScroller: editorSvc.previewElt && editorSvc.previewElt.parentNode,
       });
-      if (scrollTop == null) {
+      if (targets.editor == null && targets.preview == null) {
         return;
       }
-      if (mode === 'editor') {
-        editorSvc.editorElt.parentNode.scrollTop = scrollTop;
-      } else {
-        editorSvc.previewElt.parentNode.scrollTop = scrollTop;
+      if (targets.editor != null) {
+        editorSvc.editorElt.parentNode.scrollTop = targets.editor;
+      }
+      if (targets.preview != null) {
+        editorSvc.previewElt.parentNode.scrollTop = targets.preview;
       }
       // With auto-jump enabled, close the side bar once the jump happened
       if (store.getters['data/layoutSettings'].tocAutoJump) {

@@ -10,6 +10,7 @@ import {
   offsetTopInScroller,
   clampScrollTop,
   computeTocJumpScrollTop,
+  computeTocJumpTargets,
 } from '../../../src/services/editor/tocJump.js';
 
 function mockElt({ offsetTop = 0, parentNode = null, isConnected = true, children } = {}) {
@@ -101,6 +102,37 @@ function mockElt({ offsetTop = 0, parentNode = null, isConnected = true, childre
     editorScroller: scroller,
   });
   assert.equal(top, null);
+}
+
+// --- computeTocJumpTargets: side-by-side teleports BOTH panes (no catch-up animation) ---
+{
+  const editorScroller = { scrollHeight: 2000, clientHeight: 400 };
+  const previewScroller = { scrollHeight: 3000, clientHeight: 400 };
+  const editorLive = mockElt({ offsetTop: 500, isConnected: true });
+  editorLive.offsetParent = editorScroller;
+  const previewLive = mockElt({ offsetTop: 700, isConnected: true });
+  previewLive.offsetParent = previewScroller;
+  const args = {
+    sectionDesc: { editorElt: editorLive, previewElt: previewLive },
+    sectionList: [{ elt: editorLive }],
+    index: 0,
+    editorScroller,
+    previewRoot: { children: [previewLive] },
+    previewScroller,
+  };
+  const both = computeTocJumpTargets({ showEditor: true, showSidePreview: true, ...args });
+  assert.equal(both.editor, 500);
+  assert.equal(both.preview, 700);
+
+  // Editor-only layout: no preview target
+  const editorOnly = computeTocJumpTargets({ showEditor: true, showSidePreview: false, ...args });
+  assert.equal(editorOnly.editor, 500);
+  assert.equal(editorOnly.preview, null);
+
+  // Preview-only layout: no editor target (hidden editor geometry is unreliable)
+  const previewOnly = computeTocJumpTargets({ showEditor: false, showSidePreview: false, ...args });
+  assert.equal(previewOnly.editor, null);
+  assert.equal(previewOnly.preview, 700);
 }
 
 console.log('tocJump.harness: all assertions passed');
