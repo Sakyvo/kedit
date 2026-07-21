@@ -1,17 +1,42 @@
+import MD5 from 'crypto-js/md5';
 import store from '../../store';
 import githubHelper from './helpers/githubHelper';
 import Provider from './common/Provider';
+import localDbSvc from '../localDbSvc';
+import syncSvc from '../syncSvc';
 import {
   PDIR_OWNER,
   PDIR_REPO,
   PDIR_BRANCH,
   PDIR_MAIN_FILE,
   PDIR_SITE_URL,
+  parsePdirModules,
   replaceModuleBody,
   listPrivateImgRefs,
   stripFrontMatter,
   findForbiddenHeadings,
+  computeGitBlobShaFromBase64,
+  planImageUploads,
+  rewriteImgRefs,
 } from './helpers/pdirPublishUtils';
+
+// Private image content (pure base64) by workspace-absolute uri, with git fallback
+const loadImgBase64 = async (uri) => {
+  const md5Id = MD5(uri).toString();
+  let imgItem = await localDbSvc.getImgItem(md5Id);
+  if (!imgItem || !imgItem.content) {
+    try {
+      await syncSvc.syncImg(uri);
+    } catch (e) {
+      // fall through to the existence check
+    }
+    imgItem = await localDbSvc.getImgItem(md5Id);
+  }
+  if (!imgItem || !imgItem.content) {
+    throw new Error(`私有图片不存在或尚未同步：${uri}`);
+  }
+  return imgItem.content;
+};
 
 export default new Provider({
   id: 'pdir',
@@ -37,7 +62,7 @@ export default new Provider({
   },
   async publish(token, html, metadata, publishLocation, commitMessage) {
     // plainText template projection = raw markdown
-    const text = stripFrontMatter(html);
+    let text = stripFrontMatter(html);
     const forbidden = findForbiddenHeadings(text);
     if (forbidden.length) {
       const spots = forbidden.slice(0, 3)
@@ -45,14 +70,70 @@ export default new Provider({
         .join('、');
       throw new Error(`pdir 向文档需从 #### 起步：${spots} 会破坏模块结构，请调整后再发布。`);
     }
-    if (listPrivateImgRefs(text).length) {
-      throw new Error('文档引用了私有图片，图片管线尚未就绪，暂无法发布到 pdir。');
-    }
+
     const { sha, data } = await this.downloadMainMd(token);
-    const newMain = replaceModuleBody(data, publishLocation.module, text);
-    if (newMain == null) {
+    const module = parsePdirModules(data).find(m => m.title === publishLocation.module);
+    if (!module) {
       throw new Error(`pdir 模块「${publishLocation.module}」不存在，请重新选择模块。`);
     }
+    const commitMsg = commitMessage || `Publish ${metadata.title} -> ${publishLocation.module}`;
+
+    // Image pipeline: upload images first, then write the body
+    const refs = listPrivateImgRefs(text);
+    if (refs.length) {
+      const shaByUri = {};
+      const base64ByUri = {};
+      await refs.reduce(async (promise, ref) => {
+        await promise;
+        if (!base64ByUri[ref.uri]) {
+          base64ByUri[ref.uri] = await loadImgBase64(ref.uri);
+          shaByUri[ref.uri] = computeGitBlobShaFromBase64(base64ByUri[ref.uri]);
+        }
+      }, Promise.resolve());
+
+      const tree = await githubHelper.getTree({
+        token,
+        owner: PDIR_OWNER,
+        repo: PDIR_REPO,
+        branch: PDIR_BRANCH,
+      });
+      const repoFiles = tree
+        .filter(entry => entry.type === 'blob' && entry.path.startsWith('imgs/'))
+        .map(entry => ({ name: entry.path.slice('imgs/'.length), sha: entry.sha }));
+
+      const lines = data.split('\n');
+      const moduleBody = lines.slice(module.bodyStart, module.bodyEnd).join('\n');
+      const plan = planImageUploads({
+        refs,
+        moduleBody,
+        mainMd: data,
+        repoFiles,
+        shaByUri,
+      });
+
+      await plan.entries.reduce(async (promise, entry) => {
+        await promise;
+        if (entry.action === 'reuse') {
+          return;
+        }
+        await githubHelper.uploadFile({
+          token,
+          owner: PDIR_OWNER,
+          repo: PDIR_REPO,
+          branch: PDIR_BRANCH,
+          path: `imgs/${entry.targetName}`,
+          content: base64ByUri[entry.uri],
+          isImg: true,
+          sha: entry.repoSha,
+          commitMessage: commitMsg,
+        });
+      }, Promise.resolve());
+
+      text = rewriteImgRefs(text, plan.replacementByUri);
+      store.dispatch('notification/info', `pdir 图片：新传 ${plan.stats.upload}、复用 ${plan.stats.reuse}、覆盖 ${plan.stats.overwrite}。`);
+    }
+
+    const newMain = replaceModuleBody(data, publishLocation.module, text);
     await githubHelper.uploadFile({
       token,
       owner: PDIR_OWNER,
@@ -61,7 +142,7 @@ export default new Provider({
       path: PDIR_MAIN_FILE,
       content: newMain,
       sha,
-      commitMessage: commitMessage || `Publish ${metadata.title} -> ${publishLocation.module}`,
+      commitMessage: commitMsg,
     });
     return publishLocation;
   },

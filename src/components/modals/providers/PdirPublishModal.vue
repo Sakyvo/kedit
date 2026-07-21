@@ -24,8 +24,8 @@
       <form-entry label="提交信息" info="可选的">
         <template v-slot:field><input class="textfield" type="text" v-model.trim="commitMessage" @keydown.enter="resolve()"></template>
       </form-entry>
-      <div class="form-entry__info" v-if="privateImgCount">
-        ⚠ 文档含 {{privateImgCount}} 张私有图片：图片管线尚未就绪，暂无法发布。
+      <div class="form-entry__info" v-if="imgStats.total">
+        将同步 {{imgStats.total}} 张私有图片（命名 {{imgStats.named}} / 未命名 {{imgStats.unnamed}}）；新传/复用/覆盖在发布时按内容比对决定。
       </div>
       <div class="form-entry__info" v-if="headingViolation">
         ⚠ {{headingViolation}}
@@ -47,6 +47,7 @@ import {
   listPrivateImgRefs,
   stripFrontMatter,
   findForbiddenHeadings,
+  UNNAMED_ALT,
 } from '../../../services/providers/helpers/pdirPublishUtils';
 
 export default modalTemplate({
@@ -61,9 +62,11 @@ export default modalTemplate({
     isRepublish() {
       return !!this.config.location;
     },
-    privateImgCount() {
+    imgStats() {
       const content = store.getters['content/current'];
-      return listPrivateImgRefs((content && content.text) || '').length;
+      const refs = listPrivateImgRefs((content && content.text) || '');
+      const named = refs.filter(ref => ref.alt !== UNNAMED_ALT).length;
+      return { total: refs.length, named, unnamed: refs.length - named };
     },
     headingViolation() {
       const content = store.getters['content/current'];
@@ -75,7 +78,7 @@ export default modalTemplate({
       return `第${first.line + 1}行「${'#'.repeat(first.level)} ${first.title}」等 ${violations.length} 处标题层级过高（pdir 向文档需从 #### 起步）。`;
     },
     canResolve() {
-      if (this.privateImgCount || this.headingViolation) {
+      if (this.headingViolation) {
         return false;
       }
       return this.isRepublish || !!this.selectedModule;
