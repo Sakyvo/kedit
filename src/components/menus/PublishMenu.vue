@@ -21,6 +21,13 @@
         <p>您必须链接一个账号才能开始发布文件。</p>
       </div>
       <hr>
+      <div v-if="pdirToken">
+        <menu-entry @click.native="publishPdir(pdirToken)">
+          <template v-slot:icon><icon-provider provider-id="pdir"></icon-provider></template>
+          <div>发布到 pdir</div>
+          <span>{{pdirToken.name}}</span>
+        </menu-entry>
+      </div>
       <div v-for="token in bloggerTokens" :key="'blogger-' + token.sub">
         <menu-entry @click.native="publishBlogger(token)">
           <template v-slot:icon><icon-provider provider-id="blogger"></icon-provider></template>
@@ -164,6 +171,7 @@ import giteaHelper from '../../services/providers/helpers/giteaHelper';
 import wordpressHelper from '../../services/providers/helpers/wordpressHelper';
 import zendeskHelper from '../../services/providers/helpers/zendeskHelper';
 import publishSvc from '../../services/publishSvc';
+import { findPdirToken } from '../../services/providers/helpers/pdirPublishUtils';
 import store from '../../store';
 
 const tokensToArray = (tokens, filter = () => true) => Object.values(tokens)
@@ -208,6 +216,9 @@ export default {
     },
     githubTokens() {
       return tokensToArray(store.getters['data/githubTokensBySub']);
+    },
+    pdirToken() {
+      return findPdirToken(store.getters['data/githubTokensBySub']);
     },
     giteeTokens() {
       return tokensToArray(store.getters['data/giteeTokensBySub']);
@@ -310,6 +321,15 @@ export default {
       try {
         const { subdomain, clientId } = await store.dispatch('modal/open', { type: 'zendeskAccount' });
         await zendeskHelper.addAccount(subdomain, clientId);
+      } catch (e) { /* cancel */ }
+    },
+    async publishPdir(token) {
+      try {
+        const { location, commitMessage } = await store.dispatch('modal/open', {
+          type: 'pdirPublish',
+          token,
+        });
+        publishSvc.createPublishLocation(location, commitMessage);
       } catch (e) { /* cancel */ }
     },
     publishBlogger: publishModalOpener('bloggerPublish'),

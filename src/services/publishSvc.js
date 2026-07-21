@@ -82,11 +82,28 @@ const publishFile = async (fileId) => {
         return;
       }
     }
+    // pdir 重发必经合一确认弹窗（永不静默直发）
+    const pdirLocation = publishLocations.find(it => it.providerId === 'pdir');
+    let pdirCommitMsg = '';
+    if (pdirLocation) {
+      try {
+        const { commitMessage } = await store.dispatch('modal/open', {
+          type: 'pdirPublish',
+          location: pdirLocation,
+        });
+        pdirCommitMsg = commitMessage;
+      } catch (e) {
+        return;
+      }
+    }
     await utils.awaitSequence(publishLocations, async (publishLocation) => {
       await store.dispatch('queue/doWithLocation', {
         location: publishLocation,
         action: async () => {
-          const publishLocationToStore = await publish(publishLocation, commitMsg);
+          const publishLocationToStore = await publish(
+            publishLocation,
+            publishLocation.providerId === 'pdir' ? pdirCommitMsg : commitMsg,
+          );
           try {
             // Replace publish location if modified
             if (utils.serializeObject(publishLocation) !==
@@ -143,14 +160,14 @@ const publishLocationAndStore = async (publishLocation, commitMsg) => {
   return publishLocationToStore;
 };
 
-const createPublishLocation = (publishLocation) => {
+const createPublishLocation = (publishLocation, presetCommitMsg) => {
   const currentFile = store.getters['file/current'];
   publishLocation.fileId = currentFile.id;
   store.dispatch(
     'queue/enqueue',
     async () => {
-      let commitMsg = '';
-      if (gitProviderIds.indexOf(publishLocation.providerId) > -1) {
+      let commitMsg = presetCommitMsg || '';
+      if (presetCommitMsg == null && gitProviderIds.indexOf(publishLocation.providerId) > -1) {
         try {
           const { commitMessage } = await store.dispatch('modal/open', {
             type: 'commitMessage',

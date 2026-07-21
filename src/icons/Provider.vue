@@ -57,6 +57,10 @@ export default {
   background-image: url(../assets/logo.png);
 }
 
+.icon-provider--pdir {
+  background-image: url(../assets/iconPdir.png);
+}
+
 .icon-provider--google-drive {
   background-image: url(../assets/iconGoogleDrive.svg);
 }
