@@ -9,6 +9,8 @@ import {
   parsePdirModules,
   replaceModuleBody,
   listPrivateImgRefs,
+  stripFrontMatter,
+  findForbiddenHeadings,
 } from '../../../src/services/providers/helpers/pdirPublishUtils.js';
 
 const MAIN = [
@@ -97,6 +99,37 @@ const MAIN = [
   assert.deepEqual(refs.map(r => r.uri), ['/imgs/2026-07-20/a.png', '/imgs/2026-07-20/c.jpg']);
   assert.deepEqual(refs.map(r => r.alt), ['test_img', '输入图片说明']);
   assert.deepEqual(listPrivateImgRefs('no imgs here'), []);
+}
+
+// --- #010 stripFrontMatter ---
+{
+  const doc = '---\ntitle: x\ntags: a\n---\n\n#### Body\ntext';
+  assert.equal(stripFrontMatter(doc), '#### Body\ntext');
+  // No front matter -> unchanged
+  assert.equal(stripFrontMatter('#### Body\n---\nnot fm\n---'), '#### Body\n---\nnot fm\n---');
+  // Unclosed front matter -> unchanged
+  assert.equal(stripFrontMatter('---\ntitle: x\nno close'), '---\ntitle: x\nno close');
+  // Closing with dots
+  assert.equal(stripFrontMatter('---\na: 1\n...\nBody'), 'Body');
+}
+
+// --- #010 findForbiddenHeadings: level<=3 outside fences ---
+{
+  const doc = [
+    '#### ok',
+    '## bad part',
+    '```',
+    '# fenced fine',
+    '```',
+    '### bad module',
+    '##### ok deep',
+  ].join('\n');
+  const violations = findForbiddenHeadings(doc);
+  assert.deepEqual(violations.map(v => [v.line, v.level, v.title]), [
+    [1, 2, 'bad part'],
+    [5, 3, 'bad module'],
+  ]);
+  assert.deepEqual(findForbiddenHeadings('#### a\n##### b'), []);
 }
 
 console.log('pdirPublish.harness: all assertions passed');

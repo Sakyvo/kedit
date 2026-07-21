@@ -9,6 +9,8 @@ import {
   PDIR_SITE_URL,
   replaceModuleBody,
   listPrivateImgRefs,
+  stripFrontMatter,
+  findForbiddenHeadings,
 } from './helpers/pdirPublishUtils';
 
 export default new Provider({
@@ -35,7 +37,14 @@ export default new Provider({
   },
   async publish(token, html, metadata, publishLocation, commitMessage) {
     // plainText template projection = raw markdown
-    const text = html;
+    const text = stripFrontMatter(html);
+    const forbidden = findForbiddenHeadings(text);
+    if (forbidden.length) {
+      const spots = forbidden.slice(0, 3)
+        .map(h => `第${h.line + 1}行「${'#'.repeat(h.level)} ${h.title}」`)
+        .join('、');
+      throw new Error(`pdir 向文档需从 #### 起步：${spots} 会破坏模块结构，请调整后再发布。`);
+    }
     if (listPrivateImgRefs(text).length) {
       throw new Error('文档引用了私有图片，图片管线尚未就绪，暂无法发布到 pdir。');
     }

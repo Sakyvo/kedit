@@ -27,6 +27,9 @@
       <div class="form-entry__info" v-if="privateImgCount">
         ⚠ 文档含 {{privateImgCount}} 张私有图片：图片管线尚未就绪，暂无法发布。
       </div>
+      <div class="form-entry__info" v-if="headingViolation">
+        ⚠ {{headingViolation}}
+      </div>
     </div>
     <div class="modal__button-bar">
       <button class="button" @click="config.reject()">取消</button>
@@ -42,6 +45,8 @@ import pdirProvider from '../../../services/providers/pdirProvider';
 import {
   parsePdirModules,
   listPrivateImgRefs,
+  stripFrontMatter,
+  findForbiddenHeadings,
 } from '../../../services/providers/helpers/pdirPublishUtils';
 
 export default modalTemplate({
@@ -60,8 +65,17 @@ export default modalTemplate({
       const content = store.getters['content/current'];
       return listPrivateImgRefs((content && content.text) || '').length;
     },
+    headingViolation() {
+      const content = store.getters['content/current'];
+      const violations = findForbiddenHeadings(stripFrontMatter((content && content.text) || ''));
+      if (!violations.length) {
+        return '';
+      }
+      const first = violations[0];
+      return `第${first.line + 1}行「${'#'.repeat(first.level)} ${first.title}」等 ${violations.length} 处标题层级过高（pdir 向文档需从 #### 起步）。`;
+    },
     canResolve() {
-      if (this.privateImgCount) {
+      if (this.privateImgCount || this.headingViolation) {
         return false;
       }
       return this.isRepublish || !!this.selectedModule;

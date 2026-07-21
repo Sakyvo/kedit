@@ -83,6 +83,31 @@ export function replaceModuleBody(md, moduleTitle, newBody) {
 }
 
 /**
+ * Strip a leading YAML front-matter block (--- ... --- / ...). Source stays intact;
+ * this only shapes the publish projection.
+ */
+export function stripFrontMatter(text) {
+  const lines = `${text}`.split('\n');
+  if (!/^---\s*$/.test(lines[0] || '')) {
+    return text;
+  }
+  for (let i = 1; i < lines.length; i += 1) {
+    if (/^(---|\.\.\.)\s*$/.test(lines[i])) {
+      return lines.slice(i + 1).join('\n').replace(/^\s*\n/, '');
+    }
+  }
+  return text;
+}
+
+/**
+ * Headings of level <= 3 (outside fences) would break pdir's Part/Module
+ * structure — pdir-bound Documents must start at ####.
+ */
+export function findForbiddenHeadings(text) {
+  return scanHeadings(text).filter(h => h.level <= 3);
+}
+
+/**
  * Markdown image refs pointing at KEDIT private images (/imgs/...), fence-aware.
  * Returns [{alt, uri}] in document order.
  */
