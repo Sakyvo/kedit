@@ -47,6 +47,7 @@
       </div>
     </div>
     <tour v-if="!light && !layoutSettings.welcomeTourFinished"></tour>
+    <publish-progress-popup></publish-progress-popup>
     <image-lightbox :image="zoomedImage" @close="closeZoomedImage"></image-lightbox>
   </div>
 </template>
@@ -67,6 +68,7 @@ import StickyComment from './gutters/StickyComment';
 import CurrentDiscussion from './gutters/CurrentDiscussion';
 import FindReplace from './FindReplace';
 import ImageLightbox from './ImageLightbox';
+import PublishProgressPopup from './PublishProgressPopup';
 import editorSvc from '../services/editorSvc';
 import markdownConversionSvc from '../services/markdownConversionSvc';
 import store from '../store';
@@ -87,6 +89,7 @@ export default {
     CurrentDiscussion,
     FindReplace,
     ImageLightbox,
+    PublishProgressPopup,
   },
   data: () => ({
     zoomedImage: null,

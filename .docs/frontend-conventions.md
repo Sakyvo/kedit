@@ -84,6 +84,7 @@ overlays consistent and never rely on DOM order alone once any layer has an
 explicit z-index):
 
 - `CustomScrollbar` 1 (panel-local)
+- `PublishProgressPopup` 50 (publish progress floating card/pill)
 - `.modal` 100
 - `.notification` 200
 - `.context-menu` 300

@@ -12,6 +12,7 @@ import folder from './folder';
 import layout from './layout';
 import modal from './modal';
 import notification from './notification';
+import publishProgress from './publishProgress';
 import queue from './queue';
 import syncedContent from './syncedContent';
 import userInfo from './userInfo';
@@ -41,6 +42,7 @@ const store = createStore({
     modal,
     notification,
     publishLocation: locationTemplate(emptyPublishLocation),
+    publishProgress,
     queue,
     syncedContent,
     syncLocation: locationTemplate(emptySyncLocation),
