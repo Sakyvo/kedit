@@ -133,12 +133,29 @@ function UndoMgr(editor) {
       end: range.end,
     };
 
+    // Preserve viewport across undo/redo. Default adjustScroll centers the
+    // caret and can slam to the document bottom when the restored caret is
+    // near the end after a large patch (Ctrl+Z feel broken).
+    const scrollElt = editor.$scrollElt;
+    const savedScrollTop = scrollElt ? scrollElt.scrollTop : 0;
+
     selectionMgr.setSelectionStartEnd(selection.start, selection.end);
-    selectionMgr.updateCursorCoordinates(true);
+    selectionMgr.updateCursorCoordinates(false);
+
+    if (scrollElt) {
+      const caretTop = selectionMgr.getCoordinates(selection.end).top;
+      const viewTop = savedScrollTop;
+      const viewBottom = savedScrollTop + scrollElt.clientHeight;
+      if (caretTop >= viewTop && caretTop <= viewBottom) {
+        scrollElt.scrollTop = savedScrollTop;
+      } else {
+        // Caret left the previous view — minimal scroll so it enters the view
+        selectionMgr.updateCursorCoordinates(true);
+      }
+    }
 
     stateMgr.resetMode();
     this.$trigger('undoStateChange');
-    editor.adjustCursorPosition();
   };
 
   this.undo = () => {

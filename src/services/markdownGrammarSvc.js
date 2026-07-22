@@ -309,9 +309,10 @@ export default {
     rest.url = urlPattern;
     rest.email = emailPattern;
     // Underscore emphasis is disabled (matching the markdown-it side):
-    // only the `*` variants highlight, `_`/`__` stay plain text
+    // only the `*` variants highlight, `_`/`__` stay plain text.
+    // Boundary uses [^*] only — do not exclude `.` (broke `*v1.0*` / `a.*b*`).
     rest['strong cn-strong'] = {
-      pattern: /(^|[^.*])(\*\*)(?!\*)[\s\S]*?\2(?=([^.*]|$))/gm,
+      pattern: /(^|[^*])(\*\*)(?!\*)[\s\S]*?\2(?=[^*]|$)/gm,
       lookbehind: true,
       inside: {
         'cl cl-strong cl-start': /^\*\*/,
@@ -319,7 +320,7 @@ export default {
       },
     };
     rest.em = {
-      pattern: /(^|[^.*])(\*)(?!\*)[\s\S]*?\2(?=([^.*]|$))/gm,
+      pattern: /(^|[^*])(\*)(?!\*)[\s\S]*?\2(?=[^*]|$)/gm,
       lookbehind: true,
       inside: {
         'cl cl-em cl-start': /^\*/,
@@ -327,7 +328,7 @@ export default {
       },
     };
     rest['strong em'] = {
-      pattern: /(^|[^.*])(\*\*)(\*)(?!\*)[\s\S]*?\3\2(?=([^.*]|$))/gm,
+      pattern: /(^|[^*])(\*\*\*)(?!\*)[\s\S]*?\2(?=[^*]|$)/gm,
       lookbehind: true,
       inside: {
         'cl cl-strong cl-start': /^\*\*\*/,
@@ -336,7 +337,7 @@ export default {
     };
     if (options.del) {
       rest.del = {
-        pattern: /(^|[^.*])(~~)[\s\S]*?\2(?=([^.*]|$))/gm,
+        pattern: /(^|[^~])(~~)[\s\S]*?\2(?=[^~]|$)/gm,
         lookbehind: true,
         inside: {
           cl: /~~/,
@@ -346,7 +347,7 @@ export default {
     }
     if (options.mark) {
       rest.mark = {
-        pattern: /(^|[^.*])(==)[\s\S]*?\2(?=([^.*]|$))/gm,
+        pattern: /(^|[^=])(==)[\s\S]*?\2(?=[^=]|$)/gm,
         lookbehind: true,
         inside: {
           cl: /==/,

@@ -233,14 +233,35 @@
     font-weight: $editor-font-weight-base;
   }
 
+  /* CJK glyphs barely slant under italic; pair italic with a hue so *em*
+     is readable next to plain text (same idea as .cn-strong for **bold**). */
   .em,
-  .em .cl {
+  .token.em {
     font-style: italic;
+    font-synthesis: style;
+    color: #6b5b95;
+
+    .app--dark & {
+      color: #b8a9e0;
+    }
+  }
+
+  .em .cl,
+  .token.em .cl {
+    font-style: italic;
+    /* keep delimiter mute, not the body hue */
+    color: $editor-color-light-high;
+
+    .app--dark & {
+      color: $editor-color-dark-high;
+    }
   }
 
   .strong,
   .strong .cl,
-  .term {
+  .term,
+  .token.strong,
+  .token.strong .cl {
     font-weight: $editor-font-weight-bold;
   }
 

@@ -329,8 +329,14 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
     });
 
     if (!contentChanging) {
-      // Optimization to avoid saving selection
-      adjustCursorPosition();
+      // Skip auto-scroll for chords that reshape selection without typing:
+      // Ctrl/Cmd+A (select all) would otherwise scroll to selectionEnd (bottom);
+      // Ctrl/Cmd+Z/Y run undo/redo async and manage their own caret.
+      const isMod = evt.ctrlKey || evt.metaKey;
+      const key = String.fromCharCode(evt.which || evt.keyCode).toLowerCase();
+      if (!(isMod && (key === 'a' || key === 'z' || key === 'y'))) {
+        adjustCursorPosition();
+      }
     }
   }));
 

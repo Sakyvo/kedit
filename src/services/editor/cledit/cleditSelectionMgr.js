@@ -57,7 +57,9 @@ function SelectionMgr(editor) {
       this.cursorCoordinates = coordinates;
       this.$trigger('cursorCoordinatesChanged', coordinates);
     }
-    if (adjustScroll) {
+    // Range selections (Ctrl+A, drag-select, …) must not force-scroll to
+    // selectionEnd — that jumps the viewport to the document bottom.
+    if (adjustScroll && this.selectionStart === this.selectionEnd) {
       let scrollEltHeight = scrollElt.clientHeight;
       if (typeof adjustScroll === 'number') {
         scrollEltHeight -= adjustScroll;
