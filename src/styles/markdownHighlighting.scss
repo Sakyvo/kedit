@@ -233,35 +233,35 @@
     font-weight: $editor-font-weight-base;
   }
 
-  /* CJK glyphs barely slant under italic; pair italic with a hue so *em*
-     is readable next to plain text (same idea as .cn-strong for **bold**). */
-  .em,
-  .token.em {
-    font-style: italic;
-    font-synthesis: style;
-    color: #6b5b95;
+  /* CJK barely slants under italic — hue + italic so *em* reads like **bold**.
+     High specificity beats .cl / body color cascade. */
+  .cledit-section .token.em,
+  .cledit-section .em {
+    font-style: italic !important;
+    font-synthesis: style weight;
+    color: #6b5b95 !important;
 
     .app--dark & {
-      color: #b8a9e0;
+      color: #b8a9e0 !important;
     }
   }
 
-  .em .cl,
-  .token.em .cl {
-    font-style: italic;
-    /* keep delimiter mute, not the body hue */
-    color: $editor-color-light-high;
+  .cledit-section .token.em .cl,
+  .cledit-section .em .cl {
+    font-style: italic !important;
+    /* delimiters stay muted, not the body hue */
+    color: $editor-color-light-high !important;
 
     .app--dark & {
-      color: $editor-color-dark-high;
+      color: $editor-color-dark-high !important;
     }
   }
 
-  .strong,
-  .strong .cl,
-  .term,
-  .token.strong,
-  .token.strong .cl {
+  .cledit-section .token.strong,
+  .cledit-section .strong,
+  .cledit-section .token.strong .cl,
+  .cledit-section .strong .cl,
+  .term {
     font-weight: $editor-font-weight-bold;
   }
 

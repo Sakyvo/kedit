@@ -13,9 +13,12 @@ pagedownButtons.forEach((button) => {
 const minPadding = 25;
 const editorTopPadding = 10;
 const navigationBarEditButtonsWidth = (34 * buttonCount) + (8 * spacerCount); // buttons + spacers
-const navigationBarLeftButtonWidth = 38 + 4 + 12;
-const navigationBarRightButtonWidth = 38 + 8;
-const navigationBarSpinnerWidth = 24 + 8 + 5; // 5 for left margin
+// Left: explorer (or close in light). Toc moved to the right cluster.
+const navigationBarLeftButtonWidth = 38 + 4;
+// Right: toc + sync + sidebar (kedit)
+const navigationBarRightButtonWidth = (38 * 3) + 8;
+// Offline icon only (queue clock spinner removed)
+const navigationBarOfflineWidth = 24 + 8 + 5;
 const navigationBarLocationWidth = 20;
 const navigationBarSyncPublishButtonsWidth = 34 + 10;
 const navigationBarTitleMargin = 8;
@@ -134,7 +137,7 @@ function computeStyles(state, getters, layoutSettings = getters['data/layoutSett
   styles.titleMaxWidth = styles.innerWidth -
     navigationBarLeftButtonWidth -
     navigationBarRightButtonWidth -
-    navigationBarSpinnerWidth;
+    (state.offline ? navigationBarOfflineWidth : 0);
   if (styles.showEditor) {
     const syncLocations = getters['syncLocation/current'];
     const publishLocations = getters['publishLocation/current'];

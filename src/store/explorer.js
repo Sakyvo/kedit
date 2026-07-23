@@ -181,12 +181,24 @@ export default {
         nodeMap[item.id] = new Node(item, [], true);
       });
       const syncLocationsByFileId = rootGetters['syncLocation/filteredGroupedByFileId'];
-      const publishLocationsByFileId = rootGetters['publishLocation/filteredGroupedByFileId'];
+      // displayGrouped: show badges without requiring a live OAuth token
+      const publishLocationsByFileId = rootGetters['publishLocation/displayGroupedByFileId']
+        || rootGetters['publishLocation/filteredGroupedByFileId'];
+      const pdirMarks = rootGetters['data/pdirMarks'] || {};
       rootGetters['file/items'].forEach((item) => {
         const locations = [
           ...syncLocationsByFileId[item.id] || [],
           ...publishLocationsByFileId[item.id] || [],
         ];
+        // Device-local pdir mark: show icon before remote .publish / store hydrate
+        if (pdirMarks[item.id] && !locations.some(loc => loc.providerId === 'pdir')) {
+          locations.push({
+            id: `pdir-mark-${item.id}`,
+            providerId: 'pdir',
+            fileId: item.id,
+            module: pdirMarks[item.id].module || '',
+          });
+        }
         nodeMap[item.id] = new Node(item, locations);
       });
 

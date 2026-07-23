@@ -4,19 +4,18 @@
     <div class="navigation-bar__inner navigation-bar__inner--left navigation-bar__inner--button">
       <button class="navigation-bar__button navigation-bar__button--close button" v-if="light" @click="close()" v-title="'关闭KEDIT'"><icon-check-circle></icon-check-circle></button>
       <button class="navigation-bar__button navigation-bar__button--explorer-toggler button" v-else tour-step-anchor="explorer" @click="toggleExplorer()" v-title="'切换资源管理器'"><icon-folder></icon-folder></button>
-      <button class="navigation-bar__button navigation-bar__button--toc button" v-if="!light" @click="toggleToc" v-title="'目录'"><icon-toc></icon-toc></button>
     </div>
-    <!-- Side bar -->
+    <!-- Side bar: Toc sits left of sidebar toggle (desktop: short mouse path) -->
     <div class="navigation-bar__inner navigation-bar__inner--right navigation-bar__inner--button">
+      <button class="navigation-bar__button navigation-bar__button--toc button" v-if="!light" @click="toggleToc" v-title="'目录'"><icon-toc></icon-toc></button>
       <button class="navigation-bar__button navigation-bar__button--sync-quick button" :class="'navigation-bar__button--' + syncStatus" v-title="'立即同步'" tour-step-anchor="theme" :disabled="syncDisabled" @click="requestSync"><icon-sync></icon-sync></button>
       <a class="navigation-bar__button navigation-bar__button--kedit button" v-if="light" href="app" target="_blank" v-title="'打开KEDIT'"><icon-provider provider-id="kedit"></icon-provider></a>
       <button class="navigation-bar__button navigation-bar__button--kedit button" v-else tour-step-anchor="menu" @click="toggleSideBar()" v-title="'切换侧边栏'"><icon-provider provider-id="kedit"></icon-provider></button>
     </div>
     <div class="navigation-bar__inner navigation-bar__inner--right navigation-bar__inner--title flex flex--row">
-      <!-- Spinner -->
-      <div class="navigation-bar__spinner">
-        <div v-if="!offline && showSpinner" class="spinner"></div>
-        <icon-sync-off v-if="offline"></icon-sync-off>
+      <!-- Offline only (queue spinner removed — blue sync icon already spins) -->
+      <div class="navigation-bar__offline" v-if="offline" v-title="'离线'">
+        <icon-sync-off></icon-sync-off>
       </div>
       <!-- Sync/Publish -->
       <div class="flex flex--row" :class="{'navigation-bar__hidden': styles.hideLocations}">
@@ -139,9 +138,6 @@ export default {
       return this.loginToken
         ? (!this.isSyncPossible || this.isSyncRequested || this.offline)
         : this.offline;
-    },
-    showSpinner() {
-      return !store.state.queue.isEmpty;
     },
     syncStatus() {
       if (this.isSyncRequested) {
@@ -438,7 +434,7 @@ export default {
   height: 20px;
   border-radius: 10px;
   padding: 2px;
-  margin-top: 8px;
+  margin: 8px 2px 0;
   opacity: 0.5;
   background-color: rgba(255, 255, 255, 0.2);
 
@@ -447,6 +443,10 @@ export default {
   &:hover {
     opacity: 1;
     background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .icon-provider--pdir {
+    transform: translateX(-1px);
   }
 }
 
@@ -485,12 +485,7 @@ export default {
   }
 }
 
-$r: 10px;
-$d: $r * 2;
-$b: calc($d / 10);
-$t: 3000ms;
-
-.navigation-bar__spinner {
+.navigation-bar__offline {
   width: 24px;
   margin: 7px 0 0 8px;
 
@@ -498,41 +493,6 @@ $t: 3000ms;
     width: 24px;
     height: 24px;
     color: transparentize($error-color, 0.5);
-  }
-}
-
-.spinner {
-  width: $d;
-  height: $d;
-  display: block;
-  position: relative;
-  border: $b solid transparentize($navbar-color, 0.5);
-  border-radius: 50%;
-  margin: 2px;
-
-  &::before,
-  &::after {
-    content: "";
-    position: absolute;
-    display: block;
-    width: $b;
-    background-color: $navbar-color;
-    border-radius: $b * 0.5;
-    transform-origin: 50% 0;
-  }
-
-  &::before {
-    height: $r * 0.4;
-    left: $r - $b * 1.5;
-    top: 50%;
-    animation: spin $t linear infinite;
-  }
-
-  &::after {
-    height: $r * 0.6;
-    left: $r - $b * 1.5;
-    top: 50%;
-    animation: spin calc($t / 4) linear infinite;
   }
 }
 

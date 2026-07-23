@@ -440,6 +440,13 @@ export default {
       id: utils.uid(),
     });
 
+    if (location.providerId === 'pdir' && location.fileId) {
+      store.dispatch('data/setPdirMark', {
+        fileId: location.fileId,
+        module: location.module,
+      });
+    }
+
     // Sanitize the workspace
     this.ensureUniqueLocations();
 

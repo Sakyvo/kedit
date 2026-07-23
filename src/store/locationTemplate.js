@@ -44,8 +44,17 @@ export default (empty) => {
         .filter((item) => {
           // Filter items that we can't use
           const provider = providerRegistry.providersById[item.providerId];
-          return provider && provider.getToken(item);
+          // pdir badges should show without a live token (token only needed to publish)
+          return provider && (item.providerId === 'pdir' || provider.getToken(item));
         })
+        .forEach(item => addToGroup(groups, item));
+      return groups;
+    },
+    // Explorer / badge display: all known locations (no token gate)
+    displayGroupedByFileId: (state, { items }) => {
+      const groups = {};
+      items
+        .filter(item => providerRegistry.providersById[item.providerId])
         .forEach(item => addToGroup(groups, item));
       return groups;
     },

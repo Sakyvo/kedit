@@ -666,7 +666,12 @@ $item-font-size: 14px;
     float: right;
     width: 18px;
     height: 18px;
-    margin: 2px 1px;
+    /* equal gaps between multi-provider badges; pdir asset sits slightly left */
+    margin: 2px 2px;
+  }
+
+  .explorer-node__location.icon-provider--pdir {
+    transform: translateX(-1px);
   }
 }
 

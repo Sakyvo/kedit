@@ -20,6 +20,9 @@ export default {
     'layoutSettings',
     'tokens',
     'serverConf',
+    // Device-local: pdir-bound file ids so explorer/navbar icons show before
+    // remote .publish tree / token hydration (not synced to git).
+    'pdirMarks',
   ],
   textMaxLength: 10000000,
   defaultName: 'Untitled',

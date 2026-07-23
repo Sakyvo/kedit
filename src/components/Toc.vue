@@ -101,8 +101,8 @@ export default {
   position: relative;
   color: rgba(0, 0, 0, 0.67);
   cursor: pointer;
-  font-size: 15px;
-  padding: 10px 8px 40px;
+  font-size: 17px;
+  padding: 8px 4px 24px;
   white-space: nowrap;
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -123,32 +123,40 @@ export default {
 
   .cl-toc-section {
     h1 {
-      margin: 1rem 0;
+      margin: 0.75rem 0;
+      font-size: 1.12em;
+      font-weight: 600;
     }
 
     h2 {
-      margin: 0.5rem 0;
-      margin-left: 5px;
+      margin: 0.4rem 0;
+      margin-left: 2px;
+      font-size: 1.06em;
+      font-weight: 600;
     }
 
     h3 {
-      margin: 0.33rem 0;
-      margin-left: 11px;
+      margin: 0.28rem 0;
+      margin-left: 6px;
+      font-size: 1.02em;
     }
 
     h4 {
-      margin: 0.22rem 0;
-      margin-left: 16px;
+      margin: 0.2rem 0;
+      margin-left: 10px;
+      font-size: 1em;
     }
 
     h5 {
-      margin: 0.11rem 0;
-      margin-left: 21px;
+      margin: 0.12rem 0;
+      margin-left: 14px;
+      font-size: 0.98em;
     }
 
     h6 {
-      margin: 0;
-      margin-left: 27px;
+      margin: 0.08rem 0;
+      margin-left: 18px;
+      font-size: 0.96em; /* was tiny via cascade; keep near base */
     }
   }
 }

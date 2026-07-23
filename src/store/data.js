@@ -39,6 +39,9 @@ const empty = (id) => {
       // { version: 1, unreferencedSince: { [gitPath]: firstSeenTs },
       //   log: [{ path, ts }] (newest first, capped at 50) }
       return itemTemplate(id, { version: 1, unreferencedSince: {}, log: [] });
+    case 'pdirMarks':
+      // Device-local pdir binding badge: { [fileId]: { module, updated } }
+      return itemTemplate(id, {});
     default:
       return itemTemplate(id);
   }
@@ -198,6 +201,7 @@ export default {
         log: imgCleanupData.log || [],
       }
       : empty('imgCleanup').data),
+    pdirMarks: getter('pdirMarks'),
     templatesById: getter('templates'),
     allTemplatesById: (state, { templatesById }) => ({
       ...templatesById,
@@ -269,6 +273,24 @@ export default {
     },
     patchLocalSettings: patcher('localSettings'),
     patchLayoutSettings: patcher('layoutSettings'),
+    // pdirMarks: full-map writers (generic patcher would replace nested wrong)
+    setPdirMark: ({ getters, commit }, { fileId, module }) => {
+      if (!fileId) {
+        return;
+      }
+      commit('setItem', itemTemplate('pdirMarks', {
+        ...getters.pdirMarks,
+        [fileId]: { module: module || '', updated: Date.now() },
+      }));
+    },
+    clearPdirMark: ({ getters, commit }, fileId) => {
+      if (!fileId || !getters.pdirMarks[fileId]) {
+        return;
+      }
+      const next = { ...getters.pdirMarks };
+      delete next[fileId];
+      commit('setItem', itemTemplate('pdirMarks', next));
+    },
     // explorerOrder v2 nests the map under `orders`: both actions take a path-keyed
     // orders map. The generic patcher merges TOP-LEVEL keys only (it would replace
     // the whole `orders` object and clobber sibling parents), so patching merges

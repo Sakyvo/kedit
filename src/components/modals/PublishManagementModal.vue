@@ -85,6 +85,9 @@ export default {
     ]),
     remove(location) {
       store.commit('publishLocation/deleteItem', location.id);
+      if (location.providerId === 'pdir' && location.fileId) {
+        store.dispatch('data/clearPdirMark', location.fileId);
+      }
     },
     shareUrl(location) {
       if (location.providerId !== 'giteegist' && location.providerId !== 'gist') {

@@ -416,6 +416,18 @@ export default {
     rest.link.inside['cl cl-underlined-text'].inside = inside;
     rest.linkref.inside['cl cl-underlined-text'].inside = inside;
 
+    // Promote emphasis to top-level tokens (same rule objects as rest) so a
+    // lone `*em*` paragraph is not only reachable via rest traversal order.
+    ['main', 'list', 'blockquote', 'table', 'deflist'].forEach((key) => {
+      const grammar = grammars[key];
+      if (!grammar) {
+        return;
+      }
+      grammar['strong em'] = rest['strong em'];
+      grammar['strong cn-strong'] = rest['strong cn-strong'];
+      grammar.em = rest.em;
+    });
+
     // Wrap any other characters to allow paragraph folding
     Object.entries(grammars).forEach(([, grammar]) => {
       grammar.rest = grammar.rest || {};

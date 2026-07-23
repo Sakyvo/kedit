@@ -112,6 +112,12 @@ const publishFile = async (fileId) => {
               store.commit('publishLocation/patchItem', publishLocationToStore);
               workspaceSvc.ensureUniqueLocations();
             }
+            if (publishLocationToStore.providerId === 'pdir' && publishLocationToStore.fileId) {
+              store.dispatch('data/setPdirMark', {
+                fileId: publishLocationToStore.fileId,
+                module: publishLocationToStore.module,
+              });
+            }
             counter += 1;
           } catch (err) {
             if (store.state.offline) {

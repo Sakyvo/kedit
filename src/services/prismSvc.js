@@ -171,7 +171,11 @@ export const safeHighlight = (text = '', grammar, language) => {
     return escapeHtml(text);
   }
   try {
-    const grammarLanguage = resolveLanguage(language);
+    // Custom grammars (editor markdown sections: main/list/…) are not Prism
+    // language ids. Always pass a stable id so Prism does not reject/rewrite.
+    const grammarLanguage = grammar
+      ? (resolveLanguage(language) || language || 'markdown')
+      : resolveLanguage(language);
     if (!grammarLanguage) {
       return escapeHtml(text);
     }

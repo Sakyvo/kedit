@@ -177,6 +177,12 @@ export default new Provider({
         commitMessage: commitMsg,
       });
       progress('finish');
+      if (publishLocation.fileId) {
+        store.dispatch('data/setPdirMark', {
+          fileId: publishLocation.fileId,
+          module: publishLocation.module,
+        });
+      }
       return publishLocation;
     } catch (err) {
       progress('fail', err && err.message);

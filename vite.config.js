@@ -102,7 +102,7 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    visualizer(),
+    // visualizer(), // temp off: build OOM when system free RAM is low
     viteCompression({
       deleteOriginFile: false,
       algorithm: "gzip",
