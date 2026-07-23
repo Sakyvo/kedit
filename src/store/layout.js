@@ -13,9 +13,9 @@ pagedownButtons.forEach((button) => {
 const minPadding = 25;
 const editorTopPadding = 10;
 const navigationBarEditButtonsWidth = (34 * buttonCount) + (8 * spacerCount); // buttons + spacers
-// Left: explorer (or close in light). Toc moved to the right cluster.
+// Left: explorer (or close in light).
 const navigationBarLeftButtonWidth = 38 + 4;
-// Right: toc + sync + sidebar (kedit)
+// Right: sync + toc + sidebar (kedit)
 const navigationBarRightButtonWidth = (38 * 3) + 8;
 // Offline icon only (queue clock spinner removed)
 const navigationBarOfflineWidth = 24 + 8 + 5;

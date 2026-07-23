@@ -102,8 +102,12 @@ export default {
   color: rgba(0, 0, 0, 0.67);
   cursor: pointer;
   font-size: 17px;
-  padding: 8px 4px 24px;
-  white-space: nowrap;
+  // Tighter side inset; wrap long titles (ref: multi-line TOC)
+  padding: 6px 2px 20px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
@@ -122,41 +126,42 @@ export default {
   }
 
   .cl-toc-section {
+    // Extra vertical gap between heading blocks for hierarchy
     h1 {
-      margin: 0.75rem 0;
+      margin: 0.95rem 0 0.45rem;
       font-size: 1.12em;
       font-weight: 600;
     }
 
     h2 {
-      margin: 0.4rem 0;
+      margin: 0.7rem 0 0.35rem;
       margin-left: 2px;
       font-size: 1.06em;
       font-weight: 600;
     }
 
     h3 {
-      margin: 0.28rem 0;
+      margin: 0.48rem 0 0.28rem;
       margin-left: 6px;
       font-size: 1.02em;
     }
 
     h4 {
-      margin: 0.2rem 0;
+      margin: 0.36rem 0 0.22rem;
       margin-left: 10px;
       font-size: 1em;
     }
 
     h5 {
-      margin: 0.12rem 0;
+      margin: 0.28rem 0 0.16rem;
       margin-left: 14px;
       font-size: 0.98em;
     }
 
     h6 {
-      margin: 0.08rem 0;
+      margin: 0.22rem 0 0.12rem;
       margin-left: 18px;
-      font-size: 0.96em; /* was tiny via cascade; keep near base */
+      font-size: 0.96em;
     }
   }
 }

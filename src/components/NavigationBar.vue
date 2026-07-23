@@ -5,10 +5,10 @@
       <button class="navigation-bar__button navigation-bar__button--close button" v-if="light" @click="close()" v-title="'关闭KEDIT'"><icon-check-circle></icon-check-circle></button>
       <button class="navigation-bar__button navigation-bar__button--explorer-toggler button" v-else tour-step-anchor="explorer" @click="toggleExplorer()" v-title="'切换资源管理器'"><icon-folder></icon-folder></button>
     </div>
-    <!-- Side bar: Toc sits left of sidebar toggle (desktop: short mouse path) -->
+    <!-- Right: sync, toc, sidebar (toc next to menu; short path to panel) -->
     <div class="navigation-bar__inner navigation-bar__inner--right navigation-bar__inner--button">
-      <button class="navigation-bar__button navigation-bar__button--toc button" v-if="!light" @click="toggleToc" v-title="'目录'"><icon-toc></icon-toc></button>
       <button class="navigation-bar__button navigation-bar__button--sync-quick button" :class="'navigation-bar__button--' + syncStatus" v-title="'立即同步'" tour-step-anchor="theme" :disabled="syncDisabled" @click="requestSync"><icon-sync></icon-sync></button>
+      <button class="navigation-bar__button navigation-bar__button--toc button" v-if="!light" @click="toggleToc" v-title="'目录'"><icon-toc></icon-toc></button>
       <a class="navigation-bar__button navigation-bar__button--kedit button" v-if="light" href="app" target="_blank" v-title="'打开KEDIT'"><icon-provider provider-id="kedit"></icon-provider></a>
       <button class="navigation-bar__button navigation-bar__button--kedit button" v-else tour-step-anchor="menu" @click="toggleSideBar()" v-title="'切换侧边栏'"><icon-provider provider-id="kedit"></icon-provider></button>
     </div>
