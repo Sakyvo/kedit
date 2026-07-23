@@ -9,10 +9,15 @@
     </div>
     <div class="explorer-node__children" v-if="node.isFolder && isOpen && !node.isImgs">
       <explorer-node v-for="node in node.folders" :key="node.item.id" :node="node" :depth="depth + 1"></explorer-node>
-      <div v-if="newChild" class="explorer-node__new-child" :class="{'explorer-node__new-child--folder': newChild.isFolder}" :style="{paddingLeft: childLeftPadding}">
+      <!-- New folder: bottom of folder group (above files) -->
+      <div v-if="newChild && newChild.isFolder" class="explorer-node__new-child explorer-node__new-child--folder" :style="{paddingLeft: childLeftPadding}">
         <input type="text" class="text-input" v-focus @blur="submitNewChild()" @keydown.stop @keydown.enter="submitNewChild()" @keydown.esc.stop="submitNewChild(true)" v-model.trim="newChildName">
       </div>
       <explorer-node v-for="node in node.files" :key="node.item.id" :node="node" :depth="depth + 1"></explorer-node>
+      <!-- New file: bottom of file group (matches sort: unlisted / newest at end) -->
+      <div v-if="newChild && !newChild.isFolder" class="explorer-node__new-child" :style="{paddingLeft: childLeftPadding}">
+        <input type="text" class="text-input" v-focus @blur="submitNewChild()" @keydown.stop @keydown.enter="submitNewChild()" @keydown.esc.stop="submitNewChild(true)" v-model.trim="newChildName">
+      </div>
     </div>
     <button ref="copyId" v-clipboard="copyPath()" @click="info('路径已复制到剪切板!')" style="display: none;"></button>
   </div>

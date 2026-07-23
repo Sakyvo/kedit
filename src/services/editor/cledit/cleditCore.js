@@ -4,6 +4,32 @@ import htmlSanitizer from '../../../libs/htmlSanitizer';
 import store from '../../../store';
 import { textFromBeforeInput } from '../beforeinputPaste';
 
+/** True when paste/drop payload includes a raster image (not just HTML with <img>). */
+function clipboardHasImage(data) {
+  if (!data) {
+    return false;
+  }
+  const items = data.items;
+  if (items && items.length) {
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      if (item && item.type && item.type.indexOf('image/') === 0) {
+        return true;
+      }
+    }
+  }
+  const files = data.files;
+  if (files && files.length) {
+    for (let i = 0; i < files.length; i += 1) {
+      const file = files[i];
+      if (file && file.type && file.type.indexOf('image/') === 0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
   const scrollElt = scrollEltOpt || contentElt;
   const editor = {
@@ -382,6 +408,14 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
   }
 
   contentElt.addEventListener('paste', (evt) => {
+    // Web "copy image" often ships image/* + text/html (e.g. shimo thumbnail).
+    // Image binary is handled by Editor processUpload → native /imgs/ ref;
+    // skip turndown so we do not also insert ![](https://…/thumbnail).
+    const clip = evt.clipboardData || window.clipboardData;
+    if (clipboardHasImage(clip)) {
+      evt.preventDefault();
+      return;
+    }
     undoMgr.setCurrentMode('single');
     evt.preventDefault();
     let data;

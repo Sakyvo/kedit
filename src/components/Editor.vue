@@ -160,13 +160,64 @@ export default {
     }));
 
     editorElt.addEventListener('drop', (event) => {
-      const transItems = event.dataTransfer.items;
-      this.processUpload(transItems);
+      const dt = event.dataTransfer;
+      if (!dt) {
+        return;
+      }
+      // Same dual-payload issue as paste: file image + HTML/text
+      let hasImage = false;
+      if (dt.items) {
+        for (let i = 0; i < dt.items.length; i += 1) {
+          if (dt.items[i].type && dt.items[i].type.indexOf('image') !== -1) {
+            hasImage = true;
+            break;
+          }
+        }
+      }
+      if (!hasImage && dt.files) {
+        for (let i = 0; i < dt.files.length; i += 1) {
+          if (dt.files[i].type && dt.files[i].type.indexOf('image') !== -1) {
+            hasImage = true;
+            break;
+          }
+        }
+      }
+      if (hasImage) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.processUpload(dt.items || dt.files);
+      }
     });
+    // Capture so we run before cledit bubble paste; image paste must not turndown HTML.
     editorElt.addEventListener('paste', (event) => {
-      const pasteItems = (event.clipboardData || window.clipboardData).items;
-      this.processUpload(pasteItems);
-    });
+      const clip = event.clipboardData || window.clipboardData;
+      if (!clip) {
+        return;
+      }
+      let hasImage = false;
+      if (clip.items) {
+        for (let i = 0; i < clip.items.length; i += 1) {
+          if (clip.items[i].type && clip.items[i].type.indexOf('image') !== -1) {
+            hasImage = true;
+            break;
+          }
+        }
+      }
+      if (!hasImage && clip.files) {
+        for (let i = 0; i < clip.files.length; i += 1) {
+          if (clip.files[i].type && clip.files[i].type.indexOf('image') !== -1) {
+            hasImage = true;
+            break;
+          }
+        }
+      }
+      if (!hasImage) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      this.processUpload(clip.items);
+    }, true);
 
     this.$watch(
       () => store.state.discussion.currentDiscussionId,
