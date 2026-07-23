@@ -5,7 +5,15 @@ const styleElts = [];
 function createStyleSheet(document) {
   const styleElt = document.createElement('style');
   styleElt.type = 'text/css';
-  styleElt.innerHTML = '.cledit-section * { display: inline; }';
+  // display:inline is required for cledit layout; also pin *em* styles here so
+  // edit-theme scripts (injected later) cannot leave emphasis unstyled/invisible.
+  styleElt.innerHTML = [
+    '.cledit-section * { display: inline; }',
+    '.cledit-section .token.em, .cledit-section .token.cn-em, .cledit-section .em, .cledit-section .cn-em, .cledit-section .cl-em-text { font-style: italic !important; font-synthesis: style !important; color: #6b5b95 !important; }',
+    '.app--dark .cledit-section .token.em, .app--dark .cledit-section .token.cn-em, .app--dark .cledit-section .em, .app--dark .cledit-section .cn-em, .app--dark .cledit-section .cl-em-text { color: #b8a9e0 !important; }',
+    '.cledit-section .token.em .cl, .cledit-section .token.cn-em .cl, .cledit-section .em .cl, .cledit-section .cn-em .cl { font-style: normal !important; color: rgba(0,0,0,0.28) !important; }',
+    '.app--dark .cledit-section .token.em .cl, .app--dark .cledit-section .token.cn-em .cl, .app--dark .cledit-section .em .cl, .app--dark .cledit-section .cn-em .cl { color: rgba(255,255,255,0.28) !important; }',
+  ].join('\n');
   document.head.appendChild(styleElt);
   styleElts.push(styleElt);
 }

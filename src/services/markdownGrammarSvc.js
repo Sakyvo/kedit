@@ -319,14 +319,20 @@ export default {
         'cl cl-strong cl-close': /\*\*$/,
       },
     };
-    rest.em = {
-      pattern: /(^|[^*])(\*)(?!\*)[\s\S]*?\2(?=[^*]|$)/gm,
+    // Token type includes cn-em so edit themes / CSS can target like cn-strong.
+    // cl-em-text wraps the body (not a bare text node) so CJK color/italic applies.
+    // Content cannot contain `*` so consecutive `*a* *b*` stay two tokens.
+    rest['em cn-em'] = {
+      pattern: /(^|[^*])(\*)(?!\*)((?:(?!\*)[\s\S])+?)\2(?=[^*]|$)/gm,
       lookbehind: true,
       inside: {
         'cl cl-em cl-start': /^\*/,
         'cl cl-em cl-close': /\*$/,
+        'cl-em-text': /(?:(?!\*)[\s\S])+/,
       },
     };
+    // Keep rest.em alias for nested insides that still reference rest.em
+    rest.em = rest['em cn-em'];
     rest['strong em'] = {
       pattern: /(^|[^*])(\*\*\*)(?!\*)[\s\S]*?\2(?=[^*]|$)/gm,
       lookbehind: true,
@@ -425,7 +431,7 @@ export default {
       }
       grammar['strong em'] = rest['strong em'];
       grammar['strong cn-strong'] = rest['strong cn-strong'];
-      grammar.em = rest.em;
+      grammar['em cn-em'] = rest['em cn-em'];
     });
 
     // Wrap any other characters to allow paragraph folding

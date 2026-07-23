@@ -233,12 +233,15 @@
     font-weight: $editor-font-weight-base;
   }
 
-  /* CJK barely slants under italic — hue + italic so *em* reads like **bold**.
-     High specificity beats .cl / body color cascade. */
+  /* Editor *em*: purple body (like **bold** via cn-strong), mute * delimiters.
+     CJK barely slants under italic — hue is the primary signal. */
   .cledit-section .token.em,
-  .cledit-section .em {
+  .cledit-section .token.cn-em,
+  .cledit-section .em,
+  .cledit-section .cn-em,
+  .cledit-section .cl-em-text {
     font-style: italic !important;
-    font-synthesis: style weight;
+    font-synthesis: style weight !important;
     color: #6b5b95 !important;
 
     .app--dark & {
@@ -247,8 +250,12 @@
   }
 
   .cledit-section .token.em .cl,
-  .cledit-section .em .cl {
-    font-style: italic !important;
+  .cledit-section .token.cn-em .cl,
+  .cledit-section .em .cl,
+  .cledit-section .cn-em .cl,
+  .cledit-section .cl-em.cl-start,
+  .cledit-section .cl-em.cl-close {
+    font-style: normal !important;
     /* delimiters stay muted, not the body hue */
     color: $editor-color-light-high !important;
 
