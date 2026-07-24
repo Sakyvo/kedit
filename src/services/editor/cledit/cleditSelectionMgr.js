@@ -81,7 +81,13 @@ function SelectionMgr(editor) {
   });
 
   this.updateCursorCoordinates = (adjustScrollParam) => {
-    adjustScroll = adjustScroll || adjustScrollParam;
+    // Explicit false must clear a pending adjust (undo/redo), not stick true
+    // via `||` from an earlier typing/replace call.
+    if (adjustScrollParam === false) {
+      adjustScroll = false;
+    } else {
+      adjustScroll = adjustScroll || adjustScrollParam;
+    }
     debouncedUpdateCursorCoordinates();
   };
 

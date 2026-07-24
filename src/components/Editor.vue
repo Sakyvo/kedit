@@ -77,8 +77,10 @@ export default {
       const offset = clEditor.setContent(newContent, true);
       const diffs = new DiffMatchPatch().diff_main(oldContent, newContent);
       clEditor.undoMgr.addDiffs(oldContent, newContent, diffs);
+      // false: do not center-scroll when image placeholder resolves (tall img
+      // would pin viewport / poison later Ctrl+Z toward the bottom).
       clEditor.selectionMgr.setSelectionStartEnd(offset.end, offset.end);
-      clEditor.selectionMgr.updateCursorCoordinates(true);
+      clEditor.selectionMgr.updateCursorCoordinates(false);
     },
     async processUpload(items) {
       let file = null;

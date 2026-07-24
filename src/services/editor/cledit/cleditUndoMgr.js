@@ -133,9 +133,9 @@ function UndoMgr(editor) {
       end: range.end,
     };
 
-    // Preserve viewport across undo/redo. Default adjustScroll centers the
-    // caret and can slam to the document bottom when the restored caret is
-    // near the end after a large patch (Ctrl+Z feel broken).
+    // Preserve viewport across undo/redo. Never center-scroll on caret:
+    // undoing a tall inline image shrinks scrollHeight so a center/clamp
+    // path slams to the document bottom.
     const scrollElt = editor.$scrollElt;
     const savedScrollTop = scrollElt ? scrollElt.scrollTop : 0;
 
@@ -143,15 +143,16 @@ function UndoMgr(editor) {
     selectionMgr.updateCursorCoordinates(false);
 
     if (scrollElt) {
-      const caretTop = selectionMgr.getCoordinates(selection.end).top;
-      const viewTop = savedScrollTop;
-      const viewBottom = savedScrollTop + scrollElt.clientHeight;
-      if (caretTop >= viewTop && caretTop <= viewBottom) {
-        scrollElt.scrollTop = savedScrollTop;
-      } else {
-        // Caret left the previous view — minimal scroll so it enters the view
-        selectionMgr.updateCursorCoordinates(true);
-      }
+      const clampScroll = () => {
+        const maxScroll = Math.max(0, scrollElt.scrollHeight - scrollElt.clientHeight);
+        scrollElt.scrollTop = Math.min(savedScrollTop, maxScroll);
+      };
+      clampScroll();
+      // Re-clamp after highlighter/image layout reflow (image undo height drop)
+      requestAnimationFrame(() => {
+        clampScroll();
+        requestAnimationFrame(clampScroll);
+      });
     }
 
     stateMgr.resetMode();
