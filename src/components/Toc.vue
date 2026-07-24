@@ -126,40 +126,40 @@ export default {
   }
 
   .cl-toc-section {
-    // Adjacent title gaps ~2× prior for clearer separation
+    // Slightly roomier than prior pass
     h1 {
-      margin: 1.9rem 0 0.9rem;
+      margin: 2.2rem 0 1.05rem;
       font-size: 1.12em;
       font-weight: 600;
     }
 
     h2 {
-      margin: 1.4rem 0 0.7rem;
+      margin: 1.65rem 0 0.85rem;
       margin-left: 2px;
       font-size: 1.06em;
       font-weight: 600;
     }
 
     h3 {
-      margin: 0.96rem 0 0.56rem;
+      margin: 1.15rem 0 0.65rem;
       margin-left: 6px;
       font-size: 1.02em;
     }
 
     h4 {
-      margin: 0.72rem 0 0.44rem;
+      margin: 0.9rem 0 0.55rem;
       margin-left: 10px;
       font-size: 1em;
     }
 
     h5 {
-      margin: 0.56rem 0 0.32rem;
+      margin: 0.7rem 0 0.4rem;
       margin-left: 14px;
       font-size: 0.98em;
     }
 
     h6 {
-      margin: 0.44rem 0 0.24rem;
+      margin: 0.55rem 0 0.3rem;
       margin-left: 18px;
       font-size: 0.96em;
     }
