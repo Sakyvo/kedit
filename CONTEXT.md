@@ -9,8 +9,12 @@ The authoring editor — personal, single-user, private. Where documents are wri
 _Avoid_: the editor (ambiguous), the app
 
 **pdir**:
-The visitor-facing publication site (`pdir.cc.cd`). Receives pasted content from KEDIT and renders pages for visitors. Backed by a public Codeberg repository (`Sakyvo/pages`).
+The visitor-facing publication site (`pdir.cc.cd`). Receives content from KEDIT — pasted manually or published directly into a **Publish target** — and renders pages for visitors. Backed by a public GitHub repository (`Sakyvo/the-potpvp-directory`).
 _Avoid_: the site, the frontend
+
+**Publish target**:
+One logical edit range from pdir's own editor target list: `ALL IN ONE`, `main`, an H2 range before `Part 3. Video`, or an H3 range after it. A **Document** Publishes by replacing that complete range, including its root heading when it has one.
+_Avoid_: module (only H3 targets are modules), section/chapter (ambiguous with Markdown sections), page
 
 **Author**:
 The single human user of KEDIT. There is exactly one; they own every document.

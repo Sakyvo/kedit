@@ -1,7 +1,4 @@
-/**
- * Pure helpers for publishing a Document into a pdir Module (batch-6 #009).
- * pdir is a single-source site: content/main.md, Modules are `### N.N.` ranges.
- */
+/** Pure helpers for publishing a Document into a pdir edit target. */
 import SHA1 from 'crypto-js/sha1.js';
 import encBase64 from 'crypto-js/enc-base64.js';
 import encLatin1 from 'crypto-js/enc-latin1.js';
@@ -11,6 +8,7 @@ export const PDIR_REPO = 'the-potpvp-directory';
 export const PDIR_BRANCH = 'main';
 export const PDIR_MAIN_FILE = 'content/main.md';
 export const PDIR_SITE_URL = 'https://pdir.cc.cd/';
+export const PDIR_EDIT_BOUNDARY_TITLE = 'Part 3. Video';
 export const UNNAMED_ALT = '输入图片说明';
 
 export function findPdirToken(githubTokensBySub) {
@@ -43,46 +41,248 @@ export function scanHeadings(md) {
   return headings;
 }
 
-/**
- * pdir Modules = H3 headings; body runs to the next heading of level <= 3 or EOF.
- * Returns [{title, headingLine, bodyStart, bodyEnd}] (line numbers, bodyEnd exclusive).
- */
-export function parsePdirModules(md) {
-  const lines = `${md}`.split('\n');
-  const headings = scanHeadings(md);
-  return headings
-    .map((heading, idx) => {
-      if (heading.level !== 3) {
-        return null;
-      }
-      const next = headings.slice(idx + 1).find(h => h.level <= 3);
-      return {
-        title: heading.title,
-        headingLine: heading.line,
-        bodyStart: heading.line + 1,
-        bodyEnd: next ? next.line : lines.length,
-      };
-    })
-    .filter(Boolean);
+function decodeCodePoint(code, radix) {
+  const value = parseInt(code, radix);
+  return value <= 0x10ffff ? String.fromCodePoint(value) : '\ufffd';
 }
 
-/**
- * Replace a Module's body, keeping its heading line. Returns null if not found.
- */
-export function replaceModuleBody(md, moduleTitle, newBody) {
-  const module = parsePdirModules(md).find(m => m.title === moduleTitle);
-  if (!module) {
+export function stripHeadingMarkup(text) {
+  return `${text || ''}`
+    .replace(/[*_`~]/g, ' ')
+    .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&#(\d+);/g, (match, code) => decodeCodePoint(code, 10))
+    .replace(/&#x([\da-f]+);/gi, (match, code) => decodeCodePoint(code, 16))
+    .replace(/&(amp|lt|gt|quot|apos);/g, (match, entity) => ({
+      amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
+    })[entity])
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parsePdirDoc(md) {
+  const lines = `${md || ''}`.replace(/\r\n/g, '\n').split('\n');
+  const headings = [];
+  let inCode = false;
+
+  lines.forEach((lineText, line) => {
+    if (/^```/.test(lineText.trim())) {
+      inCode = !inCode;
+    }
+    if (inCode) {
+      return;
+    }
+    const match = lineText.match(/^(#{2,6})\s+(.+)/);
+    if (!match) {
+      return;
+    }
+    const rawTitle = match[2].trim();
+    headings.push({
+      level: match[1].length,
+      rawTitle,
+      title: stripHeadingMarkup(rawTitle) || rawTitle,
+      line,
+    });
+  });
+
+  const h2s = headings.filter(heading => heading.level === 2);
+  const sections = [];
+  const addSection = (startLine, endLine, heading) => {
+    const contentStartLine = heading ? heading.line + 1 : startLine;
+    sections.push({
+      title: heading ? heading.title : '序',
+      rawTitle: heading ? heading.rawTitle : '序',
+      startLine,
+      endLine,
+      hasHeading: !!heading,
+      entries: headings.filter(item => (
+        item.level > 2 && item.line >= contentStartLine && item.line < endLine
+      )),
+    });
+  };
+
+  if (h2s.length) {
+    if (h2s[0].line > 0 && lines.slice(0, h2s[0].line).some(line => line.trim())) {
+      addSection(0, h2s[0].line, null);
+    }
+    h2s.forEach((heading, idx) => {
+      addSection(heading.line, h2s[idx + 1] ? h2s[idx + 1].line : lines.length, heading);
+    });
+  } else {
+    addSection(0, lines.length, null);
+  }
+
+  return { lines, headings, sections };
+}
+
+function normalizeTargetKeyText(text) {
+  return (stripHeadingMarkup(text) || 'module')
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\u4e00-\u9fff.-]+/g, '')
+    .slice(0, 80) || 'module';
+}
+
+function makeTargetKey(prefix, title, seen) {
+  const base = `${prefix}-${normalizeTargetKeyText(title)}`;
+  const count = (seen.get(base) || 0) + 1;
+  seen.set(base, count);
+  return count > 1 ? `${base}-${count}` : base;
+}
+
+/** Mirrors pdir admin's buildEditModules(). */
+export function parsePdirTargets(md) {
+  const doc = parsePdirDoc(md);
+  const boundary = doc.sections.find(section => section.title === PDIR_EDIT_BOUNDARY_TITLE);
+  const boundaryStart = boundary ? boundary.startLine : doc.lines.length;
+  const seen = new Map();
+  const targets = [{
+    key: 'all-in-one',
+    type: 'all',
+    level: 0,
+    label: 'ALL IN ONE',
+    startLine: 0,
+    endLine: doc.lines.length,
+  }, {
+    key: 'main',
+    type: 'main',
+    level: 1,
+    label: 'main',
+    startLine: 0,
+    endLine: boundaryStart,
+  }];
+
+  doc.sections
+    .filter(section => section.hasHeading && section.startLine < boundaryStart)
+    .forEach((section) => {
+      targets.push({
+        key: makeTargetKey('h2', section.rawTitle || section.title, seen),
+        type: 'h2',
+        level: 1,
+        label: section.title,
+        startLine: section.startLine,
+        endLine: section.endLine,
+      });
+    });
+
+  if (!boundary) {
+    return targets;
+  }
+
+  const candidates = [];
+  doc.sections.forEach((section) => {
+    if (section.startLine <= boundary.startLine) {
+      return;
+    }
+    const firstH3 = section.entries.find(entry => entry.level === 3);
+    candidates.push({
+      key: makeTargetKey('h2', section.rawTitle || section.title, seen),
+      type: 'h2',
+      level: 1,
+      label: section.title,
+      startLine: section.startLine,
+      endLine: firstH3 ? firstH3.line : section.endLine,
+    });
+  });
+
+  const majorHeadings = doc.headings
+    .filter(heading => heading.level === 2 || heading.level === 3)
+    .sort((a, b) => a.line - b.line);
+  doc.headings
+    .filter(heading => heading.level === 3 && heading.line > boundary.startLine)
+    .sort((a, b) => a.line - b.line)
+    .forEach((heading) => {
+      const next = majorHeadings.find(item => item.line > heading.line);
+      candidates.push({
+        key: makeTargetKey('h3', heading.rawTitle || heading.title, seen),
+        type: 'h3',
+        level: 2,
+        label: heading.title,
+        startLine: heading.line,
+        endLine: next ? next.line : doc.lines.length,
+      });
+    });
+
+  candidates.sort((a, b) => a.startLine - b.startLine || a.level - b.level);
+  return targets.concat(candidates);
+}
+
+export function resolvePdirTarget(targets, location) {
+  if (!location) {
     return null;
   }
-  const lines = `${md}`.split('\n');
-  const before = lines.slice(0, module.headingLine + 1);
-  const after = lines.slice(module.bodyEnd);
-  const body = `${newBody}`.replace(/\s+$/, '').replace(/^\s+/, '');
-  const result = [...before, '', body, ''];
-  if (after.length) {
-    return [...result, ...after].join('\n');
+  return targets.find(target => target.key === location.targetKey)
+    || targets.find(target => (
+      location.targetType && target.type === location.targetType && target.label === location.module
+    ))
+    || targets.find(target => target.type === 'h3' && target.label === location.module)
+    || targets.find(target => target.label === location.module)
+    || null;
+}
+
+export function replacePdirTarget(md, target, replacement) {
+  if (!target) {
+    return null;
   }
-  return `${result.join('\n').replace(/\s+$/, '')}\n`;
+  const lines = `${md || ''}`.replace(/\r\n/g, '\n').split('\n');
+  const nextLines = `${replacement || ''}`.replace(/\r\n/g, '\n').split('\n');
+  lines.splice(target.startLine, Math.max(target.endLine - target.startLine, 0), ...nextLines);
+  return lines.join('\n');
+}
+
+export function findReplacedPdirTarget(md, previousTarget) {
+  const targets = parsePdirTargets(md);
+  if (previousTarget.type === 'all' || previousTarget.type === 'main') {
+    return targets.find(target => target.type === previousTarget.type) || null;
+  }
+  return targets.find(target => (
+    target.type === previousTarget.type && target.startLine === previousTarget.startLine
+  )) || null;
+}
+
+export function validatePdirTargetContent(text, target) {
+  if (!target) {
+    return '请选择 pdir 目标。';
+  }
+  const source = `${text || ''}`;
+  const headings = scanHeadings(source);
+  const h1 = headings.find(heading => heading.level === 1);
+  if (h1) {
+    return `第${h1.line + 1}行不能使用一级标题。`;
+  }
+  const boundaries = headings.filter(heading => (
+    heading.level === 2 && stripHeadingMarkup(heading.title) === PDIR_EDIT_BOUNDARY_TITLE
+  ));
+
+  if (target.type === 'all') {
+    return boundaries.length === 1
+      ? ''
+      : `ALL IN ONE 必须恰好包含一个「## ${PDIR_EDIT_BOUNDARY_TITLE}」边界。`;
+  }
+  if (target.type === 'main') {
+    return boundaries.length
+      ? `main 不能包含「## ${PDIR_EDIT_BOUNDARY_TITLE}」，该边界由 pdir 保留。`
+      : '';
+  }
+
+  const rootLevel = target.type === 'h2' ? 2 : 3;
+  const lines = source.split('\n');
+  const firstLine = lines.findIndex(line => line.trim());
+  const root = firstLine < 0
+    ? null
+    : lines[firstLine].match(new RegExp(`^#{${rootLevel}}\\s+(.+?)\\s*$`));
+  if (!root) {
+    return `目标「${target.label}」是 H${rootLevel} 整段，Document 首个非空行必须是 ${'#'.repeat(rootLevel)} 根标题。`;
+  }
+  if (rootLevel === 2 && stripHeadingMarkup(root[1]) === PDIR_EDIT_BOUNDARY_TITLE) {
+    return `「${PDIR_EDIT_BOUNDARY_TITLE}」是 pdir 固定边界，不能用作此目标的新标题。`;
+  }
+  const violation = headings.find(heading => (
+    heading.line !== firstLine && heading.level <= rootLevel
+  ));
+  return violation
+    ? `第${violation.line + 1}行「${'#'.repeat(violation.level)} ${violation.title}」会越出当前 H${rootLevel} 整段。`
+    : '';
 }
 
 /**
@@ -100,14 +300,6 @@ export function stripFrontMatter(text) {
     }
   }
   return text;
-}
-
-/**
- * Headings of level <= 3 (outside fences) would break pdir's Part/Module
- * structure — pdir-bound Documents must start at ####.
- */
-export function findForbiddenHeadings(text) {
-  return scanHeadings(text).filter(h => h.level <= 3);
 }
 
 /**

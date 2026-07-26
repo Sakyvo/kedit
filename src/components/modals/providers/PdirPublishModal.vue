@@ -4,22 +4,20 @@
       <div class="modal__image">
         <icon-provider provider-id="pdir"></icon-provider>
       </div>
-      <p>发布 <b>{{currentFileName}}</b> 到 <b>pdir</b> 模块（保留模块标题，只替换正文）。</p>
+      <p>发布 <b>{{currentFileName}}</b> 到 <b>pdir</b> 编辑单元（包含根标题的整段替换）。</p>
       <div class="side-bar__info" v-if="loadError">
         <p>{{loadError}}</p>
       </div>
-      <form-entry v-if="isRepublish" label="目标模块">
-        <template v-slot:field><input class="textfield" type="text" :value="config.location.module" disabled></template>
-      </form-entry>
-      <form-entry v-else label="目标模块" error="module">
+      <form-entry label="目标单元" error="target">
         <template v-slot:field>
-          <select class="textfield" v-model="selectedModule" :disabled="loading">
-            <option v-for="module in modules" :key="module.title" :value="module.title">
-              {{ module.title }}
+          <select class="textfield" v-model="selectedTargetKey" :disabled="loading">
+            <option value="">请选择…</option>
+            <option v-for="target in targets" :key="target.key" :value="target.key">
+              {{ target.label }}
             </option>
           </select>
         </template>
-        <div class="form-entry__info" v-if="loading">正在读取 pdir 模块清单…</div>
+        <div class="form-entry__info" v-if="loading">正在读取 pdir 编辑单元…</div>
       </form-entry>
       <form-entry label="提交信息" info="可选的">
         <template v-slot:field><input class="textfield" type="text" v-model.trim="commitMessage" @keydown.enter="resolve()"></template>
@@ -27,8 +25,8 @@
       <div class="form-entry__info" v-if="imgStats.total">
         将同步 {{imgStats.total}} 张私有图片（命名 {{imgStats.named}} / 未命名 {{imgStats.unnamed}}）；新传/复用/覆盖在发布时按内容比对决定。
       </div>
-      <div class="form-entry__info" v-if="headingViolation">
-        ⚠ {{headingViolation}}
+      <div class="form-entry__info" v-if="validationError">
+        ⚠ {{validationError}}
       </div>
     </div>
     <div class="modal__button-bar">
@@ -43,17 +41,18 @@ import store from '../../../store';
 import modalTemplate from '../common/modalTemplate';
 import pdirProvider from '../../../services/providers/pdirProvider';
 import {
-  parsePdirModules,
+  parsePdirTargets,
+  resolvePdirTarget,
   listPrivateImgRefs,
   stripFrontMatter,
-  findForbiddenHeadings,
+  validatePdirTargetContent,
   UNNAMED_ALT,
 } from '../../../services/providers/helpers/pdirPublishUtils';
 
 export default modalTemplate({
   data: () => ({
-    modules: [],
-    selectedModule: '',
+    targets: [],
+    selectedTargetKey: '',
     commitMessage: '',
     loading: false,
     loadError: '',
@@ -62,44 +61,50 @@ export default modalTemplate({
     isRepublish() {
       return !!this.config.location;
     },
+    token() {
+      return this.config.token || pdirProvider.getToken(this.config.location || {});
+    },
+    selectedTarget() {
+      return this.targets.find(target => target.key === this.selectedTargetKey) || null;
+    },
     imgStats() {
       const content = store.getters['content/current'];
       const refs = listPrivateImgRefs((content && content.text) || '');
       const named = refs.filter(ref => ref.alt !== UNNAMED_ALT).length;
       return { total: refs.length, named, unnamed: refs.length - named };
     },
-    headingViolation() {
-      const content = store.getters['content/current'];
-      const violations = findForbiddenHeadings(stripFrontMatter((content && content.text) || ''));
-      if (!violations.length) {
+    validationError() {
+      if (!this.selectedTarget) {
         return '';
       }
-      const first = violations[0];
-      return `第${first.line + 1}行「${'#'.repeat(first.level)} ${first.title}」等 ${violations.length} 处标题层级过高（pdir 向文档需从 #### 起步）。`;
+      const content = store.getters['content/current'];
+      return validatePdirTargetContent(
+        stripFrontMatter((content && content.text) || ''),
+        this.selectedTarget,
+      );
     },
     canResolve() {
-      if (this.headingViolation) {
-        return false;
-      }
-      return this.isRepublish || !!this.selectedModule;
+      return !!this.selectedTarget && !this.loading && !this.validationError;
     },
   },
   async created() {
-    if (this.isRepublish) {
-      return;
-    }
     this.loading = true;
     try {
-      const token = this.config.token;
-      const { data } = await pdirProvider.downloadMainMd(token);
-      this.modules = parsePdirModules(data);
-      if (this.modules.length) {
-        this.selectedModule = this.modules[0].title;
+      const { data } = await pdirProvider.downloadMainMd(this.token);
+      this.targets = parsePdirTargets(data);
+      if (this.isRepublish) {
+        const currentTarget = resolvePdirTarget(this.targets, this.config.location);
+        if (currentTarget) {
+          this.selectedTargetKey = currentTarget.key;
+        } else {
+          this.loadError = `原 pdir 目标「${this.config.location.module}」不存在，请重新选择。`;
+        }
       } else {
-        this.loadError = 'pdir 内容源中没有可用模块。';
+        const namedTarget = this.targets.find(target => target.label === this.currentFileName);
+        this.selectedTargetKey = namedTarget ? namedTarget.key : '';
       }
     } catch (e) {
-      this.loadError = '读取 pdir 模块清单失败，请检查网络与仓库权限。';
+      this.loadError = '读取 pdir 编辑单元失败，请检查网络与仓库权限。';
     }
     this.loading = false;
   },
@@ -108,11 +113,10 @@ export default modalTemplate({
       if (!this.canResolve) {
         return;
       }
-      if (this.isRepublish) {
-        this.config.resolve({ commitMessage: this.commitMessage });
-        return;
-      }
-      const location = pdirProvider.makeLocation(this.config.token, this.selectedModule);
+      const location = {
+        ...(this.config.location || {}),
+        ...pdirProvider.makeLocation(this.token, this.selectedTarget),
+      };
       this.config.resolve({ location, commitMessage: this.commitMessage });
     },
   },

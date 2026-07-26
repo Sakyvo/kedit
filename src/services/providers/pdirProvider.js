@@ -10,11 +10,13 @@ import {
   PDIR_BRANCH,
   PDIR_MAIN_FILE,
   PDIR_SITE_URL,
-  parsePdirModules,
-  replaceModuleBody,
+  parsePdirTargets,
+  resolvePdirTarget,
+  replacePdirTarget,
+  findReplacedPdirTarget,
   listPrivateImgRefs,
   stripFrontMatter,
-  findForbiddenHeadings,
+  validatePdirTargetContent,
   computeGitBlobShaFromBase64,
   planImageUploads,
   rewriteImgRefs,
@@ -64,29 +66,28 @@ export default new Provider({
   },
   async publish(token, html, metadata, publishLocation, commitMessage) {
     // plainText template projection = raw markdown
-    let text = stripFrontMatter(html);
-    const forbidden = findForbiddenHeadings(text);
-    if (forbidden.length) {
-      const spots = forbidden.slice(0, 3)
-        .map(h => `第${h.line + 1}行「${'#'.repeat(h.level)} ${h.title}」`)
-        .join('、');
-      throw new Error(`pdir 向文档需从 #### 起步：${spots} 会破坏模块结构，请调整后再发布。`);
-    }
+    let text = `${stripFrontMatter(html)}`
+      .replace(/^(?:[ \t]*\n)+/, '')
+      .replace(/\s+$/, '');
 
     progress('start', {
       title: `发布到 pdir › ${publishLocation.module}`,
       steps: [
         { key: 'source', label: '读取内容源', status: 'running' },
-        { key: 'body', label: '写入正文' },
+        { key: 'body', label: '写入整段' },
       ],
     });
     try {
       const { sha, data } = await this.downloadMainMd(token);
-      const module = parsePdirModules(data).find(m => m.title === publishLocation.module);
-      if (!module) {
-        throw new Error(`pdir 模块「${publishLocation.module}」不存在，请重新选择模块。`);
+      const target = resolvePdirTarget(parsePdirTargets(data), publishLocation);
+      if (!target) {
+        throw new Error(`pdir 目标「${publishLocation.module}」不存在，请重新选择。`);
       }
-      const commitMsg = commitMessage || `Publish ${metadata.title} -> ${publishLocation.module}`;
+      const validationError = validatePdirTargetContent(text, target);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+      const commitMsg = commitMessage || `Publish ${metadata.title} -> ${target.label}`;
 
       // Image pipeline: upload images first, then write the body
       const refs = listPrivateImgRefs(text);
@@ -115,10 +116,10 @@ export default new Provider({
           .map(entry => ({ name: entry.path.slice('imgs/'.length), sha: entry.sha }));
 
         const lines = data.split('\n');
-        const moduleBody = lines.slice(module.bodyStart, module.bodyEnd).join('\n');
+        const targetBody = lines.slice(target.startLine, target.endLine).join('\n');
         const plan = planImageUploads({
           refs,
-          moduleBody,
+          moduleBody: targetBody,
           mainMd: data,
           repoFiles,
           shaByUri,
@@ -135,7 +136,7 @@ export default new Provider({
             status: entry.action === 'reuse' ? 'done' : 'pending',
             isImg: true,
           })),
-          { key: 'body', label: '写入正文' },
+          { key: 'body', label: '写入整段' },
         ]);
 
         await plan.entries.reduce(async (promise, entry, idx) => {
@@ -165,7 +166,11 @@ export default new Provider({
       }
 
       progress('setStep', { key: 'body', status: 'running' });
-      const newMain = replaceModuleBody(data, publishLocation.module, text);
+      const newMain = replacePdirTarget(data, target, text);
+      const updatedTarget = findReplacedPdirTarget(newMain, target);
+      if (!updatedTarget) {
+        throw new Error('发布内容无法形成有效的 pdir 编辑单元，请检查根标题。');
+      }
       await githubHelper.uploadFile({
         token,
         owner: PDIR_OWNER,
@@ -177,23 +182,31 @@ export default new Provider({
         commitMessage: commitMsg,
       });
       progress('finish');
+      const updatedLocation = {
+        ...publishLocation,
+        module: updatedTarget.label,
+        targetKey: updatedTarget.key,
+        targetType: updatedTarget.type,
+      };
       if (publishLocation.fileId) {
         store.dispatch('data/setPdirMark', {
           fileId: publishLocation.fileId,
-          module: publishLocation.module,
+          module: updatedTarget.label,
         });
       }
-      return publishLocation;
+      return updatedLocation;
     } catch (err) {
       progress('fail', err && err.message);
       throw err;
     }
   },
-  makeLocation(token, module) {
+  makeLocation(token, target) {
     return {
       providerId: this.id,
       sub: token.sub,
-      module,
+      module: target.label,
+      targetKey: target.key,
+      targetType: target.type,
       templateId: 'plainText',
     };
   },

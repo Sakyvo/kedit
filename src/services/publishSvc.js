@@ -85,12 +85,14 @@ const publishFile = async (fileId) => {
     // pdir 重发必经合一确认弹窗（永不静默直发）
     const pdirLocation = publishLocations.find(it => it.providerId === 'pdir');
     let pdirCommitMsg = '';
+    let pdirLocationToPublish = null;
     if (pdirLocation) {
       try {
-        const { commitMessage } = await store.dispatch('modal/open', {
+        const { location, commitMessage } = await store.dispatch('modal/open', {
           type: 'pdirPublish',
           location: pdirLocation,
         });
+        pdirLocationToPublish = location;
         pdirCommitMsg = commitMessage;
       } catch (e) {
         return;
@@ -100,8 +102,11 @@ const publishFile = async (fileId) => {
       await store.dispatch('queue/doWithLocation', {
         location: publishLocation,
         action: async () => {
+          const locationToPublish = publishLocation.providerId === 'pdir'
+            ? pdirLocationToPublish
+            : publishLocation;
           const publishLocationToStore = await publish(
-            publishLocation,
+            locationToPublish,
             publishLocation.providerId === 'pdir' ? pdirCommitMsg : commitMsg,
           );
           try {
