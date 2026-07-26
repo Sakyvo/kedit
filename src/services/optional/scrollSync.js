@@ -1,6 +1,11 @@
 import store from '../../store';
 import animationSvc from '../animationSvc';
 import editorSvc from '../editorSvc';
+import { createScrollSyncSuppressor } from '../editor/scrollSyncSuppress';
+
+// TOC jumps suppress scrollSync's catch-up animation for a short window so
+// both panes land instantly instead of the preview animating to catch up.
+export const tocJumpSuppressor = createScrollSyncSuppressor();
 
 let editorScrollerElt;
 let previewScrollerElt;
@@ -36,6 +41,10 @@ const doScrollSync = () => {
   const localSkipAnimation = skipAnimation || !store.getters['layout/styles'].showSidePreview;
   skipAnimation = false;
   if (!store.getters['data/layoutSettings'].scrollSync || sectionDescList.length === 0) {
+    return;
+  }
+  // A TOC jump suppressed this window; ignore the self-induced catch-up event.
+  if (tocJumpSuppressor.isSuppressed()) {
     return;
   }
   let editorScrollTop = editorScrollerElt.scrollTop;

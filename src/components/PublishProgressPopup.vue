@@ -207,7 +207,7 @@ export default {
   gap: 6px;
   height: auto;
   padding: 6px 14px;
-  border-radius: 16px;
+  border-radius: 8px;
   background-color: #fff;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
   font-size: 13px;

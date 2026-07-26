@@ -13,6 +13,7 @@ import {
   findSectionIndexByTocElt,
   computeTocJumpTargets,
 } from '../services/editor/tocJump';
+import { tocJumpSuppressor } from '../services/optional/scrollSync';
 
 export default {
   data: () => ({
@@ -54,6 +55,8 @@ export default {
       if (targets.editor == null && targets.preview == null) {
         return;
       }
+      // Suppress scrollSync's catch-up animation so the preview teleports too.
+      tocJumpSuppressor.suppress();
       if (targets.editor != null) {
         editorSvc.editorElt.parentNode.scrollTop = targets.editor;
       }
@@ -100,7 +103,6 @@ export default {
 .toc__inner {
   position: relative;
   color: rgba(0, 0, 0, 0.67);
-  cursor: pointer;
   font-size: 17px;
   // Larger horizontal inset from panel edges (not vertical title gaps)
   padding: 10px 20px 28px 22px;
@@ -121,46 +123,61 @@ export default {
     font-weight: inherit;
   }
 
-  .cl-toc-section:hover {
-    color: $link-color;
-  }
-
+  // Only real heading entries are interactive; the gaps between them
+  // (margin collapse escaping the .cl-toc-section wrapper) are dead space
+  // and must not show a pointer or accept clicks.
   .cl-toc-section {
-    // Vertical gaps restored (pre b6a48af1); hierarchy indent unchanged
+    cursor: pointer;
+
+    &:hover {
+      color: $link-color;
+    }
+
+    // Vertical gaps become padding so the whole inter-heading strip is
+    // part of the nearest heading's hitbox (margin would collapse out of
+    // the wrapper and leave an unclickable band). Halved to compensate
+    // for the loss of collapse so the visual rhythm is preserved.
     h1 {
-      margin: 1.9rem 0 0.9rem;
+      margin: 0;
+      padding: 0.95rem 0 0.45rem;
+      margin-left: 0;
       font-size: 1.12em;
       font-weight: 600;
     }
 
     h2 {
-      margin: 1.4rem 0 0.7rem;
-      margin-left: 2px;
+      margin: 0;
+      padding: 0.7rem 0 0.35rem;
+      margin-left: 1em;
       font-size: 1.06em;
       font-weight: 600;
     }
 
     h3 {
-      margin: 0.96rem 0 0.56rem;
-      margin-left: 6px;
+      margin: 0;
+      padding: 0.48rem 0 0.28rem;
+      margin-left: 1em;
       font-size: 1.02em;
     }
 
     h4 {
-      margin: 0.72rem 0 0.44rem;
-      margin-left: 10px;
+      margin: 0;
+      padding: 0.36rem 0 0.22rem;
+      margin-left: 1em;
       font-size: 1em;
     }
 
     h5 {
-      margin: 0.56rem 0 0.32rem;
-      margin-left: 14px;
+      margin: 0;
+      padding: 0.28rem 0 0.16rem;
+      margin-left: 1em;
       font-size: 0.98em;
     }
 
     h6 {
-      margin: 0.44rem 0 0.24rem;
-      margin-left: 18px;
+      margin: 0;
+      padding: 0.22rem 0 0.12rem;
+      margin-left: 1em;
       font-size: 0.96em;
     }
   }
