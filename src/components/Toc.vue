@@ -156,28 +156,28 @@ export default {
     h3 {
       margin: 0;
       padding: 0.48rem 0 0.28rem;
-      margin-left: 1em;
+      margin-left: 2em;
       font-size: 1.02em;
     }
 
     h4 {
       margin: 0;
       padding: 0.36rem 0 0.22rem;
-      margin-left: 1em;
+      margin-left: 3em;
       font-size: 1em;
     }
 
     h5 {
       margin: 0;
       padding: 0.28rem 0 0.16rem;
-      margin-left: 1em;
+      margin-left: 4em;
       font-size: 0.98em;
     }
 
     h6 {
       margin: 0;
       padding: 0.22rem 0 0.12rem;
-      margin-left: 1em;
+      margin-left: 5em;
       font-size: 0.96em;
     }
   }
