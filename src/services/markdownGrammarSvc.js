@@ -322,8 +322,10 @@ export default {
     // Token type includes cn-em so edit themes / CSS can target like cn-strong.
     // cl-em-text wraps the body (not a bare text node) so CJK color/italic applies.
     // Content cannot contain `*` so consecutive `*a* *b*` stay two tokens.
+    // Boundary also accepts one literal star before the opener so `**X*`
+    // highlights as `*` + em(X), matching markdown-it's delimiter-run split.
     rest['em cn-em'] = {
-      pattern: /(^|[^*])(\*)(?!\*)((?:(?!\*)[\s\S])+?)\2(?=[^*]|$)/gm,
+      pattern: /(^|[^*]|(?:^|[^*])\*)(\*)(?!\*)((?:(?!\*)[\s\S])+?)\2(?=[^*]|$)/gm,
       lookbehind: true,
       inside: {
         'cl cl-em cl-start': /^\*/,
