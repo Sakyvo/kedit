@@ -137,49 +137,51 @@ export default {
     // part of the nearest heading's hitbox (margin would collapse out of
     // the wrapper and leave an unclickable band). Halved to compensate
     // for the loss of collapse so the visual rhythm is preserved.
-    h1 {
+    // Indent is driven by outline depth (data-outline-depth), not the raw
+    // ATX level, so an orphan h4 with no ancestor starts at the left edge.
+    h1, h2, h3, h4, h5, h6 {
       margin: 0;
+      margin-left: calc(var(--toc-depth, 0) * 1em);
+    }
+
+    h1 {
       padding: 0.95rem 0 0.45rem;
-      margin-left: 0;
       font-size: 1.12em;
       font-weight: 600;
     }
 
     h2 {
-      margin: 0;
       padding: 0.7rem 0 0.35rem;
-      margin-left: 1em;
       font-size: 1.06em;
       font-weight: 600;
     }
 
     h3 {
-      margin: 0;
       padding: 0.48rem 0 0.28rem;
-      margin-left: 2em;
       font-size: 1.02em;
     }
 
     h4 {
-      margin: 0;
       padding: 0.36rem 0 0.22rem;
-      margin-left: 3em;
       font-size: 1em;
     }
 
     h5 {
-      margin: 0;
       padding: 0.28rem 0 0.16rem;
-      margin-left: 4em;
       font-size: 0.98em;
     }
 
     h6 {
-      margin: 0;
       padding: 0.22rem 0 0.12rem;
-      margin-left: 5em;
       font-size: 0.96em;
     }
+
+    &[data-outline-depth="0"] { --toc-depth: 0; }
+    &[data-outline-depth="1"] { --toc-depth: 1; }
+    &[data-outline-depth="2"] { --toc-depth: 2; }
+    &[data-outline-depth="3"] { --toc-depth: 3; }
+    &[data-outline-depth="4"] { --toc-depth: 4; }
+    &[data-outline-depth="5"] { --toc-depth: 5; }
   }
 }
 

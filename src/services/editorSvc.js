@@ -267,6 +267,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   async refreshPreview() {
     const nextPreviewImgPathCounts = Object.create(null);
     const sectionDescList = [];
+    const tocHeadingStack = [];
     let sectionPreviewElt;
     let sectionTocElt;
     let sectionIdx = 0;
@@ -350,6 +351,14 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
             const clonedElt = headingElt.cloneNode(true);
             clonedElt.removeAttribute('id');
             sectionTocElt.appendChild(clonedElt);
+            // Outline depth: indent reflects actual nesting, not raw ATX level,
+            // so an orphan h4 (no ancestor) starts at the left edge.
+            const headingLevel = Number(headingElt.tagName.slice(1));
+            while (tocHeadingStack.length && tocHeadingStack[tocHeadingStack.length - 1] >= headingLevel) {
+              tocHeadingStack.pop();
+            }
+            sectionTocElt.dataset.outlineDepth = String(tocHeadingStack.length);
+            tocHeadingStack.push(headingLevel);
             // 创建一个新的 <span> 元素
             const contentElt = document.createElement('span');
             contentElt.className = 'content';

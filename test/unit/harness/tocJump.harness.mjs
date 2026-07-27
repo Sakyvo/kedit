@@ -11,6 +11,7 @@ import {
   clampScrollTop,
   computeTocJumpScrollTop,
   computeTocJumpTargets,
+  computeTocOutlineDepths,
 } from '../../../src/services/editor/tocJump.js';
 
 function mockElt({ offsetTop = 0, parentNode = null, isConnected = true, children } = {}) {
@@ -133,6 +134,21 @@ function mockElt({ offsetTop = 0, parentNode = null, isConnected = true, childre
   const previewOnly = computeTocJumpTargets({ showEditor: false, showSidePreview: false, ...args });
   assert.equal(previewOnly.editor, null);
   assert.equal(previewOnly.preview, 700);
+}
+
+// --- computeTocOutlineDepths: indent reflects actual nesting, not raw level ---
+{
+  // Normal nesting: h2 > h3 > h4 > h5
+  assert.deepEqual(computeTocOutlineDepths([2, 3, 4, 5]), [0, 1, 2, 3]);
+  // Orphan h4 with no ancestor starts at depth 0
+  assert.deepEqual(computeTocOutlineDepths([4]), [0]);
+  // h4 under h2 is depth 1; a later h3 resets to depth 1; h4 under that h3 is depth 2
+  assert.deepEqual(computeTocOutlineDepths([2, 4, 3, 4]), [0, 1, 1, 2]);
+  // Section with no heading (0) does not disturb the stack
+  assert.deepEqual(computeTocOutlineDepths([0, 2, 0, 3]), [0, 0, 0, 1]);
+  // h3 then h2: h2 is shallower, depth 0
+  assert.deepEqual(computeTocOutlineDepths([3, 2]), [0, 0]);
+  assert.deepEqual(computeTocOutlineDepths([]), []);
 }
 
 console.log('tocJump.harness: all assertions passed');

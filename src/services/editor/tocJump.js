@@ -133,3 +133,27 @@ export function computeTocJumpTargets({
     preview: showSidePreview ? computeTocJumpScrollTop(previewArgs) : null,
   };
 }
+
+/**
+ * Outline depth for each TOC entry, so indent reflects actual nesting
+ * (an orphan h4 with no ancestor starts at depth 0, not a fixed 3em).
+ * `levels` = ATX heading level per section in document order (0 = no heading).
+ * editorSvc uses an inline stack inside refreshPreview for the same result;
+ * this pure version is the tested reference.
+ */
+export function computeTocOutlineDepths(levels) {
+  const stack = [];
+  const depths = [];
+  (levels || []).forEach((level) => {
+    if (!level) {
+      depths.push(0);
+      return;
+    }
+    while (stack.length && stack[stack.length - 1] >= level) {
+      stack.pop();
+    }
+    depths.push(stack.length);
+    stack.push(level);
+  });
+  return depths;
+}
