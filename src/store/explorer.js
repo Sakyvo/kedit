@@ -190,16 +190,20 @@ export default {
           ...syncLocationsByFileId[item.id] || [],
           ...publishLocationsByFileId[item.id] || [],
         ];
+        // pdir is a single site: several bindings still collapse into one badge
+        const pdirIndex = locations.findIndex(loc => loc.providerId === 'pdir');
+        const badges = locations
+          .filter((loc, index) => loc.providerId !== 'pdir' || index === pdirIndex);
         // Device-local pdir mark: show icon before remote .publish / store hydrate
-        if (pdirMarks[item.id] && !locations.some(loc => loc.providerId === 'pdir')) {
-          locations.push({
+        if (pdirMarks[item.id] && pdirIndex === -1) {
+          badges.push({
             id: `pdir-mark-${item.id}`,
             providerId: 'pdir',
             fileId: item.id,
             module: pdirMarks[item.id].module || '',
           });
         }
-        nodeMap[item.id] = new Node(item, locations);
+        nodeMap[item.id] = new Node(item, badges);
       });
 
       // Build the tree
