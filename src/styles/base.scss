@@ -134,6 +134,19 @@ ol ol {
   margin: 0 0 1.1em;
 }
 
+/* List-item bullets (::marker) align with the baseline of the first line box.
+   When that line's leading content is a tall image, the default
+   vertical-align: baseline drops the bullet to the image bottom. Aligning
+   the image to the top of the line box restores the bullet to the top.
+   Applies to both tight lists (li > img) and loose lists (li > p > img). */
+.cl-preview-section,
+.stackedit__html {
+  li > img:first-child,
+  li > p:first-child > img:first-child {
+    vertical-align: top;
+  }
+}
+
 dt {
   font-weight: bold;
 }

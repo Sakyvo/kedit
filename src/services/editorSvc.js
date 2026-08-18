@@ -27,6 +27,7 @@ import {
   dimensionsForPreset,
 } from './editor/imgSizeGuard';
 import { createLayoutRemeasure } from './editor/layoutRemeasure';
+import { fitImgWrapper, fitAllImgWrappers } from './editor/imgLineFit';
 
 const allowDebounce = (action, wait) => {
   let timeoutId;
@@ -740,6 +741,45 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       });
     }, 100);
 
+    // Batch line-fit requests (one per animation frame) and re-measure section
+    // dimensions when an inline max-width actually changed, since shrinking an
+    // image card onto the marker line shortens the section height.
+    const pendingImgFits = new Set();
+    let imgFitFrame = 0;
+    const flushImgLineFit = () => {
+      imgFitFrame = 0;
+      if (!pendingImgFits.size) {
+        return;
+      }
+      const targets = Array.from(pendingImgFits);
+      pendingImgFits.clear();
+      let changed = false;
+      targets.forEach((target) => {
+        if (!this.editorElt.contains(target)) {
+          return;
+        }
+        const wrappers = target.classList && target.classList.contains('img-wrapper')
+          ? [target]
+          : Array.prototype.filter.call(
+            target.getElementsByClassName('img-wrapper'), () => true,
+          );
+        wrappers.forEach((wrapper) => {
+          if (fitImgWrapper(wrapper)) {
+            changed = true;
+          }
+        });
+      });
+      if (changed) {
+        this.measureSectionDimensions(true);
+      }
+    };
+    const scheduleImgLineFit = (target) => {
+      pendingImgFits.add(target);
+      if (!imgFitFrame) {
+        imgFitFrame = window.requestAnimationFrame(flushImgLineFit);
+      }
+    };
+
     let imgEltsToCache = [];
     // Natural size per markdown URI, recorded on load and preset on creation
     // so re-rendered images keep their box (no 0->H collapse/expand jump)
@@ -774,6 +814,11 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
                     width: imgElt.naturalWidth,
                     height: imgElt.naturalHeight,
                   };
+                }
+                // Image size just resolved (or src changed): re-fit the
+                // wrapper to the current inline room.
+                if (imgElt.parentNode) {
+                  scheduleImgLineFit(imgElt.parentNode);
                 }
               };
               if (isWorkspaceLocalUri(uri)) {
@@ -861,9 +906,18 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         const cachedImgElt = getFromImgCache(imgElt);
         if (cachedImgElt) {
           // Found a previously loaded image that has just been released
+          // Clear any stale inline max-width from a previous line-fit before
+          // reuse; it will be recomputed for the current line below.
+          cachedImgElt.style.maxWidth = '';
           imgElt.parentNode.replaceChild(cachedImgElt, imgElt);
         } else {
           addToImgCache(imgElt);
+        }
+        // (Re)fit the wrapper to the current inline room — both freshly
+        // created images and cache-reused ones land here.
+        const wrapper = (cachedImgElt || imgElt).parentNode;
+        if (wrapper && wrapper.classList.contains('img-wrapper')) {
+          scheduleImgLineFit(wrapper);
         }
       });
       imgEltsToCache = [];
@@ -958,8 +1012,13 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         // Flush the live scroll position before the DOM rewraps, so the
         // post-measure restore doesn't roll back to a stale debounced snapshot.
         saveContentState: () => this.saveContentState(),
-        // Wait for the layout DOM update before measuring section offsets.
-        measure: () => this.measureSectionDimensions(false, true, true),
+        // Re-fit inline images to the new pane/font width BEFORE measuring
+        // section offsets — a card shrinking onto its marker line changes the
+        // section height, so the restore must land on the post-fit layout.
+        measure: () => {
+          fitAllImgWrappers(this.editorElt);
+          this.measureSectionDimensions(false, true, true);
+        },
         requestFrame: cb => window.requestAnimationFrame(cb),
         cancelFrame: id => window.cancelAnimationFrame(id),
       }),
