@@ -817,7 +817,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
                 }
                 // Image size just resolved (or src changed): re-fit the
                 // wrapper to the current inline room.
-                if (imgElt.parentNode) {
+                if (imgElt.parentNode && imgElt.parentNode.classList.contains('img-wrapper')) {
                   scheduleImgLineFit(imgElt.parentNode);
                 }
               };
@@ -906,15 +906,14 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         const cachedImgElt = getFromImgCache(imgElt);
         if (cachedImgElt) {
           // Found a previously loaded image that has just been released
-          // Clear any stale inline max-width from a previous line-fit before
-          // reuse; it will be recomputed for the current line below.
-          cachedImgElt.style.maxWidth = '';
           imgElt.parentNode.replaceChild(cachedImgElt, imgElt);
         } else {
           addToImgCache(imgElt);
         }
         // (Re)fit the wrapper to the current inline room — both freshly
-        // created images and cache-reused ones land here.
+        // created images and cache-reused ones land here. The wrapper is
+        // recreated each sectionHighlight, so it starts with no inline
+        // max-width; fitImgWrapper caps it to the rest-of-line room.
         const wrapper = (cachedImgElt || imgElt).parentNode;
         if (wrapper && wrapper.classList.contains('img-wrapper')) {
           scheduleImgLineFit(wrapper);
