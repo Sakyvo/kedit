@@ -1,19 +1,21 @@
 /**
  * Inline image line-fit (batch #009).
  *
- * In the editor, an image card (`.token.img-wrapper`, display: inline-block)
- * sizes via shrink-to-fit: width = min(max(preferred-min, available), preferred),
- * where "available" is the containing-block (section) width — NOT the leftover
- * inline space after a prefix like `- `. The card's preferred (max-content)
- * width is driven by the raw markdown text (`![alt](uri)`) it also contains,
- * so after `- ` it rarely fits and wraps to its own line, making the image look
- * detached from the list item.
+ * An image card (`.token.img-wrapper`, display: inline-block) in the editor
+ * sizes via shrink-to-fit, whose "available" is the containing-block (section)
+ * width — NOT the leftover inline space after a prefix. When its max-content
+ * (driven by the raw `![alt](uri)` inside) exceeds that, it wraps to its own
+ * visual line, detaching it from a `- ` list marker.
  *
- * CSS alone cannot constrain the card to "rest-of-line" width, so we measure
- * the prefix width with a Range and cap the WRAPPER's max-width in px. The
- * inner <img> already has max-width:100% (markdownHighlighting.scss), so it
- * scales down in proportion once the wrapper is capped — height:auto keeps the
- * aspect ratio.
+ * The card is capped ONLY by the width left on its OWN visual line. That room
+ * is measured as the wrapper's own `getBoundingClientRect().left` to the
+ * section's content right edge — NOT from the section start via a Range, so
+ * the size never depends on how much text sits on earlier visual lines.
+ *
+ * And when the image's natural width already fits that room, no max-width is
+ * written at all: the image keeps its natural, fixed size ("不问上限不缩").
+ * It only scales down proportionally (inner <img> max-width:100% + height:auto)
+ * when it genuinely would not fit the line.
  */
 
 const MIN_FIT_EM = 4; // below this remaining room, fall back to wrap (full width)
@@ -22,35 +24,32 @@ const SLACK_EM = 0.4; // wrapper/img horizontal padding headroom
 const closestSection = elt => elt && elt.closest && elt.closest('.cledit-section');
 
 /**
- * Remaining inline width (px) on the wrapper's visual line, measured from the
- * end of the preceding content to the section's content-box right edge.
- * Returns null when there is no preceding content on the line (image at line
- * start) — CSS max-width:100% handles that case.
+ * Remaining inline width (px) on the wrapper's current visual line, measured
+ * from the wrapper's left edge to the section's content-box right edge.
+ * Returns null when the wrapper is not yet laid out or the room is 0/negative.
  */
 export function measureInlineRoom(wrapper) {
   const section = closestSection(wrapper);
-  if (!section || !wrapper.parentNode) {
+  if (!section) {
     return null;
   }
-  const range = document.createRange();
-  range.selectNodeContents(section);
-  range.setEndBefore(wrapper);
-  const rects = range.getClientRects();
-  if (!rects.length) {
-    return null;
-  }
-  const last = rects[rects.length - 1];
   const sectionRect = section.getBoundingClientRect();
   const cs = getComputedStyle(section);
   const paddingRight = parseFloat(cs.paddingRight) || 0;
   const rightEdge = sectionRect.right - paddingRight;
-  return rightEdge - last.right;
+  const wrapperRect = wrapper.getBoundingClientRect();
+  const room = rightEdge - wrapperRect.left;
+  if (room <= 0) {
+    return null;
+  }
+  return room;
 }
 
 /**
- * Cap the wrapper's max-width so the card stays on the same line as its prefix
- * (e.g. a `- ` list marker), scaling the inner image down proportionally.
- * Falls back (clears the inline max-width) when the room is too narrow.
+ * Cap the wrapper's max-width so the card stays on its own visual line at a
+ * stable size. Writes nothing when the image's natural width already fits the
+ * room (keeps it FIXED — size never tied to preceding text). Only scales the
+ * inner image down when it genuinely exceeds the line.
  * Returns true when an inline max-width actually changed.
  */
 export function fitImgWrapper(wrapper) {
@@ -67,7 +66,7 @@ export function fitImgWrapper(wrapper) {
   const slackPx = (SLACK_EM * fs) + 2;
   const room = measureInlineRoom(wrapper);
   if (room == null) {
-    // Image at line start: let CSS max-width:100% drive it.
+    // Not enough info — let CSS max-width:100% drive it.
     if (wrapper.style.maxWidth) {
       wrapper.style.maxWidth = '';
       return true;
@@ -77,6 +76,15 @@ export function fitImgWrapper(wrapper) {
   const usable = room - slackPx;
   if (usable < minPx) {
     // Too narrow to read — fall back to wrap / full container width.
+    if (wrapper.style.maxWidth) {
+      wrapper.style.maxWidth = '';
+      return true;
+    }
+    return false;
+  }
+  // Check the image's natural size: if it already fits, keep it fixed.
+  const natural = img.naturalWidth || 0;
+  if (natural && natural <= usable) {
     if (wrapper.style.maxWidth) {
       wrapper.style.maxWidth = '';
       return true;
