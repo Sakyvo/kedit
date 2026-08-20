@@ -82,36 +82,49 @@ export default {
       clEditor.selectionMgr.setSelectionStartEnd(offset.end, offset.end);
       clEditor.selectionMgr.updateCursorCoordinates(false);
     },
-    async processUpload(items) {
-      let file = null;
+    // Collect every image File from a paste/drop payload (DataTransferItemList with
+    // getAsFile(), or a raw FileList). Order = selection order on Windows/Chrome.
+    collectImageFiles(items) {
       if (!items || items.length === 0) {
-        return;
+        return [];
       }
+      const files = [];
       for (let i = 0; i < items.length; i += 1) {
-        if (items[i].type.indexOf('image') !== -1) {
-          file = items[i].getAsFile();
-          break;
+        const item = items[i];
+        if (!item || !item.type || item.type.indexOf('image') !== 0) {
+          continue;
+        }
+        const file = typeof item.getAsFile === 'function' ? item.getAsFile() : item;
+        if (file && file.type && file.type.indexOf('image/') === 0) {
+          files.push(file);
         }
       }
-      if (!file) {
+      return files;
+    },
+    async processUpload(items) {
+      const files = this.collectImageFiles(items);
+      if (files.length === 0) {
         return;
       }
-      const imgId = utils.uid();
-      store.dispatch('img/setCurrImgId', imgId);
-      editorSvc.pagedownEditor.uiManager.doClick('imageUploading');
-      try {
-        const { url, error } = await imageSvc.updateImg(file);
-        // 存在错误
-        if (error) {
+      for (let i = 0; i < files.length; i += 1) {
+        const file = files[i];
+        const imgId = utils.uid();
+        store.dispatch('img/setCurrImgId', imgId);
+        editorSvc.pagedownEditor.uiManager.doClick('imageUploading');
+        try {
+          const { url, error } = await imageSvc.updateImg(file);
+          // 存在错误
+          if (error) {
+            this.replacePlaceholder(`[图片上传中...(image-${imgId})]`, `[图片上传失败...(image-${imgId})]`);
+            store.dispatch('notification/error', error);
+            continue;
+          }
+          this.replacePlaceholder(`[图片上传中...(image-${imgId})]`, `![输入图片说明](${url})`);
+        } catch (err) {
+          console.error(err); // eslint-disable-line no-console
           this.replacePlaceholder(`[图片上传中...(image-${imgId})]`, `[图片上传失败...(image-${imgId})]`);
-          store.dispatch('notification/error', error);
-          return;
+          store.dispatch('notification/error', err);
         }
-        this.replacePlaceholder(`[图片上传中...(image-${imgId})]`, `![输入图片说明](${url})`);
-      } catch (err) {
-        console.error(err); // eslint-disable-line no-console
-        this.replacePlaceholder(`[图片上传中...(image-${imgId})]`, `[图片上传失败...(image-${imgId})]`);
-        store.dispatch('notification/error', err);
       }
     },
   },
