@@ -231,7 +231,10 @@ export default {
       }
       event.preventDefault();
       event.stopPropagation();
-      this.processUpload(clip.items);
+      // Windows/Chrome exposes clipboard file items in reverse selection order;
+      // reverse so the document order matches the selection order.
+      const items = Array.prototype.slice.call(clip.items || clip.files || []).reverse();
+      this.processUpload(items);
     }, true);
 
     this.$watch(
