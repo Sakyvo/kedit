@@ -18,13 +18,26 @@ charTypes[' '] = 'space';
 charTypes['\t'] = 'space';
 charTypes['\n'] = 'newLine';
 
+// CJK ideographs (incl. kana/hangul) form clause-long words of their own
+const cjkWordChars = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u3007\u3040-\u30ff\uac00-\ud7af]/;
+// CJK/fullwidth punctuation acts as word separators (\u3007 handled above)
+const cjkWordSeparators = /[\u3001-\u303f\uff01-\uff0f\uff1a-\uff20\uff3b-\uff40\uff5b-\uff65\u2013\u2014\u2018-\u201d\u2026\u00b7]/;
+
+function getCharType(ch) {
+  return charTypes[ch]
+    || (ch === '\u3000' && 'space') // ideographic space
+    || (cjkWordChars.test(ch) && 'cjk')
+    || (cjkWordSeparators.test(ch) && 'wordSeparator')
+    || 'word';
+}
+
 function getNextWordOffset(text, offset, isBackward) {
   let previousType;
   let result = offset;
   while ((isBackward && result > 0) || (!isBackward && result < text.length)) {
-    const currentType = charTypes[isBackward ? text[result - 1] : text[result]] || 'word';
+    const currentType = getCharType(isBackward ? text[result - 1] : text[result]);
     if (previousType && currentType !== previousType) {
-      if (previousType === 'word' || currentType === 'space' || previousType === 'newLine' || currentType === 'newLine') {
+      if (previousType === 'word' || previousType === 'cjk' || currentType === 'space' || previousType === 'newLine' || currentType === 'newLine') {
         break;
       }
     }
