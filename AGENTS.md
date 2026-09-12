@@ -30,15 +30,15 @@
 - 保留 StackEdit 时代持久化标识符（`.stackedit-data/`、`.stackedit-trash/`、`stackedit-app-data`、`resetStackEdit`）；品牌重塑只改可见文案。
 - 原始 Markdown 是唯一存储源；预览只允许渲染层分歧，不回写源文本。
 - 私有图片私有落盘（IndexedDB + git blob）；base64 仅为 Publish/复制的瞬态投影，绝不存入文档。
-- 联动：新增随工作区同步的 data 条目，必须按 `.docs/state-management.md` 的四触点接线（empty/getter/syncDataItem/git 白名单），且禁止把本地 item id 写入跨设备数据（用 git 路径）。
-- 联动：新增浮层必须取用 `.docs/frontend-conventions.md` 的 z-index 阶梯值，不得裸写。
+- 联动：新增随工作区同步的 data 条目，必须按 `.docs/spec/state-management.md` 的四触点接线（empty/getter/syncDataItem/git 白名单），且禁止把本地 item id 写入跨设备数据（用 git 路径）。
+- 联动：新增浮层必须取用 `.docs/spec/frontend-conventions.md` 的 z-index 阶梯值，不得裸写。
 
 ## 按需读取索引
 
 - 涉及领域术语（Author/Document/Sync/Publish 等）→ 读 `CONTEXT.md`。
-- 改 Vuex/持久化/同步数据契约 → 读 `.docs/state-management.md`。
-- 写改组件、样式、指令、浮层 → 读 `.docs/frontend-conventions.md`。
-- 找文件或目录迷路 → 读 `.docs/directory-structure.md`。
+- 改 Vuex/持久化/同步数据契约 → 读 `.docs/spec/state-management.md`。
+- 写改组件、样式、指令、浮层 → 读 `.docs/spec/frontend-conventions.md`。
+- 找文件或目录迷路 → 读 `.docs/spec/directory-structure.md`。
 - 需要架构决策背景（fork/私有仓库/图片模型/预览分歧/品牌） → 读 `.docs/adr/`。
 - 部署 OAuth 应用或大文档导出 → 读 `.docs/guides/`。
 - 考古历史任务（Trellis 时代 13 个任务+journal） → 读 `.docs/archive/trellis-tasks/INDEX.md`。
