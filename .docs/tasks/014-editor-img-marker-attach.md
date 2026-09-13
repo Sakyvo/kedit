@@ -1,4 +1,4 @@
-Status: open
+Status: done
 
 ## Parent
 
@@ -18,15 +18,33 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] `- ![img]`（图片为标记后第一内容）：图片贴在 `- ` 后同行显示，无需缩放时保持自然尺寸。
-- [ ] 图片自然宽超出标记后剩余宽度：等比缩小至恰好放下，仍与 `- ` 同行。
-- [ ] 在图片卡后方继续打字、增删文字：图片尺寸不变。
-- [ ] `- 前文 ![img]`（前缀含普通文字）：维持现状，图片卡独占行，不缩放。
-- [ ] 深层嵌套列表 / 窄屏使剩余宽度 < 4em：图片卡回退独占行。
-- [ ] `- [ ] ![img]` 与 `> ![img]`：同样贴行生效。
-- [ ] 行首无标记的普通行 `![img]`：行为与现状一致。
-- [ ] 预览区渲染无任何变化。
-- [ ] `npm run build` 通过。
+- [x] `- ![img]`（图片为标记后第一内容）：图片贴在 `- ` 后同行显示，无需缩放时保持自然尺寸。
+- [x] 图片自然宽超出标记后剩余宽度：等比缩小至恰好放下，仍与 `- ` 同行。
+- [x] 在图片卡后方继续打字、增删文字：图片尺寸不变。
+- [x] `- 前文 ![img]`（前缀含普通文字）：维持现状，图片卡独占行，不缩放。
+- [x] 深层嵌套列表 / 窄屏使剩余宽度 < 4em：图片卡回退独占行。
+- [x] `- [ ] ![img]` 与 `> ![img]`：同样贴行生效。
+- [x] 行首无标记的普通行 `![img]`：行为与现状一致。
+- [x] 预览区渲染无任何变化。
+- [x] `npm run build` 通过。
+
+## Verification
+
+- 实现：`src/services/editor/imgLineFit.js` 重写 fitImgWrapper —— 新增
+  `measureMarkerPrefixRoom`：Range(section → wrapper) 提取光标前文本，
+  仅当末行前缀匹配纯标记（`PURE_MARKER_LINE` + `HAS_MARKER_GLYPH`）时，
+  用该 Range 的最后一个 client rect 右缘作为前缀末端，cap = 右缘→内容右缘距离；
+  标记前缀一旦被识别，图片卡**总是**带 inline max-width（保证卡不再被源码文本
+  顶出标记行），但内层 img 仅在超宽时才随 `max-width:100%`/`height:auto` 等比缩，
+  自然宽放得下就不缩（不问上限不缩在 img 层保持）。
+- 单元 harness（无头 Chrome + dump-dom，真实排版引擎）：S1-S8 + S6b 全绿，
+  覆盖贴行、缩放、比例保持、文字前缀回退、4em 回退、checkbox/引用/有序列表、
+  行首现状、打字稳定性。harness 为临时验证产物，验证后已删除。
+- 真机验证（无头 Chrome 驱动 dev server，真实压缩 highlight 管线）：
+  `- img` 贴行缩放（left 36.3 > secLeft 25）、文字前缀回退、
+  `- 前文` 前缀回退、`> ` 贴行、`  - [ ] ` 贴行且自然宽不缩、行首不变 —— 全绿，
+  截图以此为证。
+- `npm run build` 通过。
 
 ## Blocked by
 
