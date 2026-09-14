@@ -143,6 +143,10 @@
 
   .img-wrapper {
     display: inline-block;
+    // Keep the card's first visual line next to its own-line marker: baseline
+    // alignment would drop the marker to the wrapper's last line box (readable
+    // bug on narrow screens where the source URL wraps several lines).
+    vertical-align: top;
 
     .img {
       display: inline-block;
