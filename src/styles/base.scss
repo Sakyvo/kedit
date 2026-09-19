@@ -238,6 +238,12 @@ hr {
   margin: 2em 0;
 }
 
+/* `------` divider (see markdownExtension.js). Dark in both themes, so an
+   exported HTML body without .app--dark still reads correctly. */
+.kedit-hr-strong {
+  border-top: 3px solid #000;
+}
+
 pre > code {
   background-color: $code-bg;
   display: block;

@@ -237,6 +237,15 @@
     font-weight: $editor-font-weight-base;
   }
 
+  /* `------` (>= 6 markers): the marker run reads as a divider, not markup. */
+  .hr-strong {
+    color: $strong-hr-color-light;
+
+    .app--dark & {
+      color: $strong-hr-color-dark;
+    }
+  }
+
   /* Editor *em*: purple body (like **bold** via cn-strong), mute * delimiters.
      CJK barely slants under italic — hue is the primary signal. */
   .cledit-section .token.em,

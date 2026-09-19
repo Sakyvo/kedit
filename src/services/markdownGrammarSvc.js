@@ -1,3 +1,9 @@
+// A divider written with this many markers or more (`------`) is a *strong*
+// divider: the editor tints the marker run and the preview draws a heavier
+// rule. `- - - - - -` counts as 6 markers (markdown-it counts markers, not
+// characters). Keep in sync with the preview renderer in ../extensions/.
+export const STRONG_HR_MIN_MARKERS = 6;
+
 const charInsideUrl = '(&|[-A-Z0-9+@#/%?=~_|[\\]()!:,.;])';
 const charEndingUrl = '(&|[-A-Z0-9+@#/%=~_|[\\])])';
 const urlPattern = new RegExp(`(https?|ftp)(://${charInsideUrl}*${charEndingUrl})(?=$|\\W)`, 'gi');
@@ -150,6 +156,11 @@ export default {
 
     grammars.main.hr = {
       pattern: /^ {0,3}([*\-_] *){3,}$/gm,
+      inside: {
+        'hr hr-strong': {
+          pattern: new RegExp(`(?:[*\\-_][ \\t]*){${STRONG_HR_MIN_MARKERS},}$`),
+        },
+      },
     };
 
     if (options.tasklist) {

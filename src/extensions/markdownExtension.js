@@ -12,6 +12,7 @@ import markdownitTasklist from './libs/markdownItTasklist';
 import markdownitAnchor from './libs/markdownItAnchor';
 import frontmatterRule from './frontmatterRule';
 import extensionSvc from '../services/extensionSvc';
+import { STRONG_HR_MIN_MARKERS } from '../services/markdownGrammarSvc';
 
 const coreBaseRules = [
   'normalize',
@@ -122,6 +123,15 @@ extensionSvc.onInitConverter(0, (markdown, options) => {
     markdown.use(markdownitTasklist);
   }
   markdown.use(markdownitAnchor);
+
+  // `------` (STRONG_HR_MIN_MARKERS markers or more) is a strong divider; the
+  // source keeps a plain CommonMark hr, only the presentation changes (ADR-0004).
+  markdown.renderer.rules.hr = (tokens, idx, opts, env, self) => {
+    if (tokens[idx].markup.length >= STRONG_HR_MIN_MARKERS) {
+      tokens[idx].attrJoin('class', 'kedit-hr-strong');
+    }
+    return self.renderToken(tokens, idx, opts);
+  };
 
   markdown.renderer.rules.frontmatter = (tokens, idx) =>
     `<div class="kedit-frontmatter"><pre class="kedit-frontmatter__content">${
