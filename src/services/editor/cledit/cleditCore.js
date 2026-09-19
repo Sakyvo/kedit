@@ -3,6 +3,7 @@ import TurndownService from 'turndown/lib/turndown.browser.umd';
 import htmlSanitizer from '../../../libs/htmlSanitizer';
 import store from '../../../store';
 import { textFromBeforeInput } from '../beforeinputPaste';
+import { decodeClipboardPaste, resolveMarkedMarkdown, upgradeCopiedSelection } from '../../clipboardSvc';
 
 /** True when paste/drop payload includes a raster image (not just HTML with <img>). */
 function clipboardHasImage(data) {
@@ -386,16 +387,20 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
     contentElt.addEventListener('copy', (evt) => {
       if (evt.clipboardData) {
         selectionMgr.saveSelectionState();
-        evt.clipboardData.setData('text/plain', selectionMgr.getSelectedText());
+        const text = selectionMgr.getSelectedText();
+        evt.clipboardData.setData('text/plain', text);
         evt.preventDefault();
+        upgradeCopiedSelection(text);
       }
     });
 
     contentElt.addEventListener('cut', (evt) => {
       if (evt.clipboardData) {
         selectionMgr.saveSelectionState();
-        evt.clipboardData.setData('text/plain', selectionMgr.getSelectedText());
+        const text = selectionMgr.getSelectedText();
+        evt.clipboardData.setData('text/plain', text);
         evt.preventDefault();
+        upgradeCopiedSelection(text);
         replace(selectionMgr.selectionStart, selectionMgr.selectionEnd, '');
       } else {
         undoMgr.setCurrentMode('single');
@@ -408,10 +413,23 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
   }
 
   contentElt.addEventListener('paste', (evt) => {
+    const clip = evt.clipboardData || window.clipboardData;
+    // Self copy (ADR 0007): restore the original markdown, never re-upload.
+    const marked = decodeClipboardPaste(clip);
+    if (marked) {
+      evt.preventDefault();
+      undoMgr.setCurrentMode('single');
+      const start = selectionMgr.selectionStart;
+      const end = selectionMgr.selectionEnd;
+      resolveMarkedMarkdown(marked).then((text) => {
+        replace(start, end, text);
+        adjustCursorPosition();
+      });
+      return;
+    }
     // Web "copy image" often ships image/* + text/html (e.g. shimo thumbnail).
     // Image binary is handled by Editor processUpload → native /imgs/ ref;
     // skip turndown so we do not also insert ![](https://…/thumbnail).
-    const clip = evt.clipboardData || window.clipboardData;
     if (clipboardHasImage(clip)) {
       evt.preventDefault();
       return;

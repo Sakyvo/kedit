@@ -20,6 +20,7 @@ import CustomScrollbar from './common/CustomScrollbar';
 import store from '../store';
 import editorSvc from '../services/editorSvc';
 import imageSvc from '../services/imageSvc';
+import { decodeClipboardPaste } from '../services/clipboardSvc';
 import utils from '../services/utils';
 
 export default {
@@ -207,6 +208,11 @@ export default {
     editorElt.addEventListener('paste', (event) => {
       const clip = event.clipboardData || window.clipboardData;
       if (!clip) {
+        return;
+      }
+      // Self copy (ADR 0007): let the cledit bubble handler restore the
+      // original markdown instead of re-uploading the image.
+      if (decodeClipboardPaste(clip)) {
         return;
       }
       let hasImage = false;
