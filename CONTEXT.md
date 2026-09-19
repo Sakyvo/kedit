@@ -41,7 +41,7 @@ An image becomes **Public** only when the **Document** containing it is **Publis
 _Avoid_: shared/hidden, uploaded/local, "stored as base64" (no image is stored inline)
 
 **Self-contained copy**:
-A copy of content — a whole **Document** or a selection in the editor — in which every image is carried inline as its original bytes, so the content renders in any external Markdown or rich-text target and **pdir** can ingest it with zero change. Produced **only transiently** — at the moment of copy or **Publish** — never as how a Document is stored: at rest, images remain **Private** files referenced by path. A selection copy also keeps the plain text untouched, so pasting back into KEDIT restores the image references instead of re-storing the image.
+A copy of a **Document** in which every image is inlined, so the content renders in any Markdown or rich-text target and **pdir** can ingest it with zero change. Produced **only transiently** — at the moment of copy or **Publish** — never as how a Document is stored. At rest, images remain **Private** files. Editor selection copy is deliberately NOT self-contained: text copies carry the raw Markdown only, and a single-image selection carries the image itself as a native clipboard image.
 _Avoid_: export (overloaded); "base64 copy" (names the mechanism, not the concept)
 
 ## Flagged ambiguities

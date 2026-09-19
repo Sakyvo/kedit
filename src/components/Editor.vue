@@ -20,7 +20,7 @@ import CustomScrollbar from './common/CustomScrollbar';
 import store from '../store';
 import editorSvc from '../services/editorSvc';
 import imageSvc from '../services/imageSvc';
-import { decodeClipboardPaste } from '../services/clipboardSvc';
+import { tryRestoreCopiedImage } from '../services/clipboardSvc';
 import utils from '../services/utils';
 
 export default {
@@ -210,11 +210,6 @@ export default {
       if (!clip) {
         return;
       }
-      // Self copy (ADR 0007): let the cledit bubble handler restore the
-      // original markdown instead of re-uploading the image.
-      if (decodeClipboardPaste(clip)) {
-        return;
-      }
       let hasImage = false;
       if (clip.items) {
         for (let i = 0; i < clip.items.length; i += 1) {
@@ -240,6 +235,26 @@ export default {
       // Windows/Chrome exposes clipboard file items in reverse selection order;
       // reverse so the document order matches the selection order.
       const items = Array.prototype.slice.call(clip.items || clip.files || []).reverse();
+      // Self single-image copy (ADR 0008): a textless clipboard holding exactly
+      // one image that pixel-matches the image we just copied restores its
+      // reference text instead of re-uploading a duplicate file.
+      const types = clip.types || [];
+      const textless = !types.includes('text/plain') && !types.includes('text/html');
+      if (textless) {
+        const files = this.collectImageFiles(items);
+        if (files.length === 1) {
+          tryRestoreCopiedImage(files[0]).then((refText) => {
+            if (refText) {
+              const { clEditor } = editorSvc;
+              clEditor.replace(clEditor.selectionMgr.selectionStart, clEditor.selectionMgr.selectionEnd, refText);
+              clEditor.adjustCursorPosition();
+            } else {
+              this.processUpload(items);
+            }
+          });
+          return;
+        }
+      }
       this.processUpload(items);
     }, true);
 

@@ -1,34 +1,21 @@
 /**
- * Clipboard orchestration for the marked copy/paste contract (ADR 0007).
- * Pure string/html logic lives in clipboardCopy.js; this module owns the
- * store/IndexedDB/Clipboard API side effects.
+ * Clipboard orchestration for selection copy (ADR 0008).
+ *
+ * Copy/cut writes text/plain synchronously (cleditCore). This module adds the
+ * one exception: a selection that is exactly one workspace-local image
+ * reference is upgraded to an image-only clipboard (image/png, no text), so
+ * pebrel / chat apps / social textboxes receive the image itself. The copied
+ * image's pixel fingerprint is kept in memory; pasting that same image back
+ * restores its reference text instead of re-uploading a duplicate file.
  */
 import MD5 from 'crypto-js/md5';
 import localDbSvc from './localDbSvc';
 import workspaceImageSvc from './workspaceImageSvc';
-import imageSvc from './imageSvc';
-import utils from './utils';
 import { getImageMime } from './imageTypeUtils';
-import {
-  buildCopyHtml,
-  decodeMarkedHtml,
-  extractDataUrls,
-  listImgRefSpans,
-  pickRecoveryDataUrl,
-  singleLocalImageRef,
-} from './clipboardCopy';
+import { singleLocalImageRef } from './clipboardCopy';
 
-const loadDataUrlByUri = async (uris) => {
-  const dataUrlByUri = {};
-  await Promise.all(uris.map(async (uri) => {
-    const absolutePath = workspaceImageSvc.getAbsolutePath(uri);
-    const imgItem = await localDbSvc.getImgItem(MD5(absolutePath).toString());
-    if (imgItem && imgItem.content) {
-      dataUrlByUri[uri] = `data:${getImageMime(absolutePath)};base64,${imgItem.content}`;
-    }
-  }));
-  return dataUrlByUri;
-};
+// In-memory record of the last single-image copy: {refText, fingerprint}.
+let lastCopiedImage = null;
 
 const base64ToPngBlob = async (base64, mime) => {
   const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
@@ -36,7 +23,7 @@ const base64ToPngBlob = async (base64, mime) => {
   if (mime === 'image/png') {
     return blob;
   }
-  // ClipboardItem only accepts image/png; transcode pixel-losslessly.
+  // ClipboardItem image support is png-only; transcode pixel-losslessly.
   const bitmap = await createImageBitmap(blob);
   const canvas = document.createElement('canvas');
   canvas.width = bitmap.width;
@@ -48,104 +35,86 @@ const base64ToPngBlob = async (base64, mime) => {
   });
 };
 
+const SAMPLE_COUNT = 64;
+
+const decodePixels = async (blob) => {
+  const bitmap = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+};
+
 /**
- * Fire-and-forget upgrade of a copy/cut: the copy event already wrote
- * text/plain synchronously; this replaces the clipboard with the full
- * representation set (ADR 0007). Any failure leaves the plain-text fallback.
+ * Cheap pixel fingerprint: dimensions + 64 evenly sampled pixels. Survives
+ * lossless re-encode (Chrome re-encodes clipboard PNGs); tolerant of nothing
+ * else — a changed image is a different image.
+ */
+const fingerprint = (imageData) => {
+  const { width, height, data } = imageData;
+  const total = width * height;
+  const stride = Math.max(1, Math.floor(total / SAMPLE_COUNT));
+  const samples = [];
+  for (let p = 0; p < total; p += stride) {
+    const i = p * 4;
+    samples.push(data[i], data[i + 1], data[i + 2], data[i + 3]);
+  }
+  return { width, height, samples };
+};
+
+const fingerprintMatches = (a, b) => a.width === b.width && a.height === b.height
+  && a.samples.length === b.samples.length
+  && a.samples.every((value, i) => value === b.samples[i]);
+
+/**
+ * Fire-and-forget upgrade of a copy/cut: when the selection is exactly one
+ * workspace-local image reference, overwrite the clipboard with the image
+ * itself (image/png, no text/plain). Failure leaves the text/plain fallback.
  */
 export async function upgradeCopiedSelection(text) {
+  lastCopiedImage = null;
   try {
     if (!text || typeof navigator === 'undefined' || !navigator.clipboard
       || typeof ClipboardItem === 'undefined') {
       return;
     }
-    const localUris = listImgRefSpans(text).filter(span => span.local).map(span => span.uri);
-    if (!localUris.length) {
+    const single = singleLocalImageRef(text);
+    if (!single) {
       return;
     }
-    const dataUrlByUri = await loadDataUrlByUri([...new Set(localUris)]);
-    const html = buildCopyHtml(text, dataUrlByUri);
-    const items = { 'text/html': new Blob([html], { type: 'text/html' }) };
-    const single = singleLocalImageRef(text);
-    if (single && dataUrlByUri[single.uri]) {
-      // Image-only clipboard: no text/plain, so pebrel/chat apps take the image.
-      const absolutePath = workspaceImageSvc.getAbsolutePath(single.uri);
-      const imgItem = await localDbSvc.getImgItem(MD5(absolutePath).toString());
-      items['image/png'] = await base64ToPngBlob(imgItem.content, getImageMime(absolutePath));
-    } else {
-      items['text/plain'] = new Blob([text], { type: 'text/plain' });
+    const absolutePath = workspaceImageSvc.getAbsolutePath(single.uri);
+    const imgItem = await localDbSvc.getImgItem(MD5(absolutePath).toString());
+    if (!imgItem || !imgItem.content) {
+      return;
     }
-    await navigator.clipboard.write([new ClipboardItem(items)]);
+    const png = await base64ToPngBlob(imgItem.content, getImageMime(absolutePath));
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+    // Remember what we wrote so a paste of this exact image restores the ref.
+    lastCopiedImage = { refText: single.refText, fingerprint: fingerprint(await decodePixels(png)) };
   } catch (e) {
     // Async upgrade is best-effort; the sync text/plain write already stands.
+    lastCopiedImage = null;
   }
 }
 
 /**
- * Marked-paste detection for a paste event's DataTransfer.
- * Returns {markdown, dataUrls} or null for foreign content.
+ * If the pasted file is byte-for-byte the image from our own single-image
+ * copy (pixel-identical after decode), return the reference text to insert.
+ * Otherwise null — caller falls through to the normal upload path.
  */
-export function decodeClipboardPaste(clip) {
-  if (!clip) {
-    return null;
-  }
-  let html = '';
-  try {
-    html = clip.getData('text/html');
-  } catch (e) {
-    return null;
-  }
-  const markdown = decodeMarkedHtml(html);
-  if (markdown == null) {
-    return null;
-  }
-  return { markdown, dataUrls: extractDataUrls(html) };
-}
-
-const dataUrlToBlob = (dataUrl) => {
-  const match = /^data:([^;,]+);base64,(.*)$/s.exec(dataUrl);
-  if (!match) {
+export async function tryRestoreCopiedImage(file) {
+  if (!lastCopiedImage || !file) {
     return null;
   }
   try {
-    const bytes = Uint8Array.from(atob(match[2]), c => c.charCodeAt(0));
-    return new Blob([bytes], { type: match[1] });
+    const pasted = fingerprint(await decodePixels(file));
+    return fingerprintMatches(pasted, lastCopiedImage.fingerprint)
+      ? lastCopiedImage.refText
+      : null;
   } catch (e) {
     return null;
   }
-};
-
-/**
- * Resolve a marked paste into the markdown to insert. References that resolve
- * in the current workspace are kept untouched (no re-upload); unresolvable ones
- * are recovered from the clipboard's data URLs through the normal updateImg
- * path (ADR 0007). Unrecoverable refs stay as-is — never throws.
- */
-export async function resolveMarkedMarkdown(marked) {
-  let markdown = marked.markdown;
-  const spans = listImgRefSpans(markdown).filter(span => span.local);
-  // Reverse order: replacing a ref shifts the offsets of everything after it.
-  for (let i = spans.length - 1; i >= 0; i -= 1) {
-    const span = spans[i];
-    const absolutePath = workspaceImageSvc.getAbsolutePath(span.uri);
-    const existing = await localDbSvc.getImgItem(MD5(absolutePath).toString());
-    if (existing && existing.content) {
-      continue; // resolves locally — keep the reference, store nothing
-    }
-    const entry = pickRecoveryDataUrl(marked.dataUrls, span.uri, i);
-    const blob = entry && dataUrlToBlob(entry.dataUrl);
-    if (!blob) {
-      continue; // bytes lost too — insert the reference as-is
-    }
-    try {
-      const { url, error } = await imageSvc.updateImg(blob);
-      if (error || !url) {
-        continue;
-      }
-      markdown = markdown.slice(0, span.start) + `![${span.alt}](${url})` + markdown.slice(span.end);
-    } catch (e) {
-      // keep the original reference
-    }
-  }
-  return markdown;
 }

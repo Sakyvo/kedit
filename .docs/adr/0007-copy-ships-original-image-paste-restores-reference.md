@@ -1,6 +1,6 @@
 # Selection copy ships the original image; pasting back into KEDIT restores the reference
 
-Status: accepted
+Status: superseded by ADR-0008 (the marked data-URL html payload was abandoned after field evidence)
 
 Copying a selection that contains images must serve two opposite masters: outside
 targets (Discourse, web rich-text boxes, terminals, chat apps) should receive the
