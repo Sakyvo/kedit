@@ -202,7 +202,9 @@ export default {
     toggleToc() {
       const onToc = store.getters['data/layoutSettings'].sideBarPanel === 'toc';
       if (this.styles.showSideBar && onToc) {
-        this.toggleSideBar(false);
+        // Closing the TOC falls back to the side bar's main menu (the side bar
+        // itself stays open); only the main menu's ✕ or the KEDIT button closes it.
+        store.dispatch('data/setSideBarPanel', 'menu');
       } else {
         this.toggleSideBar(true);
         store.dispatch('data/setSideBarPanel', 'toc');

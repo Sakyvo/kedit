@@ -36,6 +36,62 @@ const HAS_MARKER_GLYPH = /[-+*>]|\d+\.|\[[ xX]\]/;
 
 const closestSection = elt => elt && elt.closest && elt.closest('.cledit-section');
 
+// Mirrors editorSvc's imgUriAttr. Declared locally: importing editorSvc from
+// here would create a cycle (editorSvc imports this module).
+const IMG_URI_ATTR = 'data-img-uri';
+
+// Last inline cap written per image URI (task 016). cledit rebuilds the whole
+// card on every re-highlight, so a freshly created wrapper would otherwise be
+// laid out at full container width for one frame before the rAF re-fit narrows
+// it — a visible one-frame jump while typing under an image. Carrying the last
+// cap onto the new wrapper makes the first frame already correct.
+const uriInlineMaxWidthMap = Object.create(null);
+
+const rememberInlineMaxWidth = (wrapper, value) => {
+  const img = wrapper.querySelector('img');
+  const uri = img && img.getAttribute(IMG_URI_ATTR);
+  if (!uri) {
+    return;
+  }
+  if (value) {
+    uriInlineMaxWidthMap[uri] = value;
+  } else {
+    delete uriInlineMaxWidthMap[uri];
+  }
+};
+
+/**
+ * Write an inline cap, keeping the per-URI memory in sync. Returns true when
+ * the inline max-width actually changed (same contract as the callers had
+ * before with their explicit `if (wrapper.style.maxWidth)` guards).
+ */
+const setInlineMaxWidth = (wrapper, value) => {
+  const changed = wrapper.style.maxWidth !== value;
+  if (changed) {
+    wrapper.style.maxWidth = value;
+  }
+  rememberInlineMaxWidth(wrapper, value);
+  return changed;
+};
+
+/**
+ * Give a freshly created wrapper the cap remembered for its image URI, before
+ * it is laid out. Assignment only — never measures, so it costs no forced
+ * layout on the input path. The rAF re-fit still runs and corrects the value
+ * whenever the layout actually changed.
+ */
+export function applyRememberedCap(wrapper) {
+  if (!wrapper || wrapper.style.maxWidth) {
+    return;
+  }
+  const img = wrapper.querySelector('img');
+  const uri = img && img.getAttribute(IMG_URI_ATTR);
+  const remembered = uri && uriInlineMaxWidthMap[uri];
+  if (remembered) {
+    wrapper.style.maxWidth = remembered;
+  }
+}
+
 /**
  * Remaining inline width (px) on the wrapper's current visual line, measured
  * from the wrapper's left edge to the section's content-box right edge.
@@ -125,38 +181,21 @@ export function fitImgWrapper(wrapper) {
   const room = markerRoom != null ? markerRoom : measureInlineRoom(wrapper);
   if (room == null) {
     // Not enough info — let CSS max-width:100% drive it.
-    if (wrapper.style.maxWidth) {
-      wrapper.style.maxWidth = '';
-      return true;
-    }
-    return false;
+    return setInlineMaxWidth(wrapper, '');
   }
   const usable = room - slackPx;
   if (usable < minPx) {
     // Too narrow to read — fall back to wrap / full container width.
-    if (wrapper.style.maxWidth) {
-      wrapper.style.maxWidth = '';
-      return true;
-    }
-    return false;
+    return setInlineMaxWidth(wrapper, '');
   }
   if (markerRoom == null) {
     // Own-line card: keep FIXED natural size whenever it fits the line.
     const natural = img.naturalWidth || 0;
     if (natural && natural <= usable) {
-      if (wrapper.style.maxWidth) {
-        wrapper.style.maxWidth = '';
-        return true;
-      }
-      return false;
+      return setInlineMaxWidth(wrapper, '');
     }
   }
-  const target = `${Math.floor(usable)}px`;
-  if (wrapper.style.maxWidth !== target) {
-    wrapper.style.maxWidth = target;
-    return true;
-  }
-  return false;
+  return setInlineMaxWidth(wrapper, `${Math.floor(usable)}px`);
 }
 
 /**
@@ -174,4 +213,10 @@ export function fitAllImgWrappers(rootElt) {
   return changed;
 }
 
-export default { measureInlineRoom, measureMarkerPrefixRoom, fitImgWrapper, fitAllImgWrappers };
+export default {
+  measureInlineRoom,
+  measureMarkerPrefixRoom,
+  fitImgWrapper,
+  fitAllImgWrappers,
+  applyRememberedCap,
+};

@@ -27,7 +27,7 @@ import {
   dimensionsForPreset,
 } from './editor/imgSizeGuard';
 import { createLayoutRemeasure } from './editor/layoutRemeasure';
-import { fitImgWrapper, fitAllImgWrappers } from './editor/imgLineFit';
+import { applyRememberedCap, fitImgWrapper, fitAllImgWrappers } from './editor/imgLineFit';
 
 const allowDebounce = (action, wait) => {
   let timeoutId;
@@ -874,6 +874,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
             imgTokenElt.parentNode.insertBefore(imgTokenWrapper, imgTokenElt);
             imgTokenWrapper.appendChild(imgElt);
             imgTokenWrapper.appendChild(imgTokenElt);
+            // Carry the last computed inline cap so the rebuilt card is
+            // already narrow on its first frame (no typing-time jump).
+            applyRememberedCap(imgTokenWrapper);
           }
         });
         if (loadImgs.length) {
