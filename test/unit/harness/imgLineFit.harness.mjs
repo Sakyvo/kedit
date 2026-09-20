@@ -1,5 +1,5 @@
 /**
- * Temp harness (batch 016 slice 1): verify the per-URI inline cap memory.
+ * Harness for the inline image cap memory (batch 016 slice 1).
  * Run: node test/unit/harness/imgLineFit.harness.mjs
  */
 import assert from 'node:assert/strict';
