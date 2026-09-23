@@ -7,7 +7,7 @@
       <button class="side-title__button button" :class="{'side-title__button--on': tocAutoJump}" v-if="panel === 'toc'" @click="toggleTocAutoJump()" v-title="tocAutoJump ? '自动跳转：开' : '自动跳转：关'">
         <icon-crosshairs-gps></icon-crosshairs-gps>
       </button>
-      <button class="side-title__button button" @click="panel === 'menu' ? toggleSideBar(false) : setPanel('menu')" v-title="panel === 'menu' ? '关闭侧边栏' : '返回主菜单'">
+      <button class="side-title__button button" @click="closePanel" v-title="closeHint">
         <icon-close></icon-close>
       </button>
     </div>
@@ -34,7 +34,7 @@
 </template>
 
 <script>
-import { mapActions } from 'vuex';
+import { mapActions, mapGetters } from 'vuex';
 import Toc from './Toc';
 import MainMenu from './menus/MainMenu';
 import WorkspacesMenu from './menus/WorkspacesMenu';
@@ -93,6 +93,19 @@ export default {
     tocAutoJump() {
       return store.getters['data/layoutSettings'].tocAutoJump;
     },
+    // Narrow screens render the side bar as a full-width overlay over the
+    // document (see layoutOverflow in store/layout.js), so its ✕ returns to
+    // the document by closing the side bar. On wider screens the side bar is
+    // a column beside the document and the ✕ only falls back to the main menu.
+    closeHint() {
+      return this.closesSideBar ? '关闭侧边栏' : '返回主菜单';
+    },
+    closesSideBar() {
+      return this.panel === 'menu' || this.styles.layoutOverflow;
+    },
+    ...mapGetters('layout', [
+      'styles',
+    ]),
   },
   methods: {
     ...mapActions('data', [
@@ -102,6 +115,13 @@ export default {
     ...mapActions('data', {
       setPanel: 'setSideBarPanel',
     }),
+    closePanel() {
+      if (this.closesSideBar) {
+        this.toggleSideBar(false);
+      } else {
+        this.setPanel('menu');
+      }
+    },
   },
 };
 </script>

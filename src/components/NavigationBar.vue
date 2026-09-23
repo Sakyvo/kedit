@@ -204,7 +204,13 @@ export default {
       if (this.styles.showSideBar && onToc) {
         // Closing the TOC falls back to the side bar's main menu (the side bar
         // itself stays open); only the main menu's ✕ or the KEDIT button closes it.
-        store.dispatch('data/setSideBarPanel', 'menu');
+        // Narrow screens show the side bar as a full-width overlay over the
+        // document (layoutOverflow), so there the TOC closes the side bar.
+        if (this.styles.layoutOverflow) {
+          this.toggleSideBar(false);
+        } else {
+          store.dispatch('data/setSideBarPanel', 'menu');
+        }
       } else {
         this.toggleSideBar(true);
         store.dispatch('data/setSideBarPanel', 'toc');
