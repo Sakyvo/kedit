@@ -16,6 +16,7 @@ import {
   shouldApplyNaturalSize,
   shouldRecordNaturalSize,
   dimensionsForPreset,
+  parseDeclaredImgSize,
 } from '../../../src/services/editor/imgSizeGuard.js';
 import {
   shouldFetchRemoteThumb,
@@ -81,8 +82,7 @@ assert.equal(textFromBeforeInput('insertText', 'no-nl'), null);
 assert.equal(shouldApplyNaturalSize({
   mapUri: 'a.png', imgUri: 'a.png', hasExplicitWidth: false, hasExplicitHeight: false,
   naturalWidth: 100, naturalHeight: 200,
-}), true);
-assert.equal(shouldApplyNaturalSize({
+}), true);assert.equal(shouldApplyNaturalSize({
   mapUri: 'a.png', imgUri: 'b.png', hasExplicitWidth: false, hasExplicitHeight: false,
   naturalWidth: 100, naturalHeight: 200,
 }), false);
@@ -104,6 +104,37 @@ assert.equal(shouldRecordNaturalSize({
   assert.equal(d.height, null);
   assert.equal(d.useHeightAuto, true);
 }
+
+// --- 017 declared-size parsing (must not read imgElt.width) ---
+assert.equal(parseDeclaredImgSize(null), null);
+assert.equal(parseDeclaredImgSize(''), null);
+assert.equal(parseDeclaredImgSize('![alt](/imgs/a.png)'), null);
+assert.equal(parseDeclaredImgSize('=0x0'), null);
+assert.deepEqual(parseDeclaredImgSize('=800x600'), { width: 800, height: 600 });
+assert.deepEqual(parseDeclaredImgSize('=800x'), { width: 800, height: 0 });
+assert.deepEqual(parseDeclaredImgSize('=x600'), { width: 0, height: 600 });
+// The regression: a cached workspace-local blob makes imgElt.width report the
+// natural size synchronously, so `!!imgElt.width` used to look like a declared
+// size and skip the preset (card collapsed for one frame while typing).
+{
+  assert.equal(parseDeclaredImgSize('![alt](/imgs/a.png)'), null);
+  assert.equal(shouldApplyNaturalSize({
+    mapUri: 'a.png',
+    imgUri: 'a.png',
+    hasExplicitWidth: !!(parseDeclaredImgSize('![alt](/imgs/a.png)') || {}).width,
+    hasExplicitHeight: !!(parseDeclaredImgSize('![alt](/imgs/a.png)') || {}).height,
+    naturalWidth: 800,
+    naturalHeight: 500,
+  }), true);
+}
+assert.equal(shouldApplyNaturalSize({
+  mapUri: 'a.png',
+  imgUri: 'a.png',
+  hasExplicitWidth: !!parseDeclaredImgSize('=800x').width,
+  hasExplicitHeight: !!parseDeclaredImgSize('=800x').height,
+  naturalWidth: 800,
+  naturalHeight: 500,
+}), false);
 
 // --- 006 thumbs ---
 assert.equal(shouldFetchRemoteThumb({ dataUrl: '', path: 'imgs/a.png', visible: true, inFlight: false }), true);

@@ -2,6 +2,34 @@
  * Identity guards for editor inline image size preset / onload (batch-5 #005).
  */
 
+/**
+ * Parse the author's explicit `=WxH` size token from markdown (the `.cl-size`
+ * token text, e.g. `=800x600`, `=800x`, `=x600`). Returns null when the
+ * author declared no size.
+ *
+ * This must be read from the MARKDOWN TEXT, never from `imgElt.width` /
+ * `imgElt.height`: those IDL properties report the natural size as soon as a
+ * src is assigned, so for a cached workspace-local image (`src` set
+ * synchronously from the blob cache) they look like an explicit size and the
+ * natural-size preset below gets skipped — leaving `display: none` until the
+ * async onload and collapsing the card for one frame (batch #017).
+ */
+export function parseDeclaredImgSize(sizeText) {
+  if (!sizeText) {
+    return null;
+  }
+  const match = sizeText.match(/=(\d*)x(\d*)/);
+  if (!match) {
+    return null;
+  }
+  const width = match[1] ? parseInt(match[1], 10) : 0;
+  const height = match[2] ? parseInt(match[2], 10) : 0;
+  if (!width && !height) {
+    return null;
+  }
+  return { width, height };
+}
+
 export function shouldApplyNaturalSize({
   mapUri,
   imgUri,

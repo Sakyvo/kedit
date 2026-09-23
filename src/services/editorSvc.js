@@ -25,6 +25,7 @@ import {
   shouldApplyNaturalSize,
   shouldRecordNaturalSize,
   dimensionsForPreset,
+  parseDeclaredImgSize,
 } from './editor/imgSizeGuard';
 import { createLayoutRemeasure } from './editor/layoutRemeasure';
 import { applyRememberedCap, fitImgWrapper, fitAllImgWrappers } from './editor/imgLineFit';
@@ -835,15 +836,18 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
               } else {
                 imgElt.src = uri;
               }
-              // Take img size into account
+              // Take img size into account. The declared `=WxH` comes from the
+              // markdown token text, not from imgElt.width/height: those report
+              // the natural size as soon as src is set (cached local image),
+              // which would wrongly look like an explicit size below.
               const sizeElt = imgTokenElt.querySelector('.token.cl-size');
-              if (sizeElt) {
-                const match = sizeElt.textContent.match(/=(\d*)x(\d*)/);
-                if (match[1]) {
-                  imgElt.width = parseInt(match[1], 10);
+              const declaredSize = parseDeclaredImgSize(sizeElt && sizeElt.textContent);
+              if (declaredSize) {
+                if (declaredSize.width) {
+                  imgElt.width = declaredSize.width;
                 }
-                if (match[2]) {
-                  imgElt.height = parseInt(match[2], 10);
+                if (declaredSize.height) {
+                  imgElt.height = declaredSize.height;
                 }
               }
               // Preset known natural width only when uri identity matches;
@@ -852,8 +856,8 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
               if (shouldApplyNaturalSize({
                 mapUri: uri,
                 imgUri: uri,
-                hasExplicitWidth: !!imgElt.width,
-                hasExplicitHeight: !!imgElt.height,
+                hasExplicitWidth: !!(declaredSize && declaredSize.width),
+                hasExplicitHeight: !!(declaredSize && declaredSize.height),
                 naturalWidth: naturalDimension && naturalDimension.width,
                 naturalHeight: naturalDimension && naturalDimension.height,
               })) {
