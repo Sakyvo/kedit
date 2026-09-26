@@ -55,3 +55,30 @@ export function singleLocalImageRef(text) {
   }
   return { alt: match[1], uri: match[2], refText: trimmed };
 }
+
+/**
+ * Decide whether a selection copy should additionally carry the np420 bridge
+ * payload (custom clipboard format `web application/x-notepad420-paste`).
+ * Bridge triggers when the selection contains at least one workspace-local
+ * `/imgs/...` reference and is NOT the single-local-image case (that path is
+ * owned by upgradeCopiedSelection writing image/png). Returns
+ * { shouldBridge, refs: [{alt, uri, refText}] } in occurrence order.
+ */
+export function bridgeRefsFor(text) {
+  if (singleLocalImageRef(text)) {
+    return { shouldBridge: false, refs: [] };
+  }
+  const refs = listImgRefSpans(text)
+    .filter(s => s.local)
+    .map(s => ({ alt: s.alt, uri: s.uri, refText: text.slice(s.start, s.end) }));
+  return { shouldBridge: refs.length > 0, refs };
+}
+
+/**
+ * Compose the np420 bridge payload. `images`: [{ uri, mime, dataBase64 }],
+ * one entry per bridgeRef in occurrence order (duplicated URIs duplicated).
+ * `text` must equal the text/plain clipboard content byte-for-byte.
+ */
+export function buildBridgePayload(text, images) {
+  return JSON.stringify({ v: 1, text, images });
+}

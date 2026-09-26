@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import {
   listImgRefSpans,
   singleLocalImageRef,
+  bridgeRefsFor,
+  buildBridgePayload,
 } from '../../../src/services/clipboardCopy.js';
 
 // --- listImgRefSpans ---
@@ -43,6 +45,43 @@ import {
   assert.equal(singleLocalImageRef('![a](https://cdn/a.png)'), null, 'remote image not single-local');
   assert.equal(singleLocalImageRef('plain text'), null, 'plain text not single');
   assert.equal(singleLocalImageRef(''), null, 'empty not single');
+}
+
+// --- bridgeRefsFor (np420 对接) ---
+{
+  const none = bridgeRefsFor('plain text');
+  assert.equal(none.shouldBridge, false);
+
+  const multi = bridgeRefsFor('![a](/imgs/a.png)\ntext');
+  assert.equal(multi.shouldBridge, true, '图片+文本进桥');
+  assert.deepEqual(multi.refs.map(r => r.uri), ['/imgs/a.png']);
+
+  const dup = bridgeRefsFor('![a](/imgs/a.png) ![a2](/imgs/a.png)');
+  assert.equal(dup.shouldBridge, true);
+  assert.equal(dup.refs.length, 2, '同一张图出现两次也记入两次');
+
+  const remote = bridgeRefsFor('![a](https://cdn/a.png) b');
+  assert.equal(remote.shouldBridge, false, '外链图不进桥');
+
+  const single = bridgeRefsFor('  ![one](/imgs/x.png)');
+  assert.equal(single.shouldBridge, false, '单图走 image/png 通道不进桥');
+
+  const fenced = bridgeRefsFor('```\n![f](/imgs/f.png)\n```');
+  assert.equal(fenced.shouldBridge, false, '阻断内不进桥');
+}
+
+// --- buildBridgePayload ---
+{
+  const p = buildBridgePayload('![a](/imgs/a.png)', [
+    { uri: '/imgs/a.png', mime: 'image/png', dataBase64: 'aGk=' },
+  ]);
+  const obj = JSON.parse(p);
+  assert.equal(obj.v, 1);
+  assert.equal(obj.text, '![a](/imgs/a.png)');
+  assert.equal(obj.images.length, 1);
+  assert.equal(obj.images[0].uri, '/imgs/a.png');
+  assert.equal(obj.images[0].mime, 'image/png');
+  assert.equal(obj.images[0].dataBase64, 'aGk=');
 }
 
 console.log('clipboardCopy.harness: all assertions passed');

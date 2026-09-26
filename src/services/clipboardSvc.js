@@ -12,7 +12,7 @@ import MD5 from 'crypto-js/md5';
 import localDbSvc from './localDbSvc';
 import workspaceImageSvc from './workspaceImageSvc';
 import { getImageMime } from './imageTypeUtils';
-import { singleLocalImageRef } from './clipboardCopy';
+import { singleLocalImageRef, bridgeRefsFor, buildBridgePayload } from './clipboardCopy';
 
 // In-memory record of the last single-image copy: {refText, fingerprint}.
 let lastCopiedImage = null;
@@ -83,6 +83,9 @@ export async function upgradeCopiedSelection(text) {
     }
     const single = singleLocalImageRef(text);
     if (!single) {
+      // np420 bridge: selection with local image refs also carries a web custom
+      // format so notepad420 can swap the /imgs/ URIs to cache paths.
+      await writeBridgeFormat(text);
       return;
     }
     const absolutePath = workspaceImageSvc.getAbsolutePath(single.uri);
@@ -98,6 +101,32 @@ export async function upgradeCopiedSelection(text) {
     // Async upgrade is best-effort; the sync text/plain write already stands.
     lastCopiedImage = null;
   }
+}
+
+const NP420_BRIDGE_TYPE = 'web application/x-notepad420-paste';
+
+async function writeBridgeFormat(text) {
+  if (!ClipboardItem.supports || !ClipboardItem.supports(NP420_BRIDGE_TYPE)) {
+    return;
+  }
+  const { shouldBridge, refs } = bridgeRefsFor(text);
+  if (!shouldBridge) {
+    return;
+  }
+  const images = [];
+  for (const ref of refs) {
+    const absolutePath = workspaceImageSvc.getAbsolutePath(ref.uri);
+    const imgItem = await localDbSvc.getImgItem(MD5(absolutePath).toString());
+    if (!imgItem || !imgItem.content) {
+      return; // 任一图取不到则整档放弃
+    }
+    images.push({ uri: ref.uri, mime: getImageMime(absolutePath), dataBase64: imgItem.content });
+  }
+  const payload = buildBridgePayload(text, images);
+  await navigator.clipboard.write([new ClipboardItem({
+    'text/plain': new Blob([text], { type: 'text/plain' }),
+    [NP420_BRIDGE_TYPE]: new Blob([payload], { type: NP420_BRIDGE_TYPE }),
+  })]);
 }
 
 /**
