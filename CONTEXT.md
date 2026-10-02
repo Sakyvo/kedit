@@ -35,6 +35,11 @@ _Avoid_: sync, deploy, export
 **Sync**:
 The automatic, near-real-time mirroring of **Documents** between the Author's devices (a mobile edit appears on desktop with no manual action). Internal to KEDIT; never reaches Visitors.
 _Avoid_: publish, save, backup
+_Config note_: settings Sync now travels as a yaml text projection — **Device-local settings** never leave the device (see next term).
+
+**Device-local setting** (本机专用设置):
+A settings key the Author excluded from **Sync** via the `syncExclude` list; each device keeps its own value even while the rest of the settings Sync normally. Defaults: `colorTheme`, `fontSizeFactor`, `maxWidthFactor`. If the two sides disagree about whether a key Syncs, it does not.
+_Avoid_: local setting (collides with `localSettings`), private setting
 
 **Public image / Private image**:
 An image becomes **Public** only when the **Document** containing it is **Published** to pdir; until then it is **Private** (visible only to the Author inside KEDIT). The public/private line is drawn by the act of **Publishing**, not by a property chosen at insert time. At rest a Private image is stored privately and is never exposed; an image's portable, self-contained form is produced **only transiently** at copy or Publish — never as KEDIT's stored representation.
