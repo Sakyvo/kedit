@@ -111,7 +111,14 @@ export default {
           const input = this.$refs.editInput;
           if (input) {
             input.focus();
-            input.select();
+            if ('ontouchstart' in window) {
+              // Touch: a full selection arms Chrome Android's contextual tap
+              // (tap on the selection fires contextmenu). Park the caret at
+              // the end so plain taps position the cursor.
+              input.setSelectionRange(input.value.length, input.value.length);
+            } else {
+              input.select();
+            }
           }
         });
       }
@@ -353,6 +360,11 @@ export default {
       store.dispatch('data/patchExplorerOrder', orderPatch);
     },
     onContextMenu(evt) {
+      // Rename/new-item inputs keep the native text-editing menu; otherwise
+      // a tap on the selected name reopens this context menu on touch
+      if (evt.target.closest('.explorer-node__item-editor, .explorer-node__new-child')) {
+        return;
+      }
       evt.preventDefault();
       evt.stopPropagation();
       // Native long-press contextmenu (Android) while a touch drag is pending
