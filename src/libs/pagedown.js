@@ -1057,13 +1057,12 @@ commandProto.doBlockquote = function (chunk) {
   };
 
   if (/^(?![ ]{0,3}>)/m.test(chunk.selection)) {
-    this.wrap(chunk, SETTINGS.lineLength - 2);
+    // Keep each selected line on its own line (no paragraph reflow).
     chunk.selection = chunk.selection.replace(/^/gm, "> ");
     replaceBlanksInTags(true);
     chunk.skipLines();
   } else {
     chunk.selection = chunk.selection.replace(/^[ ]{0,3}> ?/gm, "");
-    this.unwrap(chunk);
     replaceBlanksInTags(false);
 
     if (!/^(\n|^)[ ]{0,3}>/.test(chunk.selection) && chunk.startTag) {
@@ -1262,9 +1261,12 @@ commandProto.doList = function (chunk, postProcessing, isNumberedList, isCheckLi
   chunk.trimWhitespace(true);
   chunk.skipLines(nLinesUp, nLinesDown, true);
   chunk.startTag = prefix;
-  var spaces = prefix.replace(/./g, " ");
-  this.wrap(chunk, SETTINGS.lineLength - spaces.length);
-  chunk.selection = chunk.selection.replace(/\n/g, "\n" + spaces);
+  // Keep each selected line on its own line: every non-blank line gets its
+  // own item prefix (numbered lists increment) instead of being reflowed
+  // into a single paragraph by wrap().
+  chunk.selection = chunk.selection.replace(/\n(?=[^\n])/g, function () {
+    return "\n" + getItemPrefix();
+  });
 
 };
 
