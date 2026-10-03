@@ -23,6 +23,16 @@
             <component :is="'icon-' + button.icon"></component>
             <span>{{ button.title }}</span>
           </label>
+          <input
+            class="textfield settings-visual__shortcut"
+            :class="{'settings-visual__shortcut--capturing': capturingMethod === button.method}"
+            :value="shortcutLabel(button)"
+            readonly
+            placeholder="未设置"
+            @focus="capturingMethod = button.method"
+            @blur="capturingMethod = null"
+            @keydown="onShortcutKey(button.method, $event)"
+          >
           <button class="button" title="上移" @click="onButtonMove(button.method, -1)">↑</button>
           <button class="button" title="下移" @click="onButtonMove(button.method, 1)">↓</button>
         </div>
@@ -63,6 +73,9 @@
       </form-entry>
       </template>
     </div>
+    <div class="settings-visual__conflict-hint" v-if="conflictHint">
+      「{{ conflictHint.combo }}」原属于「{{ conflictHint.fromTitle }}」，已被抢断。
+    </div>
   </div>
 </template>
 
@@ -70,6 +83,7 @@
 import yaml from 'js-yaml';
 import settingsYamlSvc from '../../../services/settingsYamlSvc';
 import headButtonsSvc from '../../../services/headButtonsSvc';
+import shortcutCapture from '../../../services/shortcutCapture';
 import pagedownButtons from '../../../data/pagedownButtons';
 import defaultSettings from '../../../data/defaults/defaultSettings.yml?raw';
 import fieldSections from './settingsFields';
@@ -93,6 +107,8 @@ export default {
     rawInputs: {},
     focusPath: null,
     dragMethod: null,
+    capturingMethod: null,
+    conflictHint: null,
   }),
   computed: {
     merged() {
@@ -179,6 +195,51 @@ export default {
       const order = headButtonsSvc.resolveOrder(this.merged.editor || {});
       this.$emit('set', { path: ['editor', 'headButtonOrder'], value: headButtonsSvc.move(order, method, dir) });
     },
+    shortcutLabel(button) {
+      if (this.capturingMethod === button.method) {
+        return '按下快捷键… (Esc 取消 / Backspace 清除)';
+      }
+      const combo = shortcutCapture.comboOfMethod(this.merged.shortcuts, button.method);
+      if (!combo) {
+        return '';
+      }
+      const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+      return combo.split('+').map(p => (p === 'mod' ? (isMac ? 'Cmd' : 'Ctrl') : `${p[0].toUpperCase()}${p.slice(1)}`)).join('+');
+    },
+    onShortcutKey(method, e) {
+      e.preventDefault();
+      if (e.key === 'Escape') {
+        e.target.blur();
+        return;
+      }
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        const combo = shortcutCapture.comboOfMethod(this.merged.shortcuts, method);
+        if (combo) {
+          this.$emit('remove', { path: ['shortcuts', combo] });
+        }
+        e.target.blur();
+        return;
+      }
+      const combo = shortcutCapture.comboFromEvent(e);
+      if (!combo) {
+        return;
+      }
+      const owner = shortcutCapture.comboOwner(this.merged.shortcuts, combo);
+      if (owner === method) {
+        e.target.blur();
+        return;
+      }
+      if (owner) {
+        // 抢断语义：新请求占有该组合键，旧按钮被清空并给出提示
+        this.$emit('remove', { path: ['shortcuts', combo] });
+        const byMethod = Object.create(null);
+        pagedownButtons.forEach((b) => { byMethod[b.method] = b; });
+        this.conflictHint = { combo, fromTitle: (byMethod[owner] || {}).title || owner };
+        setTimeout(() => { this.conflictHint = null; }, 4000);
+      }
+      this.$emit('set', { path: ['shortcuts', combo], value: method });
+      e.target.blur();
+    },
     onButtonDrop(targetMethod) {
       if (!this.dragMethod || this.dragMethod === targetMethod) {
         return;
@@ -236,5 +297,45 @@ export default {
   color: $error-color;
   font-size: 12px;
   margin-top: 4px;
+}
+
+.settings-visual__button-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+
+  &--hidden {
+    opacity: 0.45;
+  }
+}
+
+.settings-visual__drag-handle {
+  cursor: grab;
+  color: rgba(0, 0, 0, 0.35);
+  user-select: none;
+}
+
+.settings-visual__button-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  cursor: pointer;
+}
+
+.settings-visual__shortcut {
+  width: 150px;
+  text-align: center;
+
+  &--capturing {
+    border-color: $link-color !important;
+  }
+}
+
+.settings-visual__conflict-hint {
+  color: $error-color;
+  font-size: 12px;
+  margin-top: 6px;
 }
 </style>

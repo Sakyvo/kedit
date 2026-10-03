@@ -16,6 +16,7 @@
         <settings-visual-tab
           :draft="customSettings"
           @set="onVisualSet"
+          @remove="onVisualRemove"
           @invalid="visualInvalid = $event"
         ></settings-visual-tab>
       </div>
@@ -83,6 +84,10 @@ export default {
     onVisualSet({ path, value }) {
       // 行级手术写回，产物必为合法 yaml（见 settingsYamlSvc）
       this.customSettings = settingsYamlSvc.set(this.customSettings, path, value);
+      this.error = null;
+    },
+    onVisualRemove({ path }) {
+      this.customSettings = settingsYamlSvc.remove(this.customSettings, [path]);
       this.error = null;
     },
     setCustomSettings(value) {
