@@ -2,6 +2,9 @@
   <modal-inner class="modal__inner-1--settings" aria-label="Settings">
     <div class="modal__content">
       <div class="tabs flex flex--row">
+        <tab :active="tab === 'visual'" @click="tab = 'visual'">
+          可视化
+        </tab>
         <tab :active="tab === 'custom'" @click="tab = 'custom'">
           自定义配置
         </tab>
@@ -9,7 +12,14 @@
           默认配置
         </tab>
       </div>
-      <div class="form-entry" v-if="tab === 'custom'" role="tabpanel" aria-label="自定义配置">
+      <div v-if="tab === 'visual'" role="tabpanel" aria-label="可视化">
+        <settings-visual-tab
+          :draft="customSettings"
+          @set="onVisualSet"
+          @invalid="visualInvalid = $event"
+        ></settings-visual-tab>
+      </div>
+      <div class="form-entry" v-else-if="tab === 'custom'" role="tabpanel" aria-label="自定义配置">
         <label class="form-entry__label">YAML</label>
         <div class="form-entry__field form-entry__field--code-editor">
           <code-editor lang="yaml" :value="customSettings" key="custom-settings" @changed="setCustomSettings"></code-editor>
@@ -25,7 +35,7 @@
     </div>
     <div class="modal__button-bar">
       <button class="button" @click="config.reject()">取消</button>
-      <button class="button button--resolve" @click="resolve">确认</button>
+      <button class="button button--resolve" :disabled="!!error || visualInvalid" @click="resolve">确认</button>
     </div>
   </modal-inner>
 </template>
@@ -38,6 +48,8 @@ import Tab from './common/Tab';
 import CodeEditor from '../CodeEditor';
 import defaultSettings from '../../data/defaults/defaultSettings.yml?raw';
 import store from '../../store';
+import settingsYamlSvc from '../../services/settingsYamlSvc';
+import SettingsVisualTab from './settings/SettingsVisualTab';
 
 const emptySettings = '# 增加您的自定义配置覆盖默认配置';
 
@@ -46,12 +58,14 @@ export default {
     ModalInner,
     Tab,
     CodeEditor,
+    SettingsVisualTab,
   },
   data: () => ({
-    tab: 'custom',
+    tab: 'visual',
     defaultSettings,
     customSettings: null,
     error: null,
+    visualInvalid: false,
   }),
   computed: {
     ...mapGetters('modal', [
@@ -66,6 +80,11 @@ export default {
     this.setCustomSettings(settings === '\n' ? emptySettings : settings);
   },
   methods: {
+    onVisualSet({ path, value }) {
+      // 行级手术写回，产物必为合法 yaml（见 settingsYamlSvc）
+      this.customSettings = settingsYamlSvc.set(this.customSettings, path, value);
+      this.error = null;
+    },
     setCustomSettings(value) {
       this.customSettings = value;
       try {

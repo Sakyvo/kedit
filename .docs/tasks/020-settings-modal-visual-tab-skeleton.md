@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 # SettingsModal 可视化 tab 骨架 + 常规/编辑器两组
 
@@ -26,11 +26,15 @@ yaml tab 原样殿后：
 
 ## Acceptance criteria
 
-- [ ] 打开配置默认看到可视化 tab；常规+编辑器共 8 个键全部可编辑。
-- [ ] 可视化改动后切到自定义 yaml tab 可见对应行被更新、注释保留。
-- [ ] yaml tab 手改后切回可视化 tab，控件显示新值。
-- [ ] 非法值内联报错且确认禁用；取消不落地任何改动。
-- [ ] `npm run build` 通过。
+- [x] 打开配置默认看到可视化 tab；常规+编辑器共 8 个键全部可编辑。
+- [x] 可视化改动后切到自定义 yaml tab 可见对应行被更新、注释保留。
+- [x] yaml tab 手改后切回可视化 tab，控件显示新值。
+- [x] 非法值内联报错且确认禁用；取消不落地任何改动。
+- [x] `npm run build` 通过。
+
+备注：色 Theme 选「深色」会被 App.vue 既有的 light-only 归一化立即回写为
+light（`switchThemeSetting` 现有项目决策，不属于本批）；真机夜色显示验收
+留给人工。
 
 ## Blocked by
 

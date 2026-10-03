@@ -1,4 +1,4 @@
-Status: open
+Status: done
 
 # settings yaml 行级手术服务（prefactor）
 
@@ -25,11 +25,11 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] 替换已存在的顶层键 / 嵌套键，行级保真（注释、无关键、排版不变）。
-- [ ] 追加缺失键（含中间父节点缺失）不破坏既有文本。
-- [ ] 剥除指定键得到合法 yaml（剥除后语义=原值删键），多空行不增生。
-- [ ] Node vm/单文件脚本驱动服务的各 case 打印断言通过。
-- [ ] `npm run build` 通过。
+- [x] 替换已存在的顶层键 / 嵌套键，行级保真（注释、无关键、排版不变）。
+- [x] 追加缺失键（含中间父节点缺失）不破坏既有文本。
+- [x] 剥除指定键得到合法 yaml（剥除后语义=原值删键），多空行不增生。
+- [x] Node vm/单文件脚本驱动服务的各 case 打印断言通过。
+- [x] `npm run build` 通过。
 
 ## Blocked by
 

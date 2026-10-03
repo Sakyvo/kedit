@@ -1,6 +1,7 @@
 import { reactive } from 'vue';
 import yaml from 'js-yaml';
 import utils from '../services/utils';
+import settingsYamlSvc from '../services/settingsYamlSvc';
 import defaultWorkspaces from '../data/defaults/defaultWorkspaces';
 import defaultSettings from '../data/defaults/defaultSettings.yml?raw';
 import defaultLocalSettings from '../data/defaults/defaultLocalSettings';
@@ -163,28 +164,11 @@ export default {
     serverConf: getter('serverConf'),
     workspaces: getter('workspaces'), // Not to be used, prefer workspace/workspacesById
     settings: getter('settings'),
-    computedSettings: (state, { settings }) => {
-      const customSettings = yaml.load(settings);
-      const parsedSettings = yaml.load(defaultSettings);
-      const override = (obj, opt) => {
-        const objType = Object.prototype.toString.call(obj);
-        const optType = Object.prototype.toString.call(opt);
-        if (objType !== optType) {
-          return obj;
-        } else if (objType !== '[object Object]') {
-          return opt;
-        }
-        Object.keys(obj).forEach((key) => {
-          if (key === 'shortcuts') {
-            obj[key] = Object.assign(obj[key], opt[key]);
-          } else {
-            obj[key] = override(obj[key], opt[key]);
-          }
-        });
-        return obj;
-      };
-      return override(parsedSettings, customSettings);
-    },
+    // Merge semantics live in settingsYamlSvc.mergeSettings (shared with the
+    // visual settings UI draft preview).
+    computedSettings: (state, { settings }) => settingsYamlSvc.mergeSettings(
+      yaml.load(defaultSettings), settings,
+    ),
     localSettings: getter('localSettings'),
     layoutSettings: getter('layoutSettings'),
     explorerOrderData: getter('explorerOrder'),
