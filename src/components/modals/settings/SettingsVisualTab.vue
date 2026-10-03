@@ -38,7 +38,7 @@
         </div>
       </template>
       <template v-else>
-      <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label">
+      <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label" :info="field.info">
         <template slot="field">
           <input
             v-if="field.type === 'toggle'"
@@ -69,6 +69,24 @@
             >
             <div class="form-entry__error" v-if="errorOf(field)">{{ errorOf(field) }}</div>
           </template>
+          <input
+            v-else-if="field.type === 'text'"
+            class="textfield"
+            type="text"
+            :value="inputValue(field)"
+            @focus="focusPath = fieldKey(field)"
+            @blur="focusPath = null; resyncFromDraft()"
+            @input="onTextInput(field, $event.target.value)"
+          >
+          <textarea
+            v-else-if="field.type === 'textarea'"
+            class="textfield settings-visual__textarea"
+            rows="4"
+            :value="inputValue(field)"
+            @focus="focusPath = fieldKey(field)"
+            @blur="focusPath = null; resyncFromDraft()"
+            @input="onTextInput(field, $event.target.value)"
+          ></textarea>
         </template>
       </form-entry>
       </template>
@@ -173,7 +191,7 @@ export default {
       // 以 draft 文本为准整表回填；正在聚焦编辑的行跳过，不打断输入
       fieldSections.forEach((section) => {
         (section.fields || []).forEach((field) => {
-          if (field.type !== 'number') {
+          if (field.type !== 'number' && field.type !== 'text' && field.type !== 'textarea') {
             return;
           }
           const key = fieldKey(field);
@@ -269,6 +287,10 @@ export default {
         this.$emit('set', { path: field.path, value: num });
       }
     },
+    onTextInput(field, raw) {
+      this.rawInputs[fieldKey(field)] = raw;
+      this.$emit('set', { path: field.path, value: raw });
+    },
   },
 };
 </script>
@@ -337,5 +359,12 @@ export default {
   color: $error-color;
   font-size: 12px;
   margin-top: 6px;
+}
+
+.settings-visual__textarea {
+  min-height: 72px;
+  resize: vertical;
+  font-family: $font-family-monospace;
+  font-size: $font-size-monospace;
 }
 </style>

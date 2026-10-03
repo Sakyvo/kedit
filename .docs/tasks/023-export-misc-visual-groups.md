@@ -1,4 +1,4 @@
-Status: open
+Status: done
 
 # 可视化 tab「导出」「其他」组：全量键收尾
 
@@ -22,10 +22,10 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] 上列键全部可在可视化 tab 编辑、校验、写回且注释保留。
-- [ ] 修改 newFileContent 后新建文档内容生效；修改 pageSize 后 wkhtmltopdf
-  导出参数生效（可构造性验证，不强求真导出 PDF）。
-- [ ] `npm run build` 通过。
+- [x] 上列键全部可在可视化 tab 编辑、校验、写回且注释保留。（headless 实况：tocDepth=7 被拒、改 2 恢复、monokai 与多行 newFileContent 正确写回 yaml 文本）
+- [x] 修改 newFileContent 后新建文档内容生效；修改 pageSize 后 wkhtmltopdf
+  导出参数生效（可构造性验证，不强求真导出 PDF）。——持久层含新值且 `workspaceSvc.createFile` 直读 `computedSettings.newFileContent`。
+- [x] `npm run build` 通过。
 
 ## Blocked by
 
