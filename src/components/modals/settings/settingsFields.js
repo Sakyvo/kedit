@@ -41,6 +41,10 @@ export default [
     ],
   },
   {
+    title: '顶栏按钮',
+    type: 'buttonList',
+  },
+  {
     title: '编辑器',
     fields: [
       { path: ['editor', 'listAutoNumber'], type: 'toggle', label: '自动列表编号' },

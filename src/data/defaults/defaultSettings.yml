@@ -51,6 +51,8 @@ editor:
     image: true
     # ChatGPT
     chatgpt: true
+  # 顶栏按钮顺序（留空 = pagedownButtons 内置序）
+  headButtonOrder: []
 
 # Keyboard shortcuts
 # See https://craig.is/killing/mice

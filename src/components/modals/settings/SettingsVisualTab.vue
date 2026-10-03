@@ -2,6 +2,32 @@
   <div class="settings-visual">
     <div class="settings-visual__section" v-for="section in fieldSections" :key="section.title">
       <h3 class="settings-visual__section-title">{{ section.title }}</h3>
+      <template v-if="section.type === 'buttonList'">
+        <div
+          v-for="button in orderedButtons"
+          :key="button.method"
+          class="settings-visual__button-row"
+          :class="{'settings-visual__button-row--hidden': !button.visible}"
+          :draggable="!focusPath"
+          @dragstart="dragMethod = button.method"
+          @dragover.prevent
+          @drop.prevent="onButtonDrop(button.method)"
+        >
+          <span class="settings-visual__drag-handle" title="拖拽排序">≡</span>
+          <label class="settings-visual__button-label">
+            <input
+              type="checkbox"
+              :checked="button.visible"
+              @change="onButtonToggle(button.method, $event.target.checked)"
+            >
+            <component :is="'icon-' + button.icon"></component>
+            <span>{{ button.title }}</span>
+          </label>
+          <button class="button" title="上移" @click="onButtonMove(button.method, -1)">↑</button>
+          <button class="button" title="下移" @click="onButtonMove(button.method, 1)">↓</button>
+        </div>
+      </template>
+      <template v-else>
       <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label">
         <template slot="field">
           <input
@@ -35,6 +61,7 @@
           </template>
         </template>
       </form-entry>
+      </template>
     </div>
   </div>
 </template>
@@ -42,6 +69,8 @@
 <script>
 import yaml from 'js-yaml';
 import settingsYamlSvc from '../../../services/settingsYamlSvc';
+import headButtonsSvc from '../../../services/headButtonsSvc';
+import pagedownButtons from '../../../data/pagedownButtons';
 import defaultSettings from '../../../data/defaults/defaultSettings.yml?raw';
 import fieldSections from './settingsFields';
 import FormEntry from '../common/FormEntry';
@@ -63,10 +92,22 @@ export default {
     fieldSections,
     rawInputs: {},
     focusPath: null,
+    dragMethod: null,
   }),
   computed: {
     merged() {
       return settingsYamlSvc.mergeSettings(parsedDefaults, this.draft);
+    },
+    orderedButtons() {
+      const show = (this.merged.editor && this.merged.editor.headButtons) || {};
+      const byMethod = Object.create(null);
+      pagedownButtons.forEach((b) => {
+        if (b.method) {
+          byMethod[b.method] = b;
+        }
+      });
+      return headButtonsSvc.resolveOrder(this.merged.editor || {})
+        .map(method => ({ ...byMethod[method], visible: show[method] !== false }));
     },
   },
   watch: {
@@ -115,7 +156,7 @@ export default {
     resyncFromDraft() {
       // 以 draft 文本为准整表回填；正在聚焦编辑的行跳过，不打断输入
       fieldSections.forEach((section) => {
-        section.fields.forEach((field) => {
+        (section.fields || []).forEach((field) => {
           if (field.type !== 'number') {
             return;
           }
@@ -131,12 +172,29 @@ export default {
     onToggle(field, checked) {
       this.$emit('set', { path: field.path, value: checked });
     },
+    onButtonToggle(method, checked) {
+      this.$emit('set', { path: ['editor', 'headButtons', method], value: checked });
+    },
+    onButtonMove(method, dir) {
+      const order = headButtonsSvc.resolveOrder(this.merged.editor || {});
+      this.$emit('set', { path: ['editor', 'headButtonOrder'], value: headButtonsSvc.move(order, method, dir) });
+    },
+    onButtonDrop(targetMethod) {
+      if (!this.dragMethod || this.dragMethod === targetMethod) {
+        return;
+      }
+      let order = headButtonsSvc.resolveOrder(this.merged.editor || {});
+      order = order.filter(m => m !== this.dragMethod);
+      order.splice(order.indexOf(targetMethod), 0, this.dragMethod);
+      this.dragMethod = null;
+      this.$emit('set', { path: ['editor', 'headButtonOrder'], value: order });
+    },
     onSelect(field, value) {
       this.$emit('set', { path: field.path, value });
     },
     notifyInvalid() {
       const count = fieldSections
-        .reduce((acc, section) => acc.concat(section.fields), [])
+        .reduce((acc, section) => acc.concat(section.fields || []), [])
         .filter(field => this.errorOf(field))
         .length;
       this.$emit('invalid', count > 0);

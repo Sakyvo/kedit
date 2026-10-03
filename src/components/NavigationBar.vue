@@ -55,7 +55,7 @@ import syncSvc from '../services/syncSvc';
 import publishSvc from '../services/publishSvc';
 import tempFileSvc from '../services/tempFileSvc';
 import githubHelper from '../services/providers/helpers/githubHelper';
-import pagedownButtons from '../data/pagedownButtons';
+import headButtonsSvc from '../services/headButtonsSvc';
 import store from '../store';
 
 // According to mousetrap
@@ -112,12 +112,12 @@ export default {
       publishLocations: 'current',
     }),
     pagedownButtons() {
-      const buttonShowObj = store.getters['data/computedSettings'].editor.headButtons;
-      return pagedownButtons.filter(it => buttonShowObj[it.method] !== false).map(button => ({
-        ...button,
-        titleWithShortcut: `${button.title}${getShortcut(button.method)}`,
-        iconClass: `icon-${button.icon}`,
-      }));
+      return headButtonsSvc.resolveVisibleList(store.getters['data/computedSettings'].editor)
+        .map(button => ({
+          ...button,
+          titleWithShortcut: button.method ? `${button.title}${getShortcut(button.method)}` : '',
+          iconClass: button.method ? `icon-${button.icon}` : '',
+        }));
     },
     hasEditorSelection() {
       // Reactive via selection tick; also read live selection when available

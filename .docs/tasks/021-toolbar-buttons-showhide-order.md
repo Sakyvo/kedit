@@ -1,4 +1,4 @@
-Status: open
+Status: done
 
 # 可视化 tab「顶栏按钮」组：显隐 + 拖拽排序
 
@@ -25,11 +25,11 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] 拖动/↑↓ 调整顺序，确认后顶栏按新顺序渲染；刷新后保持。
-- [ ] 关闭某按钮显隐后顶栏消失，重新打开回到其在 headButtonOrder 的位置。
-- [ ] 已有用户的 `headButtons` 手写 map 继续生效；新键未出现时内置序不变。
-- [ ] 可视化写回的 yaml 只影响 `editor.*` 对应行，其余文本不动。
-- [ ] `npm run build` 通过。
+- [x] 拖动/↑↓ 调整顺序，确认后顶栏按新顺序渲染；刷新后保持。（headless 浏览器实测：加粗上移 3 次到顶、表格拖拽到顶、链接隐藏，持久化 YAML 正确）
+- [x] 关闭某按钮显隐后顶栏消失，重新打开回到其在 headButtonOrder 的位置。
+- [x] 已有用户的 `headButtons` 手写 map 继续生效；新键未出现时内置序不变。
+- [x] 可视化写回的 yaml 只影响 `editor.*` 对应行，其余文本不动。
+- [x] `npm run build` 通过。
 
 ## Blocked by
 
