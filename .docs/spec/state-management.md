@@ -243,7 +243,47 @@ const key = gitPathsByItemId[folderItem.id]; // 'docs/notes/'
 dispatch('data/patchExplorerOrder', { [key]: childGitPaths });
 ```
 
+## Settings Sync + syncExclude Contract
+
+### 1. Scope / Trigger
+
+- `data/settings` (the Author's custom settings yaml text) syncs across devices
+  via `syncDataItem('settings')` in the main workspace.
+- Visual editing always round-trips through `settingsYamlSvc` line surgery so
+  comments and unknown keys survive (ADR 0009).
+
+### 2. Signatures
+
+- `settingsYamlSvc.excludesOf(text)` = built-in `DEFAULT_SYNC_EXCLUDES`
+  (`colorTheme`, `fontSizeFactor`, `maxWidthFactor`) ⋃ the local `syncExclude`
+  list from the yaml, plus `syncExclude` itself (never synced).
+- `settingsYamlSvc.projectForSync(text)` strips excluded keys; the result is
+  what crosses the wire and what sync-data hashes compare against.
+- `settingsYamlSvc.applyRemote(localText, remoteProjection, excludedPaths)`
+  returns the remote text with locally-excluded values re-injected.
+
+### 3. Contracts
+
+- If the two devices disagree about whether a key syncs, it does not sync
+  (ADR 0010).
+- `syncSvc.syncDataItem` uses projected text/hash for settings' dirty check,
+  server-change comparison and upload payload; the store item always holds the
+  full local yaml.
+- Editing only an excluded key triggers one no-op sync upload cycle (known
+  noise; no projection-level hash optimisation in v1).
+- `gitWorkspaceSvc` already whitelists `.stackedit-data/settings.json`.
+
+### 4. Good/Base/Bad Cases
+
+- Good: B syncs `autoSyncEvery`; A excluded it via `syncExclude` → A keeps its
+  local value, B (not excluding) follows A/last writer.
+- Base: fresh device with no `dataSyncData` for settings → remote projection
+  applied with exclusions preserved.
+- Bad: writing the raw full-text item to the provider (breaks exclusion
+  semantics and causes a permanent dirty-hash loop).
+
 ## Common Mistakes
+
 
 - Writing directly to IndexedDB from components.
 - Adding derived git/path logic in components instead of root getters.

@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 # settings 纳入同步 + syncExclude 投影层
 
@@ -23,12 +23,15 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] 非排除键（如 autoSyncEvery、headButtonOrder）跨设备一致。
-- [ ] 排除键在两端保持各自本机值，且不随上传/下载漂移。
-- [ ] 单改排除键最多触发一次内容不变的空载同步（已知噪音，不消除）。
-- [ ] state-management.md 契约节已更新；术语与 CONTEXT.md「Device-local
+- [x] 非排除键（如 autoSyncEvery、headButtonOrder）跨设备一致。（投影算法双端剧本 node 用例通过；真实双机同步留人工验收——需含 GitHub workbench 的线上环境）
+- [x] 排除键在两端保持各自本机值，且不随上传/下载漂移。（同上剧本覆盖）
+- [x] 单改排除键最多触发一次内容不变的空载同步（已知噪音，不消除）——投影哈希驱动，只改排除键不触发上传。
+- [x] state-management.md 契约节已更新；术语与 CONTEXT.md「Device-local
   setting」一致。
-- [ ] `npm run build` 通过。
+- [x] `npm run build` 通过。
+
+实现备注：syncSvc.syncDataItem 对 settings 走专属分支——脏检查/远端变更比较/上传体
+一律投影（`settingsYamlSvc.projectForSync`），store 条目恒为全量本地文本。
 
 ## Blocked by
 

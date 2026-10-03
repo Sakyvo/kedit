@@ -18,6 +18,7 @@ import tempFileSvc from './tempFileSvc';
 import workspaceSvc from './workspaceSvc';
 import gitWorkspaceSvc from './gitWorkspaceSvc';
 import imgCleanupSvc from './imgCleanupSvc';
+import settingsYamlSvc from './settingsYamlSvc';
 import constants from '../data/constants';
 
 const minAutoSyncEvery = 60 * 1000; // 60 sec
@@ -574,8 +575,14 @@ const syncDataItem = async (dataId) => {
 
   const oldItem = getItem();
   const oldSyncData = store.getters['data/syncDataById'][dataId];
-  // Sync if item hash and syncData hash are out of sync
-  if (oldSyncData && oldItem && oldItem.hash === oldSyncData.hash) {
+
+  // Settings travel as an excluded-key-stripped yaml projection (ADR 0010):
+  // hashes and uploads use the projection; the local item keeps its full text.
+  const projectItem = dataId === 'settings' && oldItem && oldItem.data !== undefined
+    ? utils.addItemHash({ ...oldItem, data: settingsYamlSvc.projectForSync(oldItem.data) })
+    : oldItem;
+  // Sync if (projected) item hash and syncData hash are out of sync
+  if (oldSyncData && projectItem && projectItem.hash === oldSyncData.hash) {
     return;
   }
 
@@ -589,6 +596,21 @@ const syncDataItem = async (dataId) => {
   const dataSyncData = store.getters['data/dataSyncDataById'][dataId];
   const clientItem = utils.deepCopy(getItem());
   let mergedItem = (() => {
+    if (dataId === 'settings') {
+      // yaml text can't object-merge: remote projection wins for synced keys,
+      // locally-excluded keys keep their local values on top.
+      if (!clientItem) {
+        return serverItem;
+      }
+      if (!serverItem) {
+        return clientItem;
+      }
+      return {
+        ...clientItem,
+        data: settingsYamlSvc.applyRemote(clientItem.data, serverItem.data,
+          settingsYamlSvc.excludesOf(clientItem.data)),
+      };
+    }
     if (!clientItem) {
       return serverItem;
     }
@@ -632,11 +654,14 @@ const syncDataItem = async (dataId) => {
   // Retrieve item with new `hash` and freeze it
   mergedItem = utils.deepCopy(getItem());
 
-  // Upload merged data item if out of sync
-  if (!serverItem || serverItem.hash !== mergedItem.hash) {
+  // Upload compares/uploads the settings projection (ADR 0010), raw blob otherwise
+  const uploadItem = dataId === 'settings' && mergedItem
+    ? utils.addItemHash({ ...mergedItem, data: settingsYamlSvc.projectForSync(mergedItem.data) })
+    : mergedItem;
+  if (!serverItem || serverItem.hash !== uploadItem.hash) {
     updateSyncData(await workspaceProvider.uploadWorkspaceData({
       token,
-      item: mergedItem,
+      item: uploadItem,
       // On first upload there is no sync data yet: default the id so the
       // resulting syncData is not stored under the "undefined" key
       syncData: store.getters['data/syncDataById'][dataId] || { id: dataId },
@@ -775,7 +800,7 @@ const syncWorkspace = async (skipContents = false) => {
 
     // Sync workspace data only in the main workspace
     if (workspace.id === 'main') {
-      // await syncDataItem('settings');
+      await syncDataItem('settings');
       await syncDataItem('workspaces');
       await syncDataItem('explorerOrder');
       await syncDataItem('imgCleanup');

@@ -288,10 +288,25 @@ const mergeSettings = (base, customText) => {
   return mergeInto(JSON.parse(JSON.stringify(base)), custom);
 };
 
+// Device-local settings (see ADR 0010): these keys never Sync; users extend the
+// set via a `syncExclude` list in their custom settings yaml (itself unsynced).
+export const DEFAULT_SYNC_EXCLUDES = ['colorTheme', 'fontSizeFactor', 'maxWidthFactor'];
+
+const excludesOf = (text) => {
+  const extra = get(text, ['syncExclude']);
+  const extras = Array.isArray(extra) ? extra.filter(k => typeof k === 'string') : [];
+  return [...DEFAULT_SYNC_EXCLUDES, 'syncExclude', ...extras.filter(k => !DEFAULT_SYNC_EXCLUDES.includes(k))];
+};
+
+// The text that actually crosses the wire: excluded keys stripped.
+const projectForSync = text => remove(text, excludesOf(text));
+
 export default {
   get,
   set,
   remove,
   applyRemote,
   mergeSettings,
+  excludesOf,
+  projectForSync,
 };
