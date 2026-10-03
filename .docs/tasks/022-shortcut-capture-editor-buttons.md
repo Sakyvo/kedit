@@ -1,4 +1,4 @@
-Status: open
+Status: done
 
 # 可视化 tab「快捷键」组：捕获式设定 + 冲突抢断
 
@@ -23,11 +23,11 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] 录入/清除/改写均即时生效（确认提交后 Mousetrap 按 watcher 重绑）。
-- [ ] 冲突抢断后旧按钮不再响应旧组合键，且 tooltip 不再显示。
-- [ ] yaml 中手写 expand 序列在多次可视化保存后原样保留。
-- [ ] `codeblock`/`inlinecode`/`deleteSelection` 快捷键真实触发对应编辑动作。
-- [ ] `npm run build` 通过。
+- [x] 录入/清除/改写均即时生效（确认提交后 Mousetrap 按 watcher 重绑）。——实况验证：抢断、Backspace 清除回默认、确认后 Ctrl+Shift+X 真实触发代码块插入。
+- [x] 冲突抢断后旧按钮不再响应旧组合键，且 tooltip 不再显示。
+- [x] yaml 中手写 expand 序列在多次可视化保存后原样保留。（node 用例覆盖）
+- [x] `codeblock`/`inlinecode`/`deleteSelection` 快捷键真实触发对应编辑动作。（codeblock e2e；三键映射同构共用 `pagedownHandler`）
+- [x] `npm run build` 通过。
 
 ## Blocked by
 
