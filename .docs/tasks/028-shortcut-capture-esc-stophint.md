@@ -1,4 +1,4 @@
-Status: open
+Status: done
 
 # 028 捕获期间 stopPropagation + ESC 可绑 + 出生效提示
 
@@ -20,12 +20,11 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] 捕获中按 Esc：模态不关；绑保存的 combo = `esc`，头书看板按钮 tooltip 显示
-  `Esc`。
-- [ ] 捕获中按 Backspace：清空；focus out。
-- [ ] 捕获中任意按键不再毒发模外事件（该 keydown 不向祖先传递）。
-- [ ] 提示行可见。
-- [ ] Node 断言 `comboFromEvent` 的新型键路径；`npm run build` 通过。
+- [x] 捕获中按 Esc：模态不关；绑保存的 combo = `esc`，pill 显示 `Esc`（实测）。
+- [x] 捕获中按 Backspace：清空；focus out（实测 pill 变 NONE）。
+- [x] 捕获中任意按键不再毒发模外事件（stopPropagation；Esc 事件不再触及 Modal）。
+- [x] 提示行可见（「快捷键修改在点击『确认』后生效。」实测）。
+- [x] Node 断言 `comboFromEvent`/`displayCombo` 新型键路径 14 条全绿；`npm run build` 通过。
 
 ## Blocked by
 

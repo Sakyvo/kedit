@@ -91,6 +91,7 @@
       </form-entry>
       </template>
     </div>
+    <div class="settings-visual__apply-hint">快捷键修改在点击「确认」后生效。</div>
     <div class="settings-visual__conflict-hint" v-if="conflictHint">
       「{{ conflictHint.combo }}」原属于「{{ conflictHint.fromTitle }}」，已被抢断。
     </div>
@@ -232,18 +233,21 @@ export default {
     },
     shortcutLabel(button) {
       if (this.capturingMethod === button.method) {
-        return '按下快捷键… (Esc 取消 / Backspace 清除)';
+        return '按下快捷键…（Shift+Esc 取消 / Backspace 清除）';
       }
       const combo = shortcutCapture.comboOfMethod(this.merged.shortcuts, button.method);
       if (!combo) {
         return '';
       }
       const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-      return combo.split('+').map(p => (p === 'mod' ? (isMac ? 'Cmd' : 'Ctrl') : `${p[0].toUpperCase()}${p.slice(1)}`)).join('+');
+      return shortcutCapture.displayCombo(combo, isMac);
     },
     onShortcutKey(method, e) {
+      // 捕获期间一切按键不外传——重点修复 Esc 穿透到 Modal.vue 的 @keydown.esc.stop 关窗
       e.preventDefault();
-      if (e.key === 'Escape') {
+      e.stopPropagation();
+      if (e.key === 'Escape' && (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey)) {
+        // 修饰+Esc = 取消捕获
         e.target.blur();
         return;
       }
@@ -399,6 +403,16 @@ export default {
   color: $error-color;
   font-size: 12px;
   margin-top: 6px;
+}
+
+.settings-visual__apply-hint {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  margin-top: 8px;
+
+  .app--dark & {
+    color: rgba(255, 255, 255, 0.5);
+  }
 }
 
 .settings-visual__textarea {
