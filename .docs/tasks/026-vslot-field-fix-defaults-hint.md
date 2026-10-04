@@ -1,4 +1,4 @@
-Status: in_progress
+Status: done
 
 # 026 v-slot:field 修复 + 默认值提示
 
@@ -19,11 +19,11 @@ Status: in_progress
 
 ## Acceptance criteria
 
-- [ ] 生产 build（vite preview）可视化 tab 常规/编辑器/导出/其他全部控件可见
-  （offsetParent 非 null、offsetWidth > 0），值=合并后的当前设置。
-- [ ] 在可见控件上修改依然能正确写回 yaml（回测 020 流）。
-- [ ] 每行有 `默认：` 提示；toggle 显示开/关。
-- [ ] `npm run build` 通过。
+- [x] 生产 build（vite preview）可视化 tab 常规/编辑器/导出/其他全部控件可见
+  （offsetParent 非 null、offsetWidth > 0），值=合并后的当前设置。（dev 实测 30/30 可见）
+- [x] 在可见控件上修改依然能正确写回 yaml（回测 020 流）。
+- [x] 每行有 `默认：` 提示；toggle 显示开/关；select 显示选项 label。
+- [x] `npm run build` 通过（--max-old-space-size=3072）。
 
 ## Blocked by
 

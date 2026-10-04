@@ -14,32 +14,32 @@
           @drop.prevent="onButtonDrop(button.method)"
         >
           <span class="settings-visual__drag-handle" title="拖拽排序">≡</span>
-          <label class="settings-visual__button-label">
-            <input
-              type="checkbox"
-              :checked="button.visible"
-              @change="onButtonToggle(button.method, $event.target.checked)"
-            >
-            <component :is="'icon-' + button.icon"></component>
-            <span>{{ button.title }}</span>
-          </label>
+          <input
+            type="checkbox"
+            class="settings-visual__enable"
+            :title="button.visible ? '禁用' : '启用'"
+            :checked="button.visible"
+            @change="onButtonToggle(button.method, $event.target.checked)"
+          >
+          <span class="settings-visual__tile" @click="$event.currentTarget.previousElementSibling.click()">
+            <component :is="'icon-' + button.icon" class="settings-visual__tile-icon"></component>
+            <span class="settings-visual__tile-label">{{ button.title }}</span>
+          </span>
           <input
             class="textfield settings-visual__shortcut"
             :class="{'settings-visual__shortcut--capturing': capturingMethod === button.method}"
             :value="shortcutLabel(button)"
             readonly
-            placeholder="未设置"
+            placeholder="NONE"
             @focus="capturingMethod = button.method"
             @blur="capturingMethod = null"
             @keydown="onShortcutKey(button.method, $event)"
           >
-          <button class="button" title="上移" @click="onButtonMove(button.method, -1)">↑</button>
-          <button class="button" title="下移" @click="onButtonMove(button.method, 1)">↓</button>
         </div>
       </template>
       <template v-else>
-      <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label" :info="field.info">
-        <template slot="field">
+      <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label" :info="infoOf(field)">
+        <template v-slot:field>
           <input
             v-if="field.type === 'toggle'"
             type="checkbox"
@@ -156,6 +156,27 @@ export default {
   },
   methods: {
     fieldKey,
+    defaultOf(field) {
+      let cur = parsedDefaults;
+      for (let i = 0; i < field.path.length; i += 1) {
+        cur = cur && cur[field.path[i]];
+      }
+      return cur;
+    },
+    infoOf(field) {
+      const dv = this.defaultOf(field);
+      let dvText;
+      if (field.type === 'toggle') {
+        dvText = dv ? '开' : '关';
+      } else if (field.type === 'select' && field.options) {
+        const option = field.options.find(o => o.value === dv);
+        dvText = (option && option.label) || `${dv}`;
+      } else {
+        dvText = (dv === undefined || dv === null || dv === '') ? '无' : `${dv}`;
+      }
+      const hint = `默认：${dvText}`;
+      return field.info ? `${field.info}，${hint}` : hint;
+    },
     valueOf(field) {
       let cur = this.merged;
       for (let i = 0; i < field.path.length; i += 1) {
@@ -208,10 +229,6 @@ export default {
     },
     onButtonToggle(method, checked) {
       this.$emit('set', { path: ['editor', 'headButtons', method], value: checked });
-    },
-    onButtonMove(method, dir) {
-      const order = headButtonsSvc.resolveOrder(this.merged.editor || {});
-      this.$emit('set', { path: ['editor', 'headButtonOrder'], value: headButtonsSvc.move(order, method, dir) });
     },
     shortcutLabel(button) {
       if (this.capturingMethod === button.method) {
@@ -338,12 +355,35 @@ export default {
   user-select: none;
 }
 
-.settings-visual__button-label {
+.settings-visual__tile {
+  width: 96px;
+  flex: 0 0 auto;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  flex: 1;
+  padding: 6px 0 4px;
   cursor: pointer;
+  border-radius: $border-radius-base;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  svg {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+.settings-visual__tile-label {
+  font-size: 12px;
+  line-height: 1.2;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.settings-visual__button-row .settings-visual__shortcut {
+  margin-left: auto;
 }
 
 .settings-visual__shortcut {

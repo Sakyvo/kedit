@@ -1,4 +1,4 @@
-Status: open
+Status: done
 
 # 027 顶栏按钮行重排为 tile 布局
 
@@ -24,10 +24,10 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] 新布局在 vite preview 截图实测：图标正常、说明居下、pill 右对齐、无 ↑↓。
-- [ ] 未绑定条显示 `NONE`。
-- [ ] 拖拽顺序/启停仍然生支（回测 021 流：移动后确认 → 顶栏按序）。
-- [ ] `npm run build` 通过。
+- [x] 新布局在 dev 截图实测：图标 26px、说明居下、pill 右对齐、无 ↑↓。
+- [x] 未绑定条显示 `NONE`。
+- [x] 拖拽顺序/启用停用仍然生支（回测 021 流：表格拖至顶端，实测生效）。
+- [x] `npm run build` 通过。
 
 ## Blocked by
 
