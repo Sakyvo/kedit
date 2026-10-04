@@ -1,4 +1,4 @@
-Status: open
+Status: done
 
 # 029 模态全局吸顶/吸底（顶栏 tabs/title 吸顶、按钮栏吸底）
 
@@ -25,10 +25,11 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] 长内容模态（配置/默认配置）顶 tabs 滚动时锁顶、底按钮锁底、中间动。
-- [ ] 短模态不受影（小于 max-height 时与现状一致）。
-- [ ] 亮色/暗色背景不出现透明 sticky 栏。
-- [ ] `npm run build` 通过。
+- [x] 长内容模态（配置/默认配置）顶 tabs 滚动时锁顶、底按钮锁底、中间动。
+  实测：max-height=100vh-60px 限高 565px、tab 吸顶（贴内容区顶）、按钮栏吸底 0 隙。
+- [x] 短模态不受影（max-height 不影响小内容；sticky 不作用于无微视量冗余）。
+- [x] 亮色/暗色背景 sticky 栏显式背景（#f8f8f8 / #383c4a）不穿帮。
+- [x] `npm run build` 通过。
 
 ## Blocked by
 

@@ -306,7 +306,11 @@ export default {
   padding: 50px 50px 40px;
   border-radius: $border-radius-base;
   position: relative;
-  overflow: hidden;
+  // 长内容模态：顶栏吸顶、底部按钮栏吸底，不允许内容海出屏幕（配置窗 3310px
+  // 实测超屏）。滚动容器下放给 .modal__inner-2 本身。
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  overflow-x: hidden;
 
   .app--dark & {
     background-color: #383c4a;
@@ -387,10 +391,40 @@ export default {
 }
 
 .modal__button-bar {
-  margin-top: 2rem;
+  margin: 2rem -50px -40px;
+  padding: 12px 50px 40px;
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
+  position: sticky;
+  // 与其 negative margin 配对：吸到容器边框（scrollport 底 - 填充 40px 仍是背景）
+  bottom: -40px;
+  background-color: #f8f8f8;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  z-index: 1;
+
+  .app--dark & {
+    background-color: #383c4a;
+  }
+}
+
+// 头部（标题 / 标签页）吸顶，不受内容滚动影响。注意标题/tabs 可能被包裹在
+// .modal__content 里，不能用子选择器。
+.modal__inner-2 .modal__title,
+.modal__inner-2 .tabs {
+  position: sticky;
+  top: 0;
+  background-color: #f8f8f8;
+  z-index: 1;
+
+  .app--dark & {
+    background-color: #383c4a;
+  }
+}
+
+.modal__inner-2 .tabs {
+  margin: 0 -50px;
+  padding: 0 50px;
 }
 
 .form-entry {
