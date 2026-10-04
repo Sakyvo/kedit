@@ -1,4 +1,4 @@
-Status: open
+Status: done
 
 # 030 默认配置 tab 右上复制按钮
 
@@ -17,9 +17,10 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] 默认配置 tab 右上可见 copy 图标，点击后剪贴板含完整默认配置 yaml。
-- [ ] 提示 toast 弹出；自定义配置 / 可视化 tab 未出现该按钮。
-- [ ] `npm run build` 通过。
+- [x] 默认配置 tab 右上可见 copy 图标（ContentCopy，行头右对齐），点击调
+  `v-clipboard` 拷贝（与发布管理同机制；剪贴板内容受浏览器权限不可读断言）。
+- [x] 提示 toast 弹出（实测入屏）；自定义配置 / 可视化 tab 未出现该按钮。
+- [x] `npm run build` 通过。
 
 ## Blocked by
 

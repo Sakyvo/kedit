@@ -27,7 +27,15 @@
         </div>
       </div>
       <div class="form-entry" v-else-if="tab === 'default'" role="tabpanel" aria-label="默认配置">
-        <label class="form-entry__label">YAML</label>
+        <div class="settings-modal__default-head">
+          <label class="form-entry__label">YAML</label>
+          <button
+            class="button settings-modal__copy-default"
+            v-clipboard="defaultSettings"
+            @click="info('默认配置已复制到剪贴板！')"
+            v-title="'复制默认配置'"
+          ><icon-content-copy></icon-content-copy></button>
+        </div>
         <div class="form-entry__field form-entry__field--code-editor">
           <code-editor lang="yaml" :value="defaultSettings" key="default-settings" disabled="true"></code-editor>
         </div>
@@ -43,7 +51,7 @@
 
 <script>
 import yaml from 'js-yaml';
-import { mapGetters } from 'vuex';
+import { mapGetters, mapActions } from 'vuex';
 import ModalInner from './common/ModalInner';
 import Tab from './common/Tab';
 import CodeEditor from '../CodeEditor';
@@ -81,6 +89,7 @@ export default {
     this.setCustomSettings(settings === '\n' ? emptySettings : settings);
   },
   methods: {
+    ...mapActions('notification', ['info']),
     onVisualSet({ path, value }) {
       // 行级手术写回，产物必为合法 yaml（见 settingsYamlSvc）
       this.customSettings = settingsYamlSvc.set(this.customSettings, path, value);
@@ -121,5 +130,23 @@ export default {
   white-space: pre-wrap;
   font-family: $font-family-monospace;
   font-size: $font-size-monospace;
+}
+
+.settings-modal__default-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-modal__copy-default {
+  padding: 2px;
+  width: 28px;
+  height: 28px;
+  color: $link-color;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 </style>
