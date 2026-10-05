@@ -357,6 +357,10 @@ export default {
   cursor: grab;
   color: rgba(0, 0, 0, 0.35);
   user-select: none;
+
+  .app--dark & {
+    color: rgba(255, 255, 255, 0.45);
+  }
 }
 
 .settings-visual__tile {
@@ -371,6 +375,10 @@ export default {
 
   &:hover {
     background: rgba(0, 0, 0, 0.05);
+
+    .app--dark & {
+      background: rgba(255, 255, 255, 0.08);
+    }
   }
 
   svg {

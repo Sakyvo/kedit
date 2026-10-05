@@ -10,10 +10,9 @@ export default [
         path: ['colorTheme'],
         type: 'select',
         label: '主题',
-        // 注意：应用层强制 light（App.vue light-only 归一化会立即回写 dark→light）
         options: [
           { value: 'light', label: '浅色' },
-          { value: 'dark', label: '深色（本端会立即归一回浅色）' },
+          { value: 'dark', label: '深色' },
         ],
       },
       {

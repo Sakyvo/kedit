@@ -436,6 +436,10 @@ export default {
   font-size: 0.9rem;
   color: #808080;
 
+  .app--dark & {
+    color: #a8a8b3;
+  }
+
   .form-entry--focused & {
     color: darken($link-color, 10%);
   }
@@ -454,6 +458,10 @@ export default {
   border-radius: $border-radius-base;
   position: relative;
   overflow: hidden;
+
+  .app--dark & {
+    border-color: #5a5f70;
+  }
 
   .form-entry--focused & {
     border-color: $link-color;
@@ -484,6 +492,10 @@ export default {
   &:hover {
     opacity: 1;
     background-color: rgba(0, 0, 0, 0.1);
+
+    .app--dark & {
+      background-color: rgba(255, 255, 255, 0.12);
+    }
   }
 }
 
@@ -533,9 +545,17 @@ export default {
   border-top-right-radius: $border-radius-base;
   color: $link-color;
 
+  .app--dark & {
+    color: lighten($link-color, 22%);
+  }
+
   &:hover,
   &:focus {
     background-color: rgba(0, 0, 0, 0.05);
+
+    .app--dark & {
+      background-color: rgba(255, 255, 255, 0.07);
+    }
   }
 }
 

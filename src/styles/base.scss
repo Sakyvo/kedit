@@ -15,6 +15,7 @@ body {
 
   .app--dark {
     color: $body-color-dark;
+    color-scheme: dark;
   }
 }
 
@@ -160,6 +161,10 @@ a {
   &:hover,
   &:focus {
     text-decoration: underline;
+  }
+
+  .app--dark & {
+    color: lighten($link-color, 22%);
   }
 }
 
