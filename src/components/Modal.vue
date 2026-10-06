@@ -315,26 +315,6 @@ export default {
   .app--dark & {
     background-color: #383c4a;
   }
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: $border-radius-base;
-    width: 100%;
-    background-image: linear-gradient(to left, #ffd700, #ffd700 23%, #a5c700 27%, #a5c700 48%, #ff8a00 52%, #ff8a00 73%, #66aefd 77%);
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    height: $border-radius-base;
-    width: 100%;
-    background-image: linear-gradient(to right, #ffd700, #ffd700 23%, #a5c700 27%, #a5c700 48%, #ff8a00 52%, #ff8a00 73%, #66aefd 77%);
-  }
 }
 
 .modal__content > :first-child,
@@ -396,6 +376,7 @@ export default {
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
+  align-items: center;
   position: sticky;
   // 与其 negative margin 配对：吸到容器边框（scrollport 底 - 填充 40px 仍是背景）
   bottom: -40px;
@@ -406,19 +387,40 @@ export default {
   .app--dark & {
     background-color: #383c4a;
   }
+
+  // 取消/确认并排时同高同字号（StackEdit 主按钮的 -2px 负 margin + 大 padding
+  // 会让两颗按钮上下错位，033 任务统一）
+  .button {
+    margin: 0;
+    font-size: 16px;
+
+    & + .button {
+      margin-left: 8px;
+    }
+  }
+
+  .button--resolve {
+    margin: 0 0 0 8px;
+    padding: 8px 16px;
+    font-size: 16px;
+  }
 }
 
 // 头部（标题 / 标签页）吸顶，不受内容滚动影响。注意标题/tabs 可能被包裹在
-// .modal__content 里，不能用子选择器。
+// .modal__content 里，不能用子选择器。sticky 受包含块约束，最多钉到
+// .modal__content 顶边（容器 padding-top 下方 50px）；滚动内容会从上方
+// padding 带透出，故用负向上盖板（box-shadow）铺满该带，两侧同样延展。
 .modal__inner-2 .modal__title,
 .modal__inner-2 .tabs {
   position: sticky;
   top: 0;
   background-color: #f8f8f8;
   z-index: 1;
+  box-shadow: 0 -50px 0 0 #f8f8f8;
 
   .app--dark & {
     background-color: #383c4a;
+    box-shadow: 0 -50px 0 0 #383c4a;
   }
 }
 
