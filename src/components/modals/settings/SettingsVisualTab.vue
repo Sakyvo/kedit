@@ -7,11 +7,16 @@
           v-for="button in orderedButtons"
           :key="button.method"
           class="settings-visual__button-row"
-          :class="{'settings-visual__button-row--hidden': !button.visible}"
+          :class="{
+            'settings-visual__button-row--hidden': !button.visible,
+            'settings-visual__button-row--drop-target': dragOverMethod === button.method,
+          }"
           :draggable="!focusPath"
           @dragstart="dragMethod = button.method"
-          @dragover.prevent
-          @drop.prevent="onButtonDrop(button.method)"
+          @dragover.prevent="dragOverMethod = button.method"
+          @dragleave="dragOverMethod === button.method && (dragOverMethod = null)"
+          @drop.prevent="onButtonDrop(button.method); dragOverMethod = null"
+          @dragend="dragMethod = null; dragOverMethod = null"
         >
           <span class="settings-visual__drag-handle" title="拖拽排序">≡</span>
           <input
@@ -126,6 +131,7 @@ export default {
     rawInputs: {},
     focusPath: null,
     dragMethod: null,
+    dragOverMethod: null,
     capturingMethod: null,
     conflictHint: null,
   }),
@@ -345,11 +351,17 @@ export default {
 .settings-visual__button-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 3px 0;
+  gap: 12px;
+  padding: 3px 4px;
 
   &--hidden {
     opacity: 0.45;
+  }
+
+  // CheatBreakerZ 式拖拽预览（换蓝）：悬停目标行整行淡蓝底 + 顶缘 2px 实蓝插入线
+  &--drop-target {
+    background-color: rgba(12, 147, 228, 0.12);
+    box-shadow: inset 0 2px 0 0 #0c93e4;
   }
 }
 
@@ -364,14 +376,16 @@ export default {
 }
 
 .settings-visual__tile {
-  width: 96px;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  padding: 6px 0 4px;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 8px;
   cursor: pointer;
   border-radius: $border-radius-base;
+  min-width: 0;
 
   &:hover {
     background: rgba(0, 0, 0, 0.05);
@@ -384,17 +398,20 @@ export default {
   svg {
     width: 26px;
     height: 26px;
+    flex: 0 0 auto;
   }
 }
 
 .settings-visual__tile-label {
   font-size: 12px;
   line-height: 1.2;
-  margin-top: 4px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings-visual__button-row .settings-visual__shortcut {
+  flex: 0 0 150px;
   margin-left: auto;
 }
 
