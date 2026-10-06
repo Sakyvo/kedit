@@ -14,7 +14,8 @@
       </div>
       <div v-if="tab === 'visual'" role="tabpanel" aria-label="可视化">
         <settings-visual-tab
-          :draft="customSettings"
+          :draft="error ? lastValidSettings : customSettings"
+          :invalid-hint="error"
           @set="onVisualSet"
           @remove="onVisualRemove"
           @invalid="visualInvalid = $event"
@@ -73,6 +74,7 @@ export default {
     tab: 'visual',
     defaultSettings,
     customSettings: null,
+    lastValidSettings: null,
     error: null,
     visualInvalid: false,
   }),
@@ -104,6 +106,7 @@ export default {
       try {
         yaml.load(this.strippedCustomSettings);
         this.error = null;
+        this.lastValidSettings = value;
       } catch (e) {
         this.error = e.message;
       }

@@ -1,5 +1,8 @@
 <template>
   <div class="settings-visual">
+    <div class="settings-visual__invalid-hint" v-if="invalidHint">
+      yaml 存在错误，可视化展示最后合法值——请到 yaml编辑 修复后再确认。
+    </div>
     <div class="settings-visual__section" v-for="section in fieldSections" :key="section.title">
       <h3 class="settings-visual__section-title">{{ section.title }}</h3>
       <template v-if="section.type === 'buttonList'">
@@ -124,6 +127,10 @@ export default {
     draft: {
       type: String,
       required: true,
+    },
+    invalidHint: {
+      type: String,
+      default: null,
     },
   },
   data: () => ({
@@ -424,6 +431,16 @@ export default {
   &--capturing {
     border-color: $link-color !important;
   }
+}
+
+.settings-visual__invalid-hint {
+  color: $error-color;
+  font-size: 13px;
+  background-color: transparentize($error-color, 0.92);
+  border: 1px solid transparentize($error-color, 0.7);
+  border-radius: $border-radius-base;
+  padding: 8px 12px;
+  margin-bottom: 12px;
 }
 
 .settings-visual__conflict-hint {
