@@ -1,6 +1,21 @@
-Status: anchor
+Status: done
 
 # 深色复活与设置模态修复批次（dark-revival-settings-fixes）
+
+## 完成记录（2026-01-03）
+
+五切片全部完成并推送，Pages 已自动部署：
+
+- 032 `0f4036f8` 深色复活（拆归一化 + 对比度修复）
+- 033 `bf1a950b` 模态壳（删彩虹带 + sticky 盖板 + 按钮对齐）
+- 034 `e4e70c39` 按钮行再设计（横向居中 tile + 蓝色拖拽预览）
+- 035 `1318603f` tabs 改名 + 光标三连 + 右偏消解确认
+- 036 `8be64da8` 双向同步补洞（lastValid + 红字提示）
+
+验证方式：每切片 npm run build（terser 完整门槛）+ agent_browser
+程序化实测（对比度审计、像素级取样、合成拖拽事件链、真实 Selection 编辑）；
+036 另有 .docs/tasks/assert-036.cjs 逻辑断言。待真机验收项：深色整体观感、
+拖拽排序手感、切 tab 观感。
 
 ## Problem
 
