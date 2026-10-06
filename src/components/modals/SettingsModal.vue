@@ -6,10 +6,10 @@
           可视化
         </tab>
         <tab :active="tab === 'custom'" @click="tab = 'custom'">
-          自定义配置
+          yaml编辑
         </tab>
         <tab :active="tab === 'default'" @click="tab = 'default'">
-          默认配置
+          默认预览
         </tab>
       </div>
       <div v-if="tab === 'visual'" role="tabpanel" aria-label="可视化">
@@ -20,13 +20,13 @@
           @invalid="visualInvalid = $event"
         ></settings-visual-tab>
       </div>
-      <div class="form-entry" v-else-if="tab === 'custom'" role="tabpanel" aria-label="自定义配置">
+      <div class="form-entry" v-else-if="tab === 'custom'" role="tabpanel" aria-label="yaml编辑">
         <label class="form-entry__label">YAML</label>
         <div class="form-entry__field form-entry__field--code-editor">
           <code-editor lang="yaml" :value="customSettings" key="custom-settings" @changed="setCustomSettings"></code-editor>
         </div>
       </div>
-      <div class="form-entry" v-else-if="tab === 'default'" role="tabpanel" aria-label="默认配置">
+      <div class="form-entry" v-else-if="tab === 'default'" role="tabpanel" aria-label="默认预览">
         <div class="settings-modal__default-head">
           <label class="form-entry__label">YAML</label>
           <button
@@ -125,6 +125,11 @@ export default {
 .modal__inner-1.modal__inner-1--settings {
   max-width: 560px;
 }
+
+// 默认预览 tab 的只读 yaml：可选中复制阅读，not-allowed 光标会误导「禁选」
+.form-entry__field--code-editor > .code-editor[disabled] {
+  cursor: default;
+} 
 
 .modal__error--settings {
   white-space: pre-wrap;

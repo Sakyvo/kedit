@@ -410,14 +410,16 @@ export default {
   text-overflow: ellipsis;
 }
 
-.settings-visual__button-row .settings-visual__shortcut {
-  flex: 0 0 150px;
-  margin-left: auto;
+.settings-visual select.textfield {
+  cursor: pointer;
 }
 
 .settings-visual__shortcut {
   width: 150px;
   text-align: center;
+  cursor: pointer;
+  flex: 0 0 150px;
+  margin-left: auto;
 
   &--capturing {
     border-color: $link-color !important;
