@@ -7,6 +7,9 @@ maxWidthFactor: 1
 # Auto-sync frequency (in ms). Minimum is 60000.
 autoSyncEvery: 90000
 
+# 长文档分段加载（超长文档按 ~2 万字分段渐进渲染；关闭回退全量管线）
+segmentedLoading: true
+
 # Editor settings
 editor:
   # Automatic list numbering

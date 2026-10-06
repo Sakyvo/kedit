@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -20,10 +20,22 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] `npm run build` 通过
-- [ ] 配置 → 可视化中出现「性能」组且位于「常规」上方，开关默认开
-- [ ] 关闭后重启/重开文档走旧全量管线（以全局标志位或日志可证）
-- [ ] 开关值改动持久化，且随设置 Sync 到另一设备
+- [x] `npm run build` 通过（exit=0，全量 39.7s）
+- [x] 配置 → 可视化中出现「性能」组且位于「常规」上方，开关默认开
+      （tmp-verify-011.mjs 断言字段描述序与默认值；视觉确认见人工项）
+- [x] 关闭后重启/重开文档走旧全量管线——标志位 `editorSvc.segmentedLoadingEnabled`
+      + 开关翻转日志 `[kedit] 长文档分段加载：开/关` 可证；
+      本卡内 ON/OFF 皆为旧管线（分段管线的第一刀在 012 切入），无行为分叉风险
+- [x] 开关值改动持久化（settingsYamlSvc set 往返断言通过）；
+      跨设备 Sync 实效见人工项（sync 投影保留开关已断言）
+
+## 人工验收项（skipped-manual）
+
+1. 打开 配置 → 可视化：顶部出现「性能」组（位于「常规」上方），开关
+   「长文档分段加载」默认开。
+2. 关闭开关 → 刷新页面 → 控制台出现 `[kedit] 长文档分段加载：关`；
+   重新开启后日志为「开」。
+3. 双设备：一侧改开关，另一侧设置同步生效（非 Device-local settings）。
 
 ## Blocked by
 

@@ -4,6 +4,12 @@
 
 export default [
   {
+    title: '性能',
+    fields: [
+      { path: ['segmentedLoading'], type: 'toggle', label: '长文档分段加载' },
+    ],
+  },
+  {
     title: '常规',
     fields: [
       {

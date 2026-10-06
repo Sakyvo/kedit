@@ -29,6 +29,7 @@ import {
 } from './editor/imgSizeGuard';
 import { createLayoutRemeasure } from './editor/layoutRemeasure';
 import { applyRememberedCap, fitImgWrapper, fitAllImgWrappers } from './editor/imgLineFit';
+import { isSegmentedLoadingEnabled } from './editor/segmentedLoading';
 
 const allowDebounce = (action, wait) => {
   let timeoutId;
@@ -190,6 +191,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   selectionRange: null,
   previewSelectionRange: null,
   previewSelectionStartOffset: null,
+  // 长文档分段加载总闸（ADR-0012）：ON=分段管线（后续卡切入），OFF=旧全量管线。
+  // 本卡（011）内 ON 行为与现状一致；标志位 + 开关变化日志供查证。
+  segmentedLoadingEnabled: true,
   activePreviewImgPathCounts: Object.create(null),
   activeEditorImgPathCounts: Object.create(null),
 
@@ -1032,6 +1036,20 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
 
     this.initHighlighters();
     window.addEventListener('beforeunload', releaseAllImgUrls, { once: true });
+
+    // 分段加载总闸：跟随设置实时更新，仅在开关翻转时打日志（重启后 OFF 可证）
+    store.watch(
+      () => store.getters['data/computedSettings'],
+      (settings) => {
+        const enabled = isSegmentedLoadingEnabled(settings);
+        if (enabled !== this.segmentedLoadingEnabled) {
+          this.segmentedLoadingEnabled = enabled;
+          console.info(`[kedit] 长文档分段加载：${enabled ? '开' : '关'}`);
+        }
+      },
+      { immediate: true },
+    );
+
     this.emit('inited');
   },
 });
