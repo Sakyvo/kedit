@@ -32,6 +32,14 @@ _Avoid_: file, page, note
 The manual act of moving a **Document**'s content from KEDIT into **pdir** so **Visitors** can see it. Never automatic. This act is the boundary at which content becomes public.
 _Avoid_: sync, deploy, export
 
+**目录（TOC）**:
+The side-bar panel listing a **Document**'s headings, built from the rendered heading elements. Clicking an entry jumps the editor/preview to that heading. Indentation reflects the heading's outline depth (actual nesting), not its raw ATX level — an orphan heading starts at the left edge.
+_Avoid_: outline (ambiguous with heading levels), navigator
+
+**自动收起（Auto-collapse）**:
+A per-device TOC setting (formerly "自动跳转", renamed because the jump itself always happens). When ON, after a TOC jump the TOC panel recedes: on wide layouts it falls back to the side-bar main menu (side bar stays open); on narrow/overlay layouts the whole side bar collapses back to the document. When OFF, the TOC panel stays as-is after a jump.
+_Avoid_: 自动跳转 (stale name — the setting never controlled jumping)
+
 **Sync**:
 The automatic, near-real-time mirroring of **Documents** between the Author's devices (a mobile edit appears on desktop with no manual action). Internal to KEDIT; never reaches Visitors.
 _Avoid_: publish, save, backup
