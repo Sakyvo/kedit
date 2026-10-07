@@ -49,6 +49,10 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
   editor.toggleEditable(true);
 
   function getTextContent() {
+    // 分段管线（ADR-0012）：文本由模型提供，DOM 只读一次
+    if (editor.options.getModelText) {
+      return editor.options.getModelText();
+    }
     // Markdown-it sanitization (Mac/DOS to Unix)
     let textContent = contentElt.textContent.replace(/\r[\n\u0085]?|[\u2424\u2028\u0085]/g, '\n');
     if (textContent.slice(-1) !== '\n') {
@@ -202,8 +206,20 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
     }
     skipSaveSelection = false;
 
+    // 分段管线：先用 mutations 同步模型（DOM 变更→delta），模型成功更新后
+    // getTextContent 从模型读，免去全文 DOM textContent 读取。推导失败时
+    // applyMutations 返回 false，调用方回退全读 DOM 并 setFullText 重建。
+    // 空 mutations（compositionend 补偿调用）：DOM 可能有未被观察的变更，
+    // 模型走全量重建保险（仅 IME 提交时发生，非每击键）。
+    if (editor.options.applyMutations
+      && (!editor.options.applyMutations(mutations) || mutations.length === 0)) {
+      editor.options.rebuildFromDom && editor.options.rebuildFromDom();
+    }
+
     const newTextContent = getTextContent();
-    const diffs = diffMatchPatch.diff_main(lastTextContent, newTextContent);
+    const diffs = editor.options.computeDiffs
+      ? editor.options.computeDiffs(lastTextContent, newTextContent)
+      : diffMatchPatch.diff_main(lastTextContent, newTextContent);
     editor.$markers.cl_each((marker) => {
       marker.adjustOffset(diffs);
     });
@@ -517,6 +533,8 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
       if (lastTextContent.slice(-1) !== '\n') {
         lastTextContent += '\n';
       }
+      // 分段管线：打开/重置时模型接管全文
+      editor.options.onInitContent && editor.options.onInitContent(lastTextContent);
     }
 
     const sectionList = highlighter.parseSections(lastTextContent, true);

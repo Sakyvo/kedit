@@ -30,6 +30,9 @@ import {
 import { createLayoutRemeasure } from './editor/layoutRemeasure';
 import { applyRememberedCap, fitImgWrapper, fitAllImgWrappers } from './editor/imgLineFit';
 import { isSegmentedLoadingEnabled } from './editor/segmentedLoading';
+import { createDocModel } from './editor/segmentedDocModel.js';
+import { windowedDiff } from './editor/windowedDiff.js';
+import { mergeMutationDeltas } from './editor/mutationDeltas.js';
 
 const allowDebounce = (action, wait) => {
   let timeoutId;
@@ -235,6 +238,13 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     editorSvc.emit('previewCtxMeasured', null);
     this.previewCtxWithDiffs = null;
     editorSvc.emit('previewCtxWithDiffs', null);
+    const segmented = isSegmentedLoadingEnabled(
+      store.getters['data/computedSettings'],
+    ) && this.segmentedLoadingEnabled !== false;
+    this.segmentedPipeline = segmented;
+    if (segmented) {
+      this.docModel = this.docModel || createDocModel();
+    }
     const options = {
       sectionHighlighter: (section) => {
         return safeHighlight(
@@ -244,9 +254,15 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         );
       },
       sectionParser: (text) => {
+        if (this.segmentedPipeline && this.docModel && this.docModel.text === text) {
+          // 分段管线：模型即事实源，section 对象复用（未变段引用相等，
+          // cledit 双向扫描短路跳过 DOM textContent 读）
+          return this.docModel.sections;
+        }
         this.parsingCtx = markdownConversionSvc.parseSections(this.converter, text);
         return this.parsingCtx.sections;
       },
+      ...(segmented ? this.buildSegmentedHooks() : {}),
       getCursorFocusRatio: () => {
         if (store.getters['data/layoutSettings'].focusMode) {
           return 1;
@@ -256,6 +272,117 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     };
     this.initClEditorInternal(options);
     this.restoreScrollPosition();
+  },
+
+  /**
+   * 分段管线钩子（ADR-0012）：模型供文本、mutations 推 delta、窗口化 diff。
+   * 任一推导失败 → 安全网全量重建（正确性优先）。
+   */
+  buildSegmentedHooks() {
+    const svc = this;
+    return {
+      getModelText: () => svc.docModel.text,
+      onInitContent: (text) => {
+        svc.docModel.setFullText(text);
+      },
+      applyMutations: (mutations) => {
+        try {
+          const descs = svc.normalizeMutations(mutations);
+          const deltas = mergeMutationDeltas(descs);
+          if (!deltas) {
+            return false;
+          }
+          for (const d of deltas) {
+            svc.docModel.applyDelta(d);
+          }
+          return true;
+        } catch (err) {
+          return false;
+        }
+      },
+      rebuildFromDom: () => {
+        // 安全网：从 DOM 全量重建模型（推导失败时，正确但慢）
+        const domText = svc.editorElt.textContent
+          .replace(/\r[\n\u0085]?|[\u2424\u2028\u0085]/g, '\n');
+        svc.docModel.setFullText(domText);
+      },
+      computeDiffs: (oldText, newText) => windowedDiff(oldText, newText),
+    };
+  },
+
+  /**
+   * MutationRecord[] → 归一化描述（DOM 薄壳：偏移定位）。
+   * 无法定位的形态返回含未知类型项，由 mergeMutationDeltas 判定安全网。
+   */
+  normalizeMutations(mutations) {
+    const descs = [];
+    for (const m of mutations) {
+      if (m.type === 'characterData') {
+        const offset = this.getDomTextOffset(m.target);
+        if (offset == null) {
+          descs.push({ type: 'unknown' });
+          continue;
+        }
+        descs.push({
+          type: 'text',
+          offset,
+          oldValue: m.oldValue || '',
+          value: m.target.nodeValue || '',
+        });
+      } else if (m.type === 'childList') {
+        const anchorNode = m.previousSibling || m.target.previousSibling;
+        let offset = null;
+        if (anchorNode) {
+          offset = this.getDomTextOffset(anchorNode);
+          if (offset != null) offset += anchorNode.textContent.length;
+        } else {
+          const parentOffset = this.getDomTextOffset(m.target);
+          if (parentOffset != null) offset = parentOffset;
+        }
+        if (offset == null) {
+          descs.push({ type: 'unknown' });
+          continue;
+        }
+        const removedText = Array.from(m.removedNodes)
+          .map(n => n.textContent).join('');
+        const addedText = Array.from(m.addedNodes)
+          .map(n => n.textContent).join('');
+        descs.push({ type: 'list', offset, removedText, addedText });
+      } else {
+        descs.push({ type: 'unknown' });
+      }
+    }
+    return descs;
+  },
+
+  /**
+   * 节点在编辑器域内的文本偏移（sections 结构上定位，不做全文 DOM 读）。
+   * 返回 null 表示无法定位。
+   */
+  getDomTextOffset(node) {
+    let elt = node.nodeType === 3 ? node.parentNode : node;
+    while (elt && elt !== this.editorElt) {
+      if (elt.section) {
+        const section = elt.section;
+        const idx = this.docModel.sections.indexOf(section);
+        if (idx < 0) {
+          return null;
+        }
+        // section 起始偏移 + 节点在 section elt 内的相对偏移
+        let rel = 0;
+        const walker = document.createTreeWalker(elt, window.NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          if (walker.currentNode === node) {
+            return section.start + rel;
+          }
+          rel += walker.currentNode.textContent.length;
+        }
+        // 节点不是文本（元素）：累计到其前兄弟文本
+        return section.start + rel;
+      }
+      elt = elt.parentNode;
+    }
+    return node === this.editorElt ? 0 : null;
   },
 
   /**
@@ -615,6 +742,39 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         this.measureSectionDimensions(false, false, true);
       }
     });
+
+    // 分段管线对账哨兵 + 打点（ADR-0012）：模型↔DOM 逐段对账，节流 2s。
+    // 不一致即抛错（开发可见）；perf 计数供验收取证。
+    let lastReconcileAt = 0;
+    this.clEditor.on('highlighted', () => {
+      if (!this.segmentedPipeline || !this.docModel) {
+        return;
+      }
+      const now = Date.now();
+      if (now - lastReconcileAt < 2000) {
+        return;
+      }
+      lastReconcileAt = now;
+      const sections = this.docModel.sections;
+      const sectionElts = this.editorElt.children;
+      let mismatch = null;
+      for (let i = 0; i < Math.min(sections.length, sectionElts.length); i += 1) {
+        const elt = sectionElts[i];
+        // cledit 每次 parseSections 会包一层 Section 实例，身份不可靠，
+        // 改用 text 相等作为对账门槛
+        if (!elt.section || elt.section.text !== sections[i].text) {
+          continue; // 未同步的段（后续事件会对齐）
+        }
+        const domText = elt.textContent;
+        if (domText !== sections[i].text && domText.replace(/\r\n?/g, '\n') !== sections[i].text) {
+          mismatch = i;
+          break;
+        }
+      }
+      if (mismatch != null) {
+        throw new Error(`docModel 哨兵：第 ${mismatch} 段 DOM 文本与模型不一致`);
+      }
+    });
     this.clEditor.undoMgr.on('undoStateChange', () => {
       const canUndo = this.clEditor.undoMgr.canUndo();
       if (canUndo !== store.state.layout.canUndo) {
@@ -660,16 +820,21 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.editorElt.parentNode.addEventListener('scroll', () => this.saveContentState(true));
     this.previewElt.parentNode.addEventListener('scroll', () => this.saveContentState(true));
 
+    // 击键活跃期跳过全量 convert/refreshPreview（ADR-0012 降频行为，R1-Q3
+    // 批准）：输入停顿 200ms 后补跑一次；打开文件首次仍即时（instantPreview）。
     const refreshPreview = allowDebounce(async () => {
-      this.convert();
       if (instantPreview) {
+        this.convert();
         await this.refreshPreview();
         this.measureSectionDimensions(false, true, true);
       } else {
-        setTimeout(() => this.refreshPreview(), 10);
+        setTimeout(() => {
+          this.convert();
+          this.refreshPreview();
+        }, 10);
       }
       instantPreview = false;
-    }, 25);
+    }, 200);
 
     let newSectionList;
     let newSelectionRange;
