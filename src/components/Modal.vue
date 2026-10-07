@@ -274,7 +274,9 @@ export default {
   width: 100%;
   height: 100%;
   background-color: rgba(160, 160, 160, 0.5);
-  overflow: auto;
+  // 模态本身不滚动——滚动容器一律是 inner-2（已 max-height 受限于视口）。
+  // 否则鼠标落在 tabs/暗背景上滚轮会让整个模态在窗口里上下飘（用户反馈）。
+  overflow: hidden;
 
   p {
     line-height: 1.5;
@@ -311,6 +313,9 @@ export default {
   max-height: calc(100vh - 60px);
   overflow-y: auto;
   overflow-x: hidden;
+  // 各 tab 内容高度不一（可视化 tab 长→出滚动条，yaml编辑 短→无），滚动条沟槽
+  // 出现/消失会让内容宽度变 8px 上下横移（035 右偏根治）：恒预留沟槽。
+  scrollbar-gutter: stable;
 
   .app--dark & {
     background-color: #383c4a;
@@ -448,6 +453,42 @@ export default {
 
   .form-entry--error & {
     color: darken($error-color, 10%);
+  }
+}
+
+// 单行 toggle 变体：☑ 左 + 解释右，无灰框（仅 settings 可视化 tab 使用）
+.form-entry--inline {
+  margin: 0.6em 0;
+
+  .form-entry__inline-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    padding: 4px 2px;
+    border-radius: $border-radius-base;
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.03);
+
+      .app--dark & {
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+    }
+
+    input[type=checkbox] {
+      margin: 0;
+      flex: 0 0 auto;
+    }
+
+    .form-entry__label-info {
+      color: #808080;
+
+      .app--dark & {
+        color: #a8a8b3;
+      }
+    }
   }
 }
 

@@ -54,16 +54,28 @@ const displayCombo = (combo, isMac) => combo
   })
   .join('+');
 
-// combo -> bound method (expand form has { method, params }; owner = method name)
+// combo -> bound method (expand form has { method, params }; owner = method name).
+// null/false 值 = 用户显式删除（custom yaml 写 null 盖过 defaults 的默认绑定）。
 const comboOwner = (shortcuts, combo) => {
   const hit = (shortcuts || {})[combo];
-  return hit === undefined ? undefined : hit.method || hit;
+  if (hit === undefined || hit === null || hit === false) {
+    return undefined;
+  }
+  return hit.method || hit;
 };
 
-// method -> currently bound combo
+// method -> currently bound combo. merged shortcuts 可能为一个 method 挂多个
+// 组合键（defaults 残留 + custom 覆盖）；取最后一个（mergeInto 的
+// Object.assign 里 custom 键在后，即用户最新绑定）。
 const comboOfMethod = (shortcuts, method) => {
-  const entry = Object.entries(shortcuts || {})
-    .find(([, v]) => (v && v.method ? v.method : v) === method);
+  const entries = Object.entries(shortcuts || {})
+    .filter(([, v]) => {
+      if (v === null || v === false) {
+        return false;
+      }
+      return (v && v.method ? v.method : v) === method;
+    });
+  const entry = entries[entries.length - 1];
   return entry ? entry[0] : '';
 };
 

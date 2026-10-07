@@ -129,9 +129,9 @@ export default {
   max-width: 560px;
 }
 
-// 默认预览 tab 的只读 yaml：可选中复制阅读，not-allowed 光标会误导「禁选」
+// 默认预览 tab 的只读 yaml：可选中复制阅读，光标用 text（I 型）暗示可选文本
 .form-entry__field--code-editor > .code-editor[disabled] {
-  cursor: default;
+  cursor: text;
 } 
 
 .modal__error--settings {

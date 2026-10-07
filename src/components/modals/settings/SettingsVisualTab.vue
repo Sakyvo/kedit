@@ -46,7 +46,7 @@
         </div>
       </template>
       <template v-else>
-      <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label" :info="infoOf(field)">
+      <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label" :info="infoOf(field)" :inline="field.type === 'toggle'">
         <template v-slot:field>
           <input
             v-if="field.type === 'toggle'"
@@ -54,14 +54,12 @@
             :checked="valueOf(field) === true"
             @change="onToggle(field, $event.target.checked)"
           >
-          <select
+          <settings-select
             v-else-if="field.type === 'select'"
-            class="textfield"
             :value="valueOf(field)"
-            @change="onSelect(field, $event.target.value)"
-          >
-            <option v-for="option in field.options" :key="option.value" :value="option.value">{{ option.label }}</option>
-          </select>
+            :options="field.options"
+            @change="onSelect(field, $event)"
+          ></settings-select>
           <template v-else-if="field.type === 'number'">
             <input
               class="textfield"
@@ -114,6 +112,7 @@ import shortcutCapture from '../../../services/shortcutCapture';
 import pagedownButtons from '../../../data/pagedownButtons';
 import defaultSettings from '../../../data/defaults/defaultSettings.yml?raw';
 import fieldSections from './settingsFields';
+import SettingsSelect from './SettingsSelect';
 import FormEntry from '../common/FormEntry';
 
 const parsedDefaults = yaml.load(defaultSettings);
@@ -122,6 +121,7 @@ const fieldKey = field => JSON.stringify(field.path);
 export default {
   components: {
     FormEntry,
+    SettingsSelect,
   },
   props: {
     draft: {
@@ -145,6 +145,16 @@ export default {
   computed: {
     merged() {
       return settingsYamlSvc.mergeSettings(parsedDefaults, this.draft);
+    },
+    // custom yaml 里用户自己写的 shortcuts 键，用于判定一个旧组合能否被行级
+    // remove（defaults 覆盖区里的组合只能 set null）
+    customDraftShortcuts() {
+      try {
+        const parsed = yaml.load(this.draft) || {};
+        return parsed && typeof parsed === 'object' ? (parsed.shortcuts || {}) : {};
+      } catch (e) {
+        return {};
+      }
     },
     orderedButtons() {
       const show = (this.merged.editor && this.merged.editor.headButtons) || {};
@@ -288,6 +298,18 @@ export default {
         pagedownButtons.forEach((b) => { byMethod[b.method] = b; });
         this.conflictHint = { combo, fromTitle: (byMethod[owner] || {}).title || owner };
         setTimeout(() => { this.conflictHint = null; }, 4000);
+      }
+      // 同方法的旧绑定一并清除——否则一个按钮挂两个组合键，pill 仍显示旧值。
+      // 旧组合若来自 defaults（custom yaml 里无此键），行级 remove 无从删起，
+      // 写 null 覆盖（comboOwner/comboOfMethod 将 null 视为已删除）。
+      const prevCombo = shortcutCapture.comboOfMethod(this.merged.shortcuts, method);
+      if (prevCombo && prevCombo !== combo) {
+        const customShortcuts = (this.customDraftShortcuts || {});
+        if (Object.prototype.hasOwnProperty.call(customShortcuts, prevCombo)) {
+          this.$emit('remove', { path: ['shortcuts', prevCombo] });
+        } else {
+          this.$emit('set', { path: ['shortcuts', prevCombo], value: null });
+        }
       }
       this.$emit('set', { path: ['shortcuts', combo], value: method });
       e.target.blur();
