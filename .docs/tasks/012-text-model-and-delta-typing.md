@@ -76,8 +76,20 @@ Status: review
    `editorSvc.docModel.sections.length` 应 ≈ 9.5k。
 4. 开关 OFF（配置→可视化→性能）→ 重开文档 → 行为与旧版一致（25ms→200ms
    预览降频除外，属批准的全局行为）。
-5. 真机（Honor Magic 2）：同文档输入延迟对比——本卡后移动端击键应显著改善
-   （013/014 前打开仍慢，属预期）。
+5. 真机（Honor Magic 2）：同文档输入延迟对比——本卡后移动端击键应改善；
+   但 810k 巨 DOM 上的**原生打字**（native insertText 结算 layout with
+   29k+ nodes）仍慢——这是 013 渐进加载（DOM 虚拟化）显靶，不属本卡失败。
+6. 警后在 810k 文档中打 20 圈圈，再试 Ctrl+A 复制（应复制全文）——011 的
+   硬验收项与本卡互型审计。
+
+## 现网事故记录（fix 后已修复）
+
+- **事故**：012 首次 commit 后整个应用空白（编辑器、预览、状态栏全无）。
+- **根因**：构造期首调用 `getTextContent()` 时 `editor.options` 尚未赋值，
+  我的 `editor.options.getModelText` 引用 undefined。**修：options 防御性
+  空判**（构造期回退 DOM 读）。
+- **发现方式**：browser headless 复现 Welcome 即炸，控制台 TypeError 直出。
+  以后此类粗性错可在 S5 harness 前置加「options undefined 态」断言。
 
 ## Blocked by
 
