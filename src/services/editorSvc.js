@@ -33,6 +33,7 @@ import { isSegmentedLoadingEnabled } from './editor/segmentedLoading';
 import { createDocModel } from './editor/segmentedDocModel.js';
 import { windowedDiff } from './editor/windowedDiff.js';
 import { mergeMutationDeltas } from './editor/mutationDeltas.js';
+import { applyTocOutlineDepths } from './editor/tocDepth.js';
 
 const allowDebounce = (action, wait) => {
   let timeoutId;
@@ -400,7 +401,6 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   async refreshPreview() {
     const nextPreviewImgPathCounts = Object.create(null);
     const sectionDescList = [];
-    const tocHeadingStack = [];
     let sectionPreviewElt;
     let sectionTocElt;
     let sectionIdx = 0;
@@ -484,14 +484,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
             const clonedElt = headingElt.cloneNode(true);
             clonedElt.removeAttribute('id');
             sectionTocElt.appendChild(clonedElt);
-            // Outline depth: indent reflects actual nesting, not raw ATX level,
-            // so an orphan h4 (no ancestor) starts at the left edge.
-            const headingLevel = Number(headingElt.tagName.slice(1));
-            while (tocHeadingStack.length && tocHeadingStack[tocHeadingStack.length - 1] >= headingLevel) {
-              tocHeadingStack.pop();
-            }
-            sectionTocElt.dataset.outlineDepth = String(tocHeadingStack.length);
-            tocHeadingStack.push(headingLevel);
+            // Outline depth is recomputed for the WHOLE TOC after the diff loop
+            // (applyTocOutlineDepths): a heading's indent depends on the whole
+            // document prefix, which incremental section rendering cannot see.
             // 创建一个新的 <span> 元素
             const contentElt = document.createElement('span');
             contentElt.className = 'content';
@@ -523,6 +518,11 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.tocElt.classList[
       this.tocElt.querySelector('.cl-toc-section *') ? 'remove' : 'add'
     ]('toc-tab--empty');
+
+    // Whole-TOC depth pass over the final document order (batch-A #039 fix):
+    // unchanged sections kept stale dataset values and fresh ones never saw
+    // their ancestors, so any `#` level edit left sticky misalignment.
+    applyTocOutlineDepths(this.tocElt);
 
     this.previewCtx = {
       markdown: this.conversionCtx.text,

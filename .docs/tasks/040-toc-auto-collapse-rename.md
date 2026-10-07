@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -23,7 +23,7 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] `npm run build` 通过
+- [x] `npm run build` 通过
 - [ ] 桌面（`layoutOverflow` 假）× 开：点目录项 → 跳转 + 面板回主菜单、侧栏仍开、
       编辑区宽度不变
 - [ ] 桌面 × 关：点目录项 → 跳转、目录面板不动
@@ -34,6 +34,21 @@ Status: open
 - [ ] 迁移：手工在 localStorage 注入含 `tocAutoJump: false` 的旧 layoutSettings →
       刷新后开关为关、JSON 中旧键消失、新键为 false；新设备/清库回落 `true`
 - [ ] 按钮开关本体仍可正常切换（tooltip 与高亮态随动）
+
+## Implement notes
+
+- 新增 `src/services/editor/tocAutoCollapseMigration.js`：
+  `migrateTocAutoCollapse(data)`（旧键搬值/删旧键/幂等，双键并存时新键胜出）。
+- `localDbSvc.syncLocalStorage()`：读 localStorage 的 layoutSettings 时先跑迁移、
+  再重算 hash 后入 store，下一次写回即落新键（迁移幂等，每设备仅首装生效）。
+- 键名联动：`defaultLayoutSettings.tocAutoCollapse: true`、store action
+  `toggleTocAutoCollapse`、SideBar 按钮 tooltip「自动收起：开/关」（图标
+  CrosshairsGps 不变）。
+- `Toc.vue` 跳转成功后：`styles.layoutOverflow` 真 → `toggleSideBar(false)`；
+  假 → `setSideBarPanel('menu')`（侧栏保持开，与 016 ✕ 语义同判据）；开关关闭
+  或跳转目标为空 early-return 时界面不变。
+- Harness：`test/unit/harness/tocAutoCollapseMigration.harness.mjs`（旧值
+  true/false 各自存活、无旧键 no-op、双键新胜出、幂等、非对象安全）。
 
 ## Blocked by
 

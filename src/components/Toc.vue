@@ -63,9 +63,15 @@ export default {
       if (targets.preview != null) {
         editorSvc.previewElt.parentNode.scrollTop = targets.preview;
       }
-      // With auto-jump enabled, close the side bar once the jump happened
-      if (store.getters['data/layoutSettings'].tocAutoJump) {
-        store.dispatch('data/toggleSideBar', false);
+      // With auto-collapse enabled, recede the TOC once the jump happened:
+      // wide layout falls back to the side-bar main menu; narrow/overlay
+      // layout (full-width panel covering the document) closes the side bar.
+      if (store.getters['data/layoutSettings'].tocAutoCollapse) {
+        if (this.styles.layoutOverflow) {
+          store.dispatch('data/toggleSideBar', false);
+        } else {
+          store.dispatch('data/setSideBarPanel', 'menu');
+        }
       }
     });
 

@@ -10,6 +10,6 @@ export default () => ({
   findCaseSensitive: false,
   findUseRegexp: false,
   sideBarPanel: 'menu',
-  tocAutoJump: true,
+  tocAutoCollapse: true,
   welcomeTourFinished: false,
 });

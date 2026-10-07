@@ -3,6 +3,7 @@ import store from '../store';
 import welcomeFile from '../data/welcomeFile.md?raw';
 import workspaceSvc from './workspaceSvc';
 import constants from '../data/constants';
+import { migrateTocAutoCollapse } from './editor/tocAutoCollapseMigration.js';
 
 const deleteMarkerMaxAge = 1000;
 const dbVersion = 3;
@@ -103,6 +104,14 @@ const localDbSvc = {
         try {
           // Try to parse the item from the localStorage
           const storedItem = JSON.parse(localStorage.getItem(key));
+          if (storedItem && storedItem.data) {
+            // One-shot key migration (batch-A #040): tocAutoJump ->
+            // tocAutoCollapse, before the hash below freezes the item.
+            migrateTocAutoCollapse(storedItem.data);
+            if (storedItem.hash) {
+              storedItem.hash = utils.addItemHash(storedItem).hash;
+            }
+          }
           if (storedItem.hash && lsHashMap[id] !== storedItem.hash) {
             // Item has changed, replace it in the store
             store.commit('data/setItem', storedItem);

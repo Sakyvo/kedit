@@ -4,7 +4,7 @@
       <div class="side-title__title">
         {{panelName}}
       </div>
-      <button class="side-title__button button" :class="{'side-title__button--on': tocAutoJump}" v-if="panel === 'toc'" @click="toggleTocAutoJump()" v-title="tocAutoJump ? '自动跳转：开' : '自动跳转：关'">
+      <button class="side-title__button button" :class="{'side-title__button--on': tocAutoCollapse}" v-if="panel === 'toc'" @click="toggleTocAutoCollapse()" v-title="tocAutoCollapse ? '自动收起：开' : '自动收起：关'">
         <icon-crosshairs-gps></icon-crosshairs-gps>
       </button>
       <button class="side-title__button button" @click="closePanel" v-title="closeHint">
@@ -90,8 +90,8 @@ export default {
     panelName() {
       return panelNames[this.panel];
     },
-    tocAutoJump() {
-      return store.getters['data/layoutSettings'].tocAutoJump;
+    tocAutoCollapse() {
+      return store.getters['data/layoutSettings'].tocAutoCollapse;
     },
     // Narrow screens render the side bar as a full-width overlay over the
     // document (see layoutOverflow in store/layout.js), so its ✕ returns to
@@ -110,7 +110,7 @@ export default {
   methods: {
     ...mapActions('data', [
       'toggleSideBar',
-      'toggleTocAutoJump',
+      'toggleTocAutoCollapse',
     ]),
     ...mapActions('data', {
       setPanel: 'setSideBarPanel',
