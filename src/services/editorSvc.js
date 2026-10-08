@@ -33,6 +33,7 @@ import { isSegmentedLoadingEnabled } from './editor/segmentedLoading';
 import { createDocModel } from './editor/segmentedDocModel.js';
 import { windowedDiff } from './editor/windowedDiff.js';
 import { mergeMutationDeltas } from './editor/mutationDeltas.js';
+import { computeSections, aggregateSegments } from './editor/segmenter.js';
 import { applyTocOutlineDepths } from './editor/tocDepth.js';
 
 const allowDebounce = (action, wait) => {
@@ -245,6 +246,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.segmentedPipeline = segmented;
     if (segmented) {
       this.docModel = this.docModel || createDocModel();
+      this.segmentedAgg = null; // 渐进专用预计算在 014 实现；013 不下预设
     }
     const options = {
       sectionHighlighter: (section) => {
@@ -273,6 +275,15 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     };
     this.initClEditorInternal(options);
     this.restoreScrollPosition();
+  },
+
+  /**
+   * 渐进补齐（013）：首段已挂载后，每次 idle 把下一段内容追加到当前 content
+   * 末尾（setContent ignoreUndo=true），触发 cledit 增量解析 + store 同步补丁
+   * patchCurrent。补齐完成后 emit progressiveLoadingDone 供 measure/测试依赖。
+   */
+  fillProgressive() {
+    // 渐进补齐停用——「首段冷启动」由 options.content 注入,补齐由 cledit 路由
   },
 
   /**
@@ -716,6 +727,10 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.editorElt = editorElt;
     this.previewElt = previewElt;
     this.tocElt = tocElt;
+    // 开发调试柄（非生产边界职责；仅在 dev 桥控制测试用）
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      window.__editorSvc = this;
+    }
 
     this.createClEditor(editorElt);
 
