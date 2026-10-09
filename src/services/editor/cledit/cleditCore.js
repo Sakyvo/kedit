@@ -552,10 +552,6 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
       scrollElt.scrollTop = options.scrollTop;
     }
 
-    // 渐进载入：首段渲染完成后由调用方继续逐段补齐
-    if (options.onFirstPaint) {
-      requestAnimationFrame(() => options.onFirstPaint());
-    }
   };
 
   return editor;

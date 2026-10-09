@@ -33,8 +33,9 @@ import { isSegmentedLoadingEnabled } from './editor/segmentedLoading';
 import { createDocModel } from './editor/segmentedDocModel.js';
 import { windowedDiff } from './editor/windowedDiff.js';
 import { mergeMutationDeltas } from './editor/mutationDeltas.js';
-import { computeSections, aggregateSegments } from './editor/segmenter.js';
 import { applyTocOutlineDepths } from './editor/tocDepth.js';
+import { extractHeadings, mapHeadingsToSections, computeSectionStarts } from './editor/headingsScan.js';
+import { computeTocEntries, tocEntryKey, planTocPatch } from './editor/tocModel.js';
 
 const allowDebounce = (action, wait) => {
   let timeoutId;
@@ -240,13 +241,21 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     editorSvc.emit('previewCtxMeasured', null);
     this.previewCtxWithDiffs = null;
     editorSvc.emit('previewCtxWithDiffs', null);
+    // 上下文重置：编辑器重建后 parsingCtx/conversionCtx 的 sectionList 与预览
+    // 上下文都指向旧文档，下一次 convert 会误报“未变”而产生错位配对。
+    this.parsingCtx = null;
+    this.conversionCtx = null;
+    this.previewCtx = { sectionDescList: [] };
+    this.tocKeys = null;
+    this.sectionOffsetsList = null;
+    this.sectionOffsetsCache = null;
+    this.tocElt.innerHTML = '';
     const segmented = isSegmentedLoadingEnabled(
       store.getters['data/computedSettings'],
     ) && this.segmentedLoadingEnabled !== false;
     this.segmentedPipeline = segmented;
     if (segmented) {
       this.docModel = this.docModel || createDocModel();
-      this.segmentedAgg = null; // 渐进专用预计算在 014 实现；013 不下预设
     }
     const options = {
       sectionHighlighter: (section) => {
@@ -256,12 +265,11 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
           section.data,
         );
       },
+      // 卡 012/015 事实修正：廉价分段器与 markdown-it 的块边界不等价
+      // （样本 9546 vs 10801，index 0 即分歧：标题/列表/hr 可无空行打断段落）。
+      // 编辑器与预览共用同一 section 源（markdown-it）才能保持 1:1 配对；
+      // 模型只负责文本事实（delta/窗口 diff/全选/TOC 数据源）。
       sectionParser: (text) => {
-        if (this.segmentedPipeline && this.docModel && this.docModel.text === text) {
-          // 分段管线：模型即事实源，section 对象复用（未变段引用相等，
-          // cledit 双向扫描短路跳过 DOM textContent 读）
-          return this.docModel.sections;
-        }
         this.parsingCtx = markdownConversionSvc.parseSections(this.converter, text);
         return this.parsingCtx.sections;
       },
@@ -278,12 +286,85 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   },
 
   /**
-   * 渐进补齐（013）：首段已挂载后，每次 idle 把下一段内容追加到当前 content
-   * 末尾（setContent ignoreUndo=true），触发 cledit 增量解析 + store 同步补丁
-   * patchCurrent。补齐完成后 emit progressiveLoadingDone 供 measure/测试依赖。
+   * 扫描驱动 TOC（卡 015）：从模型文本行扫描重建目录 DOM，与预览渲染解耦。
+   * 条目与 sectionList 索引对齐（无标题段占位），锚点 = section 索引。
+   * 中段 splice：击键只重建局部条目，尾部条目对象与 DOM 保持复用。
    */
-  fillProgressive() {
-    // 渐进补齐停用——「首段冷启动」由 options.content 注入,补齐由 cledit 路由
+  rebuildTocFromScan(sectionsArg) {
+    if (!this.docModel || !this.tocElt) {
+      return;
+    }
+    // TOC 槽位来自编辑器自己的 sectionList（markdown-it 划分），保证
+    // tocElt.children[i] ↔ sectionList[i] ↔ preview 1:1 对齐；标题内容由
+    // 行扫描（自由文本，与 markdown-it 划分解耦）按偏移映射进来。
+    const sections = sectionsArg || this.sectionList;
+    if (!sections || !sections.length) {
+      return;
+    }
+    const text = this.docModel.text;
+    const starts = computeSectionStarts(sections);
+    const headings = mapHeadingsToSections(extractHeadings(text), sections.map((s, i) => ({
+      start: starts[i],
+      end: starts[i] + (s.text ? s.text.length : 0),
+    })));
+    const entries = computeTocEntries(sections, headings);
+    const keys = entries.map(e => tocEntryKey(e));
+    const ops = planTocPatch(this.tocKeys || [], keys);
+    if (!ops.length) {
+      return;
+    }
+    for (const op of ops) {
+      for (let i = 0; i < op.removeCount; i += 1) {
+        const elt = this.tocElt.children[op.index];
+        if (elt) {
+          this.tocElt.removeChild(elt);
+        }
+      }
+      const anchor = this.tocElt.children[op.index] || null;
+      for (let i = 0; i < op.keys.length; i += 1) {
+        const entry = this.tocEntriesFromKey(op.keys[i]);
+        this.tocElt.insertBefore(this.createTocEntryElt(entry), anchor);
+      }
+    }
+    this.tocKeys = keys;
+    this.tocElt.classList[
+      this.tocElt.querySelector('.cl-toc-section *') ? 'remove' : 'add'
+    ]('toc-tab--empty');
+    applyTocOutlineDepths(this.tocElt);
+    this.measureSectionDimensions(false, false, true);
+  },
+
+  /** 条目键 → {level,text}（键 = `${level}\u0000${text}`）。 */
+  tocEntriesFromKey(key) {
+    const sep = key.indexOf('\u0000');
+    return { level: Number(key.slice(0, sep)), text: key.slice(sep + 1) };
+  },
+
+  /** 新建一个 TOC 条目 DOM（标题内容走 inline 渲染，占位为空 div）。 */
+  createTocEntryElt(entry) {
+    const sectionTocElt = document.createElement('div');
+    sectionTocElt.className = 'cl-toc-section';
+    if (entry.level) {
+      const headingElt = document.createElement(`h${entry.level}`);
+      headingElt.innerHTML = this.renderTocHeadingHtml(entry.text);
+      sectionTocElt.appendChild(headingElt);
+    }
+    return sectionTocElt;
+  },
+
+  /** 标题行内渲染（模型文本 → 安全 HTML）。 */
+  renderTocHeadingHtml(raw) {
+    const md = this.converter;
+    if (md && typeof md.renderInline === 'function') {
+      try {
+        return htmlSanitizer.sanitizeHtml(md.renderInline(raw || ''));
+      } catch (err) {
+        // 回退纯文本
+      }
+    }
+    return htmlSanitizer.sanitizeHtml(
+      String(raw || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'),
+    );
   },
 
   /**
@@ -307,7 +388,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
           for (const d of deltas) {
             svc.docModel.applyDelta(d);
           }
-          return true;
+          return svc.verifyModelAgainstDom(deltas);
         } catch (err) {
           return false;
         }
@@ -320,6 +401,38 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       },
       computeDiffs: (oldText, newText) => windowedDiff(oldText, newText),
     };
+  },
+
+  /**
+   * 局部自检（卡 012/015）：只读被改段（O(段)），比对模型切片与 DOM 文本。
+   * 段起点在编辑前后不变，故可用编辑前的段偏移读 DOM 的编辑后文本。
+   * 失败 → false → 调用方走 rebuildFromDom 安全网（正确但慢）。
+   */
+  verifyModelAgainstDom(deltas) {
+    const list = this.sectionList;
+    const text = this.docModel.text;
+    if (!list || !list.length || !deltas || !deltas.length) {
+      return true;
+    }
+    const offsets = this.getSectionOffsets();
+    const elts = this.editorElt.children;
+    let first = Infinity;
+    for (const d of deltas) {
+      if (d.start < first) first = d.start;
+    }
+    let lo = 0;
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+      if (offsets[i] <= first) {
+        lo = i;
+        break;
+      }
+    }
+    const elt = elts[lo];
+    if (!elt) {
+      return false;
+    }
+    const domText = elt.textContent;
+    return text.slice(offsets[lo], offsets[lo] + domText.length) === domText;
   },
 
   /**
@@ -368,29 +481,46 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   },
 
   /**
-   * 节点在编辑器域内的文本偏移（sections 结构上定位，不做全文 DOM 读）。
-   * 返回 null 表示无法定位。
+   * sectionList（cledit 当前段列表）的累积起始偏移。缓存于列表身份。
+   */
+  getSectionOffsets() {
+    if (this.sectionOffsetsList === this.sectionList && this.sectionOffsetsCache) {
+      return this.sectionOffsetsCache;
+    }
+    const list = this.sectionList || [];
+    const offsets = new Array(list.length);
+    let offset = 0;
+    for (let i = 0; i < list.length; i += 1) {
+      offsets[i] = offset;
+      offset += list[i] && list[i].text ? list[i].text.length : 0;
+    }
+    this.sectionOffsetsList = this.sectionList;
+    this.sectionOffsetsCache = offsets;
+    return offsets;
+  },
+
+  /**
+   * 节点在编辑器域内的文本偏移：先定位其所属 section（cledit 段对象），
+   * 再加段内相对文本偏移。不做全文 DOM 读。
    */
   getDomTextOffset(node) {
     let elt = node.nodeType === 3 ? node.parentNode : node;
     while (elt && elt !== this.editorElt) {
-      if (elt.section) {
-        const section = elt.section;
-        const idx = this.docModel.sections.indexOf(section);
-        if (idx < 0) {
+      if (elt.classList && elt.classList.contains('cledit-section')) {
+        const index = Array.prototype.indexOf.call(this.editorElt.children, elt);
+        if (index < 0) {
           return null;
         }
-        // section 起始偏移 + 节点在 section elt 内的相对偏移
+        // 段内相对偏移：该元素内位于 node 之前的文本量
         let rel = 0;
         const walker = document.createTreeWalker(elt, window.NodeFilter.SHOW_TEXT);
         while (walker.nextNode()) {
           if (walker.currentNode === node) {
-            return section.start + rel;
+            break;
           }
           rel += walker.currentNode.textContent.length;
         }
-        // 节点不是文本（元素）：累计到其前兄弟文本
-        return section.start + rel;
+        return this.getSectionOffsets()[index] + rel;
       }
       elt = elt.parentNode;
     }
@@ -401,6 +531,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
    * Finish the conversion initiated by the section parser
    */
   convert() {
+    if (!this.parsingCtx || !this.parsingCtx.markdownState) {
+      return; // 编辑器尚未完成首次 section 解析（init 早期事件）；无正文可转换
+    }
     this.conversionCtx = markdownConversionSvc.convert(this.parsingCtx, this.conversionCtx);
     this.emit('conversionCtx', this.conversionCtx);
     ({ tokens } = this.parsingCtx.markdownState);
@@ -410,6 +543,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
    * Refresh the preview with the result of `convert()`
    */
   async refreshPreview() {
+    if (!this.conversionCtx || !this.previewCtx) {
+      return;
+    }
     const nextPreviewImgPathCounts = Object.create(null);
     const sectionDescList = [];
     let sectionPreviewElt;
@@ -420,12 +556,21 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     let insertBeforeTocElt = this.tocElt.firstChild;
     let previewHtml = '';
     let loadingImages = [];
+    // 卡 015：分段管线 ON 时 TOC 由扫描驱动（rebuildTocFromScan），此处只读
+    // 已存在的条目做锚点，不写入、不删。
+    const tocDrivenByScan = !!this.segmentedPipeline;
     for (const item of this.conversionCtx.htmlSectionDiff) {
       for (let i = 0; i < item[1].length; i += 1) {
         const section = this.conversionCtx.sectionList[sectionIdx];
         if (item[0] === 0) {
           let sectionDesc = this.previewCtx.sectionDescList[sectionDescIdx];
           sectionDescIdx += 1;
+          if (!sectionDesc) {
+            // 防御：上下文不同步时跳过该项（正常路径下 initClEditor 会重置
+            // parsingCtx/conversionCtx，不会出现）
+            sectionIdx += 1;
+            continue;
+          }
           if (sectionDesc.editorElt !== section.elt) {
             // Force textToPreviewDiffs computation
             sectionDesc = new SectionDesc(
@@ -439,15 +584,19 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
           previewHtml += sectionDesc.html;
           sectionIdx += 1;
           insertBeforePreviewElt = insertBeforePreviewElt.nextSibling;
-          insertBeforeTocElt = insertBeforeTocElt.nextSibling;
+          if (!tocDrivenByScan) {
+            insertBeforeTocElt = insertBeforeTocElt.nextSibling;
+          }
         } else if (item[0] === -1) {
           sectionDescIdx += 1;
           sectionPreviewElt = insertBeforePreviewElt;
           insertBeforePreviewElt = insertBeforePreviewElt.nextSibling;
           this.previewElt.removeChild(sectionPreviewElt);
-          sectionTocElt = insertBeforeTocElt;
-          insertBeforeTocElt = insertBeforeTocElt.nextSibling;
-          this.tocElt.removeChild(sectionTocElt);
+          if (!tocDrivenByScan) {
+            sectionTocElt = insertBeforeTocElt;
+            insertBeforeTocElt = insertBeforeTocElt.nextSibling;
+            this.tocElt.removeChild(sectionTocElt);
+          }
         } else if (item[0] === 1) {
           const html = replaceLocalImageSrc(
             htmlSanitizer.sanitizeHtml(this.conversionCtx.htmlSectionList[sectionIdx]),
@@ -488,36 +637,39 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
           });
 
           // Create TOC section element
-          sectionTocElt = document.createElement('div');
-          sectionTocElt.className = 'cl-toc-section';
-          const headingElt = sectionPreviewElt.querySelector('h1, h2, h3, h4, h5, h6');
-          if (headingElt) {
-            const clonedElt = headingElt.cloneNode(true);
-            clonedElt.removeAttribute('id');
-            sectionTocElt.appendChild(clonedElt);
-            // Outline depth is recomputed for the WHOLE TOC after the diff loop
-            // (applyTocOutlineDepths): a heading's indent depends on the whole
-            // document prefix, which incremental section rendering cannot see.
-            // 创建一个新的 <span> 元素
-            const contentElt = document.createElement('span');
-            contentElt.className = 'content';
-            // 将原始内容移动到新的 <span> 元素中
-            while (headingElt.firstChild) {
-              contentElt.appendChild(headingElt.firstChild);
-            }
-            const prefixElt = document.createElement('span');
-            prefixElt.className = 'prefix';
-            headingElt.insertBefore(prefixElt, headingElt.firstChild);
-            // 将新的 <span> 元素替换原始元素
-            headingElt.appendChild(contentElt);
-            const suffixElt = document.createElement('span');
-            suffixElt.className = 'suffix';
-            headingElt.appendChild(suffixElt);
-          }
-          if (insertBeforeTocElt) {
-            this.tocElt.insertBefore(sectionTocElt, insertBeforeTocElt);
+          // 卡 015：分段管线 ON 时 TOC 由扫描驱动（rebuildTocFromScan，与
+          // sectionList 等长对齐），此处只取锚点不写入；OFF 保留旧行为。
+          if (tocDrivenByScan) {
+            sectionTocElt = this.tocElt.children[sectionIdx - 1];
           } else {
-            this.tocElt.appendChild(sectionTocElt);
+            sectionTocElt = document.createElement('div');
+            sectionTocElt.className = 'cl-toc-section';
+            const headingElt = sectionPreviewElt.querySelector('h1, h2, h3, h4, h5, h6');
+            if (headingElt) {
+              const clonedElt = headingElt.cloneNode(true);
+              clonedElt.removeAttribute('id');
+              sectionTocElt.appendChild(clonedElt);
+              // Outline depth is recomputed for the WHOLE TOC after the diff loop
+              // (applyTocOutlineDepths): a heading's indent depends on the whole
+              // document prefix, which incremental section rendering cannot see.
+              const contentElt = document.createElement('span');
+              contentElt.className = 'content';
+              while (headingElt.firstChild) {
+                contentElt.appendChild(headingElt.firstChild);
+              }
+              const prefixElt = document.createElement('span');
+              prefixElt.className = 'prefix';
+              headingElt.insertBefore(prefixElt, headingElt.firstChild);
+              headingElt.appendChild(contentElt);
+              const suffixElt = document.createElement('span');
+              suffixElt.className = 'suffix';
+              headingElt.appendChild(suffixElt);
+            }
+            if (insertBeforeTocElt) {
+              this.tocElt.insertBefore(sectionTocElt, insertBeforeTocElt);
+            } else {
+              this.tocElt.appendChild(sectionTocElt);
+            }
           }
 
           previewHtml += html;
@@ -526,14 +678,15 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       }
     };
 
-    this.tocElt.classList[
-      this.tocElt.querySelector('.cl-toc-section *') ? 'remove' : 'add'
-    ]('toc-tab--empty');
-
-    // Whole-TOC depth pass over the final document order (batch-A #039 fix):
-    // unchanged sections kept stale dataset values and fresh ones never saw
-    // their ancestors, so any `#` level edit left sticky misalignment.
-    applyTocOutlineDepths(this.tocElt);
+    if (!tocDrivenByScan) {
+      this.tocElt.classList[
+        this.tocElt.querySelector('.cl-toc-section *') ? 'remove' : 'add'
+      ]('toc-tab--empty');
+      // Whole-TOC depth pass over the final document order (batch-A #039 fix):
+      // unchanged sections kept stale dataset values and fresh ones never saw
+      // their ancestors, so any `#` level edit left sticky misalignment.
+      applyTocOutlineDepths(this.tocElt);
+    }
 
     this.previewCtx = {
       markdown: this.conversionCtx.text,
@@ -736,16 +889,32 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
 
     this.clEditor.on('contentChanged', (content, diffs, sectionList) => {
       this.parsingCtx = {
-        ...this.parsingCtx,
+        ...(this.parsingCtx || {}),
         sectionList,
       };
+      // 扫描驱动 TOC（卡 015）：文档初始化与每次内容变更后从文本重建目录，
+      // 不依赖 convert/refreshPreview（预览是否渲染、是否可见都无所谓）。
+      // 注意：不在此处写 this.sectionList——onEditorChanged 依赖它与
+      // newSectionList 的差异来触发 refreshPreview，抢先赋值会让预览永不刷新。
+      if (this.segmentedPipeline) {
+        this.rebuildTocFromScan(sectionList);
+      }
     });
+    if (this.segmentedPipeline) {
+      this.clEditor.on('highlighted', () => {
+        // 段级重高亮后 sectionList 可能换新（对象身份），重链 TOC 条目的锚点
+        this.rebuildTocFromScan();
+      });
+    }
     this.clEditor.on('highlightedSectionsRefreshed', (sectionList) => {
       this.parsingCtx = {
-        ...this.parsingCtx,
+        ...(this.parsingCtx || {}),
         sectionList,
       };
       this.sectionList = sectionList;
+      if (this.segmentedPipeline) {
+        this.rebuildTocFromScan();
+      }
       if (this.previewCtx?.sectionDescList?.length) {
         this.previewCtx.sectionDescList.forEach((sectionDesc, index) => {
           const section = sectionList[index];
@@ -758,8 +927,8 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       }
     });
 
-    // 分段管线对账哨兵 + 打点（ADR-0012）：模型↔DOM 逐段对账，节流 2s。
-    // 不一致即抛错（开发可见）；perf 计数供验收取证。
+    // 分段管线对账哨兵 + 打点（ADR-0012）：模型文本 ↔ DOM 文本，节流 2s。
+    // 只比长度与首尾采样（不做全文 DOM 读，避免把刚移除的 O(全文) 请回来）。
     let lastReconcileAt = 0;
     this.clEditor.on('highlighted', () => {
       if (!this.segmentedPipeline || !this.docModel) {
@@ -770,24 +939,15 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         return;
       }
       lastReconcileAt = now;
-      const sections = this.docModel.sections;
-      const sectionElts = this.editorElt.children;
-      let mismatch = null;
-      for (let i = 0; i < Math.min(sections.length, sectionElts.length); i += 1) {
-        const elt = sectionElts[i];
-        // cledit 每次 parseSections 会包一层 Section 实例，身份不可靠，
-        // 改用 text 相等作为对账门槛
-        if (!elt.section || elt.section.text !== sections[i].text) {
-          continue; // 未同步的段（后续事件会对齐）
-        }
-        const domText = elt.textContent;
-        if (domText !== sections[i].text && domText.replace(/\r\n?/g, '\n') !== sections[i].text) {
-          mismatch = i;
-          break;
-        }
+      const domText = this.editorElt.textContent;
+      const modelText = this.docModel.text;
+      if (domText.length !== modelText.length) {
+        throw new Error(`docModel 哨兵：长度不一致 DOM=${domText.length} model=${modelText.length}`);
       }
-      if (mismatch != null) {
-        throw new Error(`docModel 哨兵：第 ${mismatch} 段 DOM 文本与模型不一致`);
+      const sample = 200;
+      if (domText.slice(0, sample) !== modelText.slice(0, sample)
+        || domText.slice(-sample) !== modelText.slice(-sample)) {
+        throw new Error('docModel 哨兵：首尾采样不一致');
       }
     });
     this.clEditor.undoMgr.on('undoStateChange', () => {
