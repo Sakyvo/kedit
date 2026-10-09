@@ -268,6 +268,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.sectionOffsetsList = null;
     this.sectionOffsetsCache = null;
     this.tocElt.innerHTML = '';
+    this.previewElt.innerHTML = '';
     const segmented = isSegmentedLoadingEnabled(
       store.getters['data/computedSettings'],
     ) && this.segmentedLoadingEnabled !== false;
@@ -320,13 +321,12 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   },
 
   /**
-   * 预览刷新入口（卡 014）：隐藏时一律不做（不 convert、不建 DOM、不测量、
-   * 不算 diffs）；可见时先补跑一次全量再进入常规降频刷新。
-   * 仅分段管线生效，OFF 保持旧行为。
+   * 预览刷新入口（卡 014）：仅分段管线有效——不可见即不刷新；OFF 管线恒为
+   * 可刷新（旧行为）。返回 true 表示调用方应按旧流程继续。
    */
   refreshPreviewIfVisible() {
     if (!this.segmentedPipeline) {
-      return false; // 旧路径由调用方照常执行
+      return true;
     }
     return this.isPreviewVisible();
   },
@@ -1236,11 +1236,13 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     // 击键活跃期跳过全量 convert/refreshPreview(ADR-0012 降频行为,R1-Q3
     // 批准):输入停顿 200ms 后补跑一次;打开文件首次仍即时(instantPreview)。
     // 卡 014:分段管线下预览隐藏时整个刷新链不启动(不 convert/不建 DOM/不测量)。
+    // 注意:OFF 旧管线必须照常刷新——可见性短路只属于分段管线。
     const refreshPreview = allowDebounce(async () => {
-      this.previewPaused = !this.refreshPreviewIfVisible();
-      if (this.previewPaused) {
+      if (this.segmentedPipeline && !this.isPreviewVisible()) {
+        this.previewPaused = true;
         return;
       }
+      this.previewPaused = false;
       if (instantPreview) {
         this.convert();
         await this.refreshPreview();
