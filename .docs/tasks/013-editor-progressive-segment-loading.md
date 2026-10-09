@@ -4,38 +4,70 @@ Status: review
 
 010-long-doc-segmented-loading.md（决策见 ADR-0012）
 
-## 设计重评审（开工后发现 cledit 限制，范围收敛）
+## What to build
 
-原计划「首段挂载 + idle 补齐」在当前 cledit 架构上**证明不可行而不出错**：
-- **cledit setContent 语义**：每次 setContent 都会走 diff + parseSections，无法真正跳过“尚未挂载”的段的解析
-- **store 同步环**：fill 间补 setContent → contentChanged → patchCurrent(store) 会把**部分文本**误当编辑写入 store,长期数据会被蚕食
-- **模型引导难**：让 cledit `lastTextContent` 暂时“延时一段”而在 store/搜索端稳态一致——需要三线协同改造（editorSvc ↔ store ↔ cledit），成本远超独立卡
+编辑器侧渐进载入：首段先可用，其余渐进补齐；模型层全选/复制全文。
 
-## 实际落地（013）
+## 设计重评审（开工后发现 cledit 限制，方向修正）
 
-**决定收敛**：013 本轮只到「**模型路径 ON 时正确性回归固定**」——
-- 卡住真实文档打开崩溃根因（012 首代的构造期 hook 时机）已有 fix（d6e3a1fa）；
-- 键入路径在 012 基础上完结（**击键**dom->text/diff/解析**识别已消除**）；
-- 打开时性能改善默认保持「初始全量渲染」（渐进存疑不再执行）。
+原计划「首段挂载 + idle 补齐 DOM」在当前 cledit 架构上**证明不可行而不出错**：
+- **cledit `setContent` 语义**：每次都会走 diff + parseSections，无法真正跳过未挂载段的解析
+- **store 同步环**：补齐期间 `setContent` → `contentChanged` → `patchCurrent(store)`
+  会把**部分文本**误当编辑写入 store，长期数据会被蚕食
+- **模型引导难**：让 cledit `lastTextContent` 暂时"少一段"而在 store/搜索端稳态一致，
+  需要 editorSvc ↔ store ↔ cledit 三线协同改造，成本远超单卡
 
-## 验收（本卡的变样）
+**修正后的方向（本卡最终实现）**：不动 DOM 挂载粒度（保不变式），改**推迟着色**：
 
-- [x] build 通过
-- [x] 浏览器端到端：welcome 文件正常渲染；注入 810k 文本后编辑器不死锁
-- [x] 开发阶段预构建悬链状态伸直（cleditCore safe guard）
-- [x] **延迟后续 014 完成渐进渲染**：由 014 负责实现首段挂载 + idle 虚拟化补齐
-- [x] 开关 OFF 旧路径不变（结构断言）
+- **渐进高亮**：一次解析/重建 pass 内，字符数超出预算（150k）的段先以**纯文本
+  （已转义）**渲染 —— `textContent` 与原文逐字相等，因此哨兵对账、选区偏移、
+  Ctrl+A/复制、内置查找、同步全部不受影响；仅暂时缺少 Prism 着色。
+  停笔后由 `scheduleDeferredHighlightFill` 分批（每批 400 段）经 cledit 既有的
+  `refreshHighlightedSections` 补齐，undo/选区语义保持。
+- 补齐轮内不做预算限制（否则被推迟的段会被反复重建而永不收敛）；排程基于计数幂等。
 
-## Blockers → 流向
+## 实现落点
 
-- 渐进加载（首段 mount + idle 补齐）**营造到 014**：算可能的 cledit 与 store 双传导问题紧随其后优化。
-- 卡片不标记 done 的默认（review 而非 done），**它不阻塞后续 014**；**016** 的真机评估仍负责端到端中文本的体验。
+- `cleditHighlighter.js`：新增 `deferSectionHighlight(section)` 钩子 +
+  `onHighlighted()` 回调；延迟段用转义纯文本渲染并打 `data-highlight-deferred="1"`。
+- `editorSvc`：`shouldDeferHighlight`（pass 内字符预算）、`scheduleDeferredHighlightFill`
+  （空闲切批 + 计数幂等）；`initClEditor` 重置计数与预算。
 
-## What to build(原计划，其余部分被重评审报废)
+## 实测（810k 字符 / 8782 段，生产构建）
 
-原设想：首段先行 / 到达即载 / O(1) 增量测量 / 模型层全选。
+| 阶段 | 耗时 |
+| - | - |
+| `parseSections`（markdown-it 块解析） | 21ms |
+| `convert`（含 1.4MB HTML 生成） | 460ms |
+| 全量 Prism 高亮 | 162ms |
+| 合计打开（页内计时，含 DOM 构建与首帧） | 1751–1874ms |
 
----
+- 首帧仅约 18.5% 段着色（其余纯文本占位），补齐后 `deferredHighlightCount === 0`，
+  且 `editorEl.textContent === docModel.text`（810001 字符逐字相等）。
+- 桌面 600 段文档编辑 1 处：**仅 1 段重建、599 段 DOM 复用**（窗口保持 35 段）。
+- 撤销/插入偏移/IME 路径回归通过（插入点上下文与撤销回原文均正确）。
+
+## 验收
+
+- [x] `npm run build` 通过
+- [x] 不发生数据丢失：DOM 文本 === 模型文本 === store 文本（多轮实测断言）
+- [x] 编辑 correctness：插入/撤销偏移正确，哨兵无告警
+- [x] 渐进高亮收敛：延迟段最终归零，Prism 着色完整
+- [x] OFF 管线完全不变（`deferred === 0`、Prism 全量照旧）
+- [x] **延迟后续 014 完成渐进渲染**：按需分段 DOM 由 014 在**预览侧**实现（编辑器侧
+      保持真实 DOM 以满足 Ctrl+A/查找/IME 的硬要求）
+- [ ] 真机 1 秒打开 → 016 A1 裁决项
+- [ ] 真机击键流畅 → 016 A2 裁决项
+
+## 与原始诉求的关系（诚实记录）
+
+ADR-0012 目标「打开 <1s」在当前实现下**未在桌面 dev/build 环境达成**（1.75–1.87s）。
+剩余瓶颈是 cledit 的**全量段 DOM 挂载**（8782 段 → 9731 节点 + 一次全量布局），
+已实测：纯文本节点构建 73ms、插入 DOM 12ms、**强制布局 422ms**。
+
+要真正消除它需要 ADR-0012 中被否的「编辑器窗口化」（CodeMirror-6 式虚拟化），
+成本为 cledit 的选区偏移/复制粘贴/undo/图片卡片/滚动同步全量重写。按 ADR 决策，
+该项留待 **016 A9 真机裁决**：若真机不达标 → 回锚卡 010 评议乙案。
 
 ## Blocked by
 
