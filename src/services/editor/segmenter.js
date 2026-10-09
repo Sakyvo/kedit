@@ -33,12 +33,18 @@ export function computeSections(text, opts = {}) {
   if (text.charCodeAt(text.length - 1) !== 10) {
     throw new Error('segmenter: text must end with \\n');
   }
+  // 前导空行（文件头）：「空行归前段」在此无前段可归，但必须被覆盖——
+  // 不变式 sections 拼接 === 全文（markdown-it parseSections 也把文件头
+  // 空行归入首段）。故先把这段前缀取下，算完再并回首段。
+  const leadMatch = /^(?:[ \t]*\n)+/.exec(text);
+  const lead = leadMatch ? leadMatch[0] : '';
+  const leadLines = lead ? (lead.match(/\n/g) || []).length : 0;
   const sections = [];
   const lines = text.split('\n');
   lines.pop(); // 末尾 \n 产生的空项
   let start = -1; // 当前段起始字符偏移
   let buf = []; // 当前段行
-  let offset = 0; // 当前行起始偏移
+  let offset = lead.length; // 当前行起始偏移
   let insideFence = !!opts.insideFence;
 
   const flush = (endOffset) => {
@@ -55,7 +61,7 @@ export function computeSections(text, opts = {}) {
     }
   };
 
-  for (let i = 0; i < lines.length; i += 1) {
+  for (let i = leadLines; i < lines.length; i += 1) {
     const line = lines[i];
     const isBlank = line.trim() === '';
     if (insideFence) {
@@ -85,9 +91,25 @@ export function computeSections(text, opts = {}) {
     }
     offset += line.length + 1;
   }
-  // 末段：含尾部空行（flush 到文本末尾）
+  // 末段:含尾部空行(flush 到文本末尾)
   flush(text.length);
-  return sections;}
+  // 前导空行并回首段（无正文时整篇自成一段）
+  if (lead) {
+    if (sections.length) {
+      sections[0].start = 0;
+      sections[0].text = text.slice(0, sections[0].end);
+    } else {
+      sections.push({
+        start: 0,
+        end: text.length,
+        text,
+        data: 'main',
+        fenceAfter: false,
+      });
+    }
+  }
+  return sections;
+}
 
 /**
  * 把块级 sections 聚合为 ~targetChars 的 segments（调度/缓存单位）。

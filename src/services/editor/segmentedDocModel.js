@@ -58,24 +58,30 @@ export function createDocModel() {
         if (sections[i].start <= end) { i1 = i; break; }
       }
       if (i1 < i0) i1 = i0; // 纯插入进空隙时仍至少重切一段
-      const winStart = sections[i0].start;
+      // 窗口起点：若窗口的首行是空行，说明它属于「前一段尾随空行」的延续
+      // （空行归前段），必须把前一段整体拉进窗口，否则空行会被重切成窗口
+      // 首段的前导空行，与全文重切归属不一致。窗口首行非空时直接取
+      // i0.start，保持前缀复用面。
+      let winFromIdx = i0;
+      if (i0 > 0 && /^[ \t]*\n/.test(newText.slice(sections[i0].start))) {
+        winFromIdx = i0 - 1;
+      }
+      const winStart = sections[winFromIdx].start;
       const shift = newText.length - old.length;
       // 窗口右界：后缀首段整体纳入重切（不复用）——插入文本不以空行结尾
       // 或删除吃掉分隔空行时，后缀首段会与窗口合并，复用即错。每次多切
       // 一段成本微秒级，正确性优先。
-      let suffixReusedFrom = Math.min(i1 + 2, sections.length);
-      let suffixHead = sections[i1 + 1]
+      let suffixReusedFrom = Math.min(i1 + 2, sections.length);      let suffixHead = sections[i1 + 1]
         ? sections[i1 + 1].end + shift
         : newText.length;
       let winNew = newText.slice(winStart, suffixHead);
-      let winSections = computeSections(winNew);
-      if (winSections.length && winSections[winSections.length - 1].fenceAfter) {
+      let winSections = computeSections(winNew);      if (winSections.length && winSections[winSections.length - 1].fenceAfter) {
         suffixReusedFrom = sections.length;
         suffixHead = newText.length;
         winNew = newText.slice(winStart);
         winSections = computeSections(winNew);
       }
-      const next = sections.slice(0, i0);
+      const next = sections.slice(0, winFromIdx);
       for (const s of winSections) {
         next.push({
           ...s,
