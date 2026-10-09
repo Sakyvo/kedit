@@ -270,7 +270,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.previewHeightCache = null;
     this.highlightCharsUsed = 0;
     this.deferredHighlightCount = 0;
-    this.deferredHighlightPending = false;
+    this.deferredHighlightFilling = false;
     this.sectionOffsetsList = null;
     this.sectionOffsetsCache = null;
     this.tocElt.innerHTML = '';
@@ -493,10 +493,12 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     if (!this.segmentedPipeline) {
       return false;
     }
-    if (!this.highlightCharsUsed) {
-      this.highlightCharsUsed = 0;
+    // 补齐轮内不做预算限制，否则被推迟的段会被反复重建而不收敛。
+    if (this.deferredHighlightFilling) {
+      return false;
     }
     if (this.highlightCharsUsed >= this.highlightInitialCharBudget) {
+      this.deferredHighlightCount += 1;
       return true;
     }
     this.highlightCharsUsed += (section && section.text ? section.text.length : 0);
@@ -504,24 +506,24 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   },
 
   /**
-   * 分批补齐被延迟的高亮：优先挂载窗口附近的段，空闲时逐批 replace。
-   * 用 refreshHighlightedSections（cledit 既有机制）→ 保持 undo/选区语义。
+   * 分批补齐被延迟的高亮（空闲切批）。用 cledit 既有的
+   * refreshHighlightedSections（保持 undo/选区语义），每批 PORTION 段。
    */
   scheduleDeferredHighlightFill() {
     if (!this.segmentedPipeline || !this.clEditor) {
       return;
     }
-    if (this.deferredHighlightTimer) {
-      return;
+    if (this.deferredHighlightTimer || !this.deferredHighlightCount) {
+      return; // 幂等排程；无待办时不扫 DOM
     }
     const fill = () => {
       this.deferredHighlightTimer = null;
       const elts = this.editorElt.querySelectorAll('.cledit-section[data-highlight-deferred="1"]');
       if (!elts.length) {
+        this.deferredHighlightCount = 0;
         return;
       }
-      // 取前 PORTION 个（优先靠前，与滚动方向自然对齐）
-      const PORTION = 120;
+      const PORTION = 400;
       const targets = new Set();
       for (let i = 0; i < Math.min(PORTION, elts.length); i += 1) {
         const section = elts[i].section;
@@ -530,18 +532,19 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         }
       }
       if (!targets.size) {
+        this.deferredHighlightCount = 0;
         return;
       }
-      this.clEditor.refreshHighlightedSections(section => targets.has(section));
-      // 清标记（refreshHighlightedSections 重建了这些段的 DOM）
-      const rest = this.editorElt.querySelectorAll('.cledit-section[data-highlight-deferred="1"]');
-      for (const elt of rest) {
-        if (targets.has(elt.section)) {
-          delete elt.dataset.highlightDeferred;
-        }
+      // 补齐轮：不做预算限制，确保这批段真正完成着色
+      this.deferredHighlightFilling = true;
+      try {
+        this.clEditor.refreshHighlightedSections(section => targets.has(section));
+      } finally {
+        this.deferredHighlightFilling = false;
       }
-      const schedule = window.requestIdleCallback || (cb => setTimeout(cb, 60));
-      schedule(fill, { timeout: 500 });
+      this.deferredHighlightCount = this.editorElt
+        .querySelectorAll('.cledit-section[data-highlight-deferred="1"]').length;
+      this.scheduleDeferredHighlightFill();
     };
     const schedule = window.requestIdleCallback || (cb => setTimeout(cb, 60));
     this.deferredHighlightTimer = true;
