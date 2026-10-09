@@ -1,5 +1,11 @@
 import cledit from './cleditCore';
 
+// 延迟高亮时把纯文本转义为安全 HTML（textContent 与原文逐字相等）。
+const escapeTextToHtml = value => String(value == null ? '' : value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;');
+
 const styleElts = [];
 
 function createStyleSheet(document) {
@@ -142,11 +148,21 @@ function Highlighter(editor) {
     }
 
     const highlight = (section) => {
-      const html = editor.options.sectionHighlighter(section).replace(/\n/g, lfHtml);
+      // 渐进高亮（卡 013/014）：预算外的段先以「纯文本（已转义）」占位——
+      // textContent 与真实文本逐字相等（哨兵/选区/查找全部不受影响），
+      // 仅暂时没有 Prism 着色；由 refreshHighlightedSections 分批补上。
+      const deferred = editor.options.deferSectionHighlight
+        && editor.options.deferSectionHighlight(section);
+      const html = deferred
+        ? escapeTextToHtml(section.text || '').replace(/\n/g, lfHtml)
+        : editor.options.sectionHighlighter(section).replace(/\n/g, lfHtml);
       const sectionElt = document.createElement('div');
       sectionElt.className = 'cledit-section';
       sectionElt.innerHTML = html;
       section.setElement(sectionElt);
+      if (deferred) {
+        sectionElt.dataset.highlightDeferred = '1';
+      }
       this.$trigger('sectionHighlighted', section);
     };
 
@@ -192,6 +208,9 @@ function Highlighter(editor) {
       }
       this.addTrailingNode();
       this.$trigger('highlighted');
+      if (editor.options.onHighlighted) {
+        editor.options.onHighlighted();
+      }
 
       if (editor.selectionMgr.hasFocus()) {
         editor.selectionMgr.restoreSelection();

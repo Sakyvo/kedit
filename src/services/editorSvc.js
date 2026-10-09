@@ -205,6 +205,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   previewWindowRange: null,
   previewHeightCache: null,
   previewInitialCharBudget: 60000,
+  // 编辑器侧渐进高亮（卡 013/014）：一次 pass 内高亮字符预算；超出先纯文本占位。
+  highlightInitialCharBudget: 150000,
+  highlightCharsUsed: 0,
   // 打点（卡 014 验收取证）：预览转换 / 预览刷新 / 尺寸测量的调用次数。
   // 预览隐藏时这三项必须不增长。
   perfCounters: { convert: 0, refreshPreview: 0, measurePreview: 0 },
@@ -265,6 +268,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.tocKeys = null;
     this.previewWindowRange = null;
     this.previewHeightCache = null;
+    this.highlightCharsUsed = 0;
+    this.deferredHighlightCount = 0;
+    this.deferredHighlightPending = false;
     this.sectionOffsetsList = null;
     this.sectionOffsetsCache = null;
     this.tocElt.innerHTML = '';
@@ -283,6 +289,15 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
           this.prismGrammars[section.data],
           section.data,
         );
+      },
+      // 卡 013/014：编辑器侧渐进高亮——初始化与批量重建时，预算外的段先以
+      // 纯文本占位（textContent 逐字等同），停笔后分批补上 Prism 着色。
+      // 不变式不破：段 DOM 文本始终 == 模型切片（哨兵/全选/查找不受影响）。
+      deferSectionHighlight: section => this.shouldDeferHighlight(section),
+      onHighlighted: () => {
+        // pass 结束：重置预算计数（下次击键从零算起）并安排补齐
+        this.highlightCharsUsed = 0;
+        this.scheduleDeferredHighlightFill();
       },
       // 卡 012/015 事实修正：廉价分段器与 markdown-it 的块边界不等价
       // （样本 9546 vs 10801，index 0 即分歧：标题/列表/hr 可无空行打断段落）。
@@ -467,6 +482,71 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     }
     editorSvc.applyPreviewWindow();
   }, 100),
+
+  /**
+   * 增量高亮预算（卡 013/014）：一次解析/重建 pass 内，字符数超出预算的段先以
+   * 纯文本占位（textContent 逐字等同），停笔后分批补 Prism 着色。
+   * 预算在每次 pass 结束（highlighted 事件）重置，因此击键只影响少数段 → 立即高亮。
+   * OFF 管线恒为 false（发布版行为）。
+   */
+  shouldDeferHighlight(section) {
+    if (!this.segmentedPipeline) {
+      return false;
+    }
+    if (!this.highlightCharsUsed) {
+      this.highlightCharsUsed = 0;
+    }
+    if (this.highlightCharsUsed >= this.highlightInitialCharBudget) {
+      return true;
+    }
+    this.highlightCharsUsed += (section && section.text ? section.text.length : 0);
+    return false;
+  },
+
+  /**
+   * 分批补齐被延迟的高亮：优先挂载窗口附近的段，空闲时逐批 replace。
+   * 用 refreshHighlightedSections（cledit 既有机制）→ 保持 undo/选区语义。
+   */
+  scheduleDeferredHighlightFill() {
+    if (!this.segmentedPipeline || !this.clEditor) {
+      return;
+    }
+    if (this.deferredHighlightTimer) {
+      return;
+    }
+    const fill = () => {
+      this.deferredHighlightTimer = null;
+      const elts = this.editorElt.querySelectorAll('.cledit-section[data-highlight-deferred="1"]');
+      if (!elts.length) {
+        return;
+      }
+      // 取前 PORTION 个（优先靠前，与滚动方向自然对齐）
+      const PORTION = 120;
+      const targets = new Set();
+      for (let i = 0; i < Math.min(PORTION, elts.length); i += 1) {
+        const section = elts[i].section;
+        if (section) {
+          targets.add(section);
+        }
+      }
+      if (!targets.size) {
+        return;
+      }
+      this.clEditor.refreshHighlightedSections(section => targets.has(section));
+      // 清标记（refreshHighlightedSections 重建了这些段的 DOM）
+      const rest = this.editorElt.querySelectorAll('.cledit-section[data-highlight-deferred="1"]');
+      for (const elt of rest) {
+        if (targets.has(elt.section)) {
+          delete elt.dataset.highlightDeferred;
+        }
+      }
+      const schedule = window.requestIdleCallback || (cb => setTimeout(cb, 60));
+      schedule(fill, { timeout: 500 });
+    };
+    const schedule = window.requestIdleCallback || (cb => setTimeout(cb, 60));
+    this.deferredHighlightTimer = true;
+    schedule(fill, { timeout: 500 });
+  },
 
   /**
    * 扫描驱动 TOC（卡 015）：从模型文本行扫描重建目录 DOM，与预览渲染解耦。
