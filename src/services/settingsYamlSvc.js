@@ -237,22 +237,79 @@ const remove = (text, paths) => {
   return out.join('\n').replace(/\n{3,}/g, '\n\n');
 };
 
-// Overlay local values of locally-excluded keys onto the remote text.
-// `syncExclude` itself is always added to the exclusions (never synced).
-const applyRemote = (localText, remoteText, excluded) => {
-  const norm = (excluded || []).map(p => (Array.isArray(p) ? p : [p]));
-  if (!norm.some(p => p.length === 1 && p[0] === 'syncExclude')) {
-    norm.push(['syncExclude']);
+const isMapping = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+// Order-insensitive value identity (yaml key order is not a value change).
+const canonicalValue = (value) => {
+  if (value === undefined) {
+    return '~';
   }
-  let out = `${remoteText || ''}`;
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalValue).join(',')}]`;
+  }
+  return `{${Object.keys(value).sort()
+    .map(key => `${JSON.stringify(key)}:${canonicalValue(value[key])}`).join(',')}}`;
+};
+const sameValue = (value1, value2) => canonicalValue(value1) === canonicalValue(value2);
+
+// Collect the operations turning the local yaml into the reconciled text.
+// Local-first three-way (ADR 0013): a key whose local value differs from the
+// local baseline is a local edit and wins; a key the local side left alone
+// takes the remote value (a key the remote dropped is deleted); a locally
+// excluded key is local by construction and never touched.
+const planReconcile = (path, remoteNode, localNode, baselineNode, isExcluded, ops) => {
+  if (isExcluded(path)) {
+    return;
+  }
+  const remoteMap = isMapping(remoteNode) ? remoteNode : null;
+  const localMap = isMapping(localNode) ? localNode : null;
+  const baseline = isMapping(baselineNode) ? baselineNode : {};
+  if (remoteMap && localMap) {
+    Object.keys(remoteMap).forEach((key) => {
+      planReconcile([...path, key], remoteMap[key], localMap[key], baseline[key], isExcluded, ops);
+    });
+    Object.keys(localMap).forEach((key) => {
+      // Key only the local side still carries: dropped remotely and untouched
+      // locally means the remote deletion wins, otherwise the edit is re-sent.
+      if (remoteMap[key] === undefined && sameValue(localMap[key], baseline[key])) {
+        ops.push({ path: [...path, key] });
+      }
+    });
+    return;
+  }
+  if (sameValue(remoteNode, localNode) || !sameValue(localNode, baselineNode)) {
+    return;
+  }
+  ops.push(remoteNode === undefined ? { path } : { path, value: remoteNode });
+};
+
+// Reconcile the remote projection into the local settings yaml (ADR 0013).
+// `baselineText` is what this device last had reconciled as synced; it is what
+// tells a local edit apart from a remote change the device has not adopted yet.
+// The local text is the output template, so comments and formatting survive.
+const reconcileRemote = (localText, remoteText, baselineText = '') => {
+  const loaded = yaml.load(`${localText || ''}`);
+  if (loaded !== undefined && loaded !== null && !isMapping(loaded)) {
+    // Hand-broken yaml: never rewrite the Author's text
+    return `${localText || ''}`;
+  }
+  const local = isMapping(loaded) ? loaded : {};
+  const loadedRemote = yaml.load(`${remoteText || ''}`);
+  const loadedBaseline = yaml.load(`${baselineText || ''}`);
+  const excluded = excludesOf(localText);
+  const isExcluded = path => path.length === 1 && excluded.includes(path[0]);
+  const ops = [];
+  planReconcile([], isMapping(loadedRemote) ? loadedRemote : {}, local,
+    isMapping(loadedBaseline) ? loadedBaseline : {}, isExcluded, ops);
+  let out = `${localText || ''}`;
   if (out && !out.endsWith('\n')) {
     out += '\n';
   }
-  norm.forEach((path) => {
-    const localValue = get(localText, path);
-    if (localValue !== undefined) {
-      out = set(out, path, localValue);
-    }
+  ops.forEach(({ path, value }) => {
+    out = value === undefined ? remove(out, [path]) : set(out, path, value);
   });
   return out;
 };
@@ -298,14 +355,38 @@ const excludesOf = (text) => {
   return [...DEFAULT_SYNC_EXCLUDES, 'syncExclude', ...extras.filter(k => !DEFAULT_SYNC_EXCLUDES.includes(k))];
 };
 
-// The text that actually crosses the wire: excluded keys stripped.
-const projectForSync = text => remove(text, excludesOf(text));
+// The text that actually crosses the wire: excluded keys stripped and the rest
+// dumped canonically (keys sorted), so two devices holding the same values
+// produce byte-identical text and hashes never disagree over yaml formatting
+// (ADR 0013). Exclusions are top-level keys. Text that is not a settings
+// mapping (hand-broken yaml, comment-only defaults) stays byte-stable: broken
+// yaml passes through untouched, a comment-only file projects to nothing.
+const projectForSync = (text) => {
+  const raw = `${text || ''}`;
+  let parsed;
+  try {
+    parsed = yaml.load(raw);
+  } catch (e) {
+    return raw;
+  }
+  if (parsed !== null && parsed !== undefined && !isMapping(parsed)) {
+    return raw;
+  }
+  const projection = { ...(isMapping(parsed) ? parsed : {}) };
+  excludesOf(raw).forEach((key) => {
+    delete projection[key];
+  });
+  if (!Object.keys(projection).length) {
+    return '';
+  }
+  return yaml.dump(projection, { lineWidth: -1, sortKeys: true });
+};
 
 export default {
   get,
   set,
   remove,
-  applyRemote,
+  reconcileRemote,
   mergeSettings,
   excludesOf,
   projectForSync,

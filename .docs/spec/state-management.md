@@ -248,7 +248,8 @@ dispatch('data/patchExplorerOrder', { [key]: childGitPaths });
 ### 1. Scope / Trigger
 
 - `data/settings` (the Author's custom settings yaml text) syncs across devices
-  via `syncDataItem('settings')` in the main workspace.
+  via `syncDataItem('settings')` in the main workspace, reconciled local-first
+  against a per-device baseline (ADR 0013).
 - Visual editing always round-trips through `settingsYamlSvc` line surgery so
   comments and unknown keys survive (ADR 0009).
 
@@ -256,19 +257,29 @@ dispatch('data/patchExplorerOrder', { [key]: childGitPaths });
 
 - `settingsYamlSvc.excludesOf(text)` = built-in `DEFAULT_SYNC_EXCLUDES`
   (`colorTheme`, `fontSizeFactor`, `maxWidthFactor`) ⋃ the local `syncExclude`
-  list from the yaml, plus `syncExclude` itself (never synced).
-- `settingsYamlSvc.projectForSync(text)` strips excluded keys; the result is
-  what crosses the wire and what sync-data hashes compare against.
-- `settingsYamlSvc.applyRemote(localText, remoteProjection, excludedPaths)`
-  returns the remote text with locally-excluded values re-injected.
+  list from the yaml, plus `syncExclude` itself (never synced). Exclusions are
+  top-level keys.
+- `settingsYamlSvc.projectForSync(text)` = parse, drop the excluded top-level
+  keys, dump canonically (`sortKeys`, `lineWidth: -1`); the result is what
+  crosses the wire, what sync-data hashes compare against, and the baseline
+  written below. Unparseable text passes through untouched.
+- `settingsYamlSvc.reconcileRemote(localText, remoteProjection, baselineText)`
+  returns the new local text: local is the output template, `baselineText` is
+  the projection this device last reconciled as synced.
 
 ### 3. Contracts
 
 - If the two devices disagree about whether a key syncs, it does not sync
   (ADR 0010).
-- `syncSvc.syncDataItem` uses projected text/hash for settings' dirty check,
-  server-change comparison and upload payload; the store item always holds the
-  full local yaml.
+- The baseline lives in `localSettings.settingsProjectionBaseline`
+  (device-local, like `gitTombstones`); `syncSvc.syncDataItem` refreshes it at
+  the end of every settings round with `projectForSync(mergedItem.data)`.
+- Reconciliation is local-first three-way (ADR 0013): a key whose local value
+  differs from the baseline is a local edit and wins (kept and re-uploaded); a
+  key the local side left alone takes the remote value, or is deleted when the
+  remote dropped it.
+- The store item always holds the full local yaml; only the projection crosses
+  the wire and only it is hashed.
 - Editing only an excluded key triggers one no-op sync upload cycle (known
   noise; no projection-level hash optimisation in v1).
 - `gitWorkspaceSvc` already whitelists `.stackedit-data/settings.json`.
@@ -277,8 +288,13 @@ dispatch('data/patchExplorerOrder', { [key]: childGitPaths });
 
 - Good: B syncs `autoSyncEvery`; A excluded it via `syncExclude` → A keeps its
   local value, B (not excluding) follows A/last writer.
-- Base: fresh device with no `dataSyncData` for settings → remote projection
-  applied with exclusions preserved.
+- Good (local-first): A edited `autoSyncEvery` locally while the remote file
+  still carried a default → A keeps its edit and re-uploads it.
+- Base: fresh device with no `dataSyncData`/baseline for settings → the remote
+  projection is reconciled in (last-write-wins for non-excluded keys).
+- Bad: rebuilding the local text as `remote projection + local excluded keys`
+  (the superseded ADR 0010 behaviour — the remote drops every local non-excluded
+  edit).
 - Bad: writing the raw full-text item to the provider (breaks exclusion
   semantics and causes a permanent dirty-hash loop).
 

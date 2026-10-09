@@ -1,6 +1,6 @@
 # Settings sync with per-device syncExclude projection
 
-Status: accepted
+Status: accepted (the conflict-resolution half is superseded by ADR 0013)
 
 `data/settings` joins workspace sync (`syncDataItem('settings')`, previously
 commented out in `syncSvc.js`), but through a **yaml-text projection layer**,
@@ -15,9 +15,12 @@ not as a raw blob:
   syncs, it does not sync.
 
 Why the projection instead of plain syncDataItem: settings `data` is a yaml
-**string**, and blob conflicts fall back to server-wins (the
+**string**, and blob conflicts fell back to server-wins (the
 `diffUtils.mergeObjects` branch needs an object). Key-level exclusion therefore
-cannot live inside the existing merge — it must happen as text projection.
+cannot live inside the existing merge — it must happen as text projection. The
+server-wins fallback itself is superseded by ADR 0013 (local-first three-way
+reconcile against a per-device baseline), which also replaced the raw text
+projection with a canonical one.
 
 Rejected: migrating excluded keys to `localSettings` (schema churn, and keys stay
 per-user-adjustable under one yaml); editing buttons/theme per device without

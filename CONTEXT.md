@@ -43,7 +43,7 @@ _Avoid_: 自动跳转 (stale name — the setting never controlled jumping)
 **Sync**:
 The automatic, near-real-time mirroring of **Documents** between the Author's devices (a mobile edit appears on desktop with no manual action). Internal to KEDIT; never reaches Visitors.
 _Avoid_: publish, save, backup
-_Config note_: settings Sync now travels as a yaml text projection — **Device-local settings** never leave the device (see next term).
+_Config note_: settings Sync now travels as a yaml text projection, reconciled local-first against a per-device baseline — a remote default can never silently discard a local edit (ADR 0013). **Device-local settings** never leave the device (see next term).
 
 **Device-local setting** (本机专用设置):
 A settings key the Author excluded from **Sync** via the `syncExclude` list; each device keeps its own value even while the rest of the settings Sync normally. Defaults: `colorTheme`, `fontSizeFactor`, `maxWidthFactor`. If the two sides disagree about whether a key Syncs, it does not.

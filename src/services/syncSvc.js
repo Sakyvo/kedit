@@ -32,6 +32,18 @@ const LAST_SEEN = 0;
 const LAST_MERGED = 1;
 const LAST_SENT = 2;
 
+// Settings Sync baseline (ADR 0013): the projection text this device last had
+// reconciled as synced. Device-local (localSettings) — it is what tells a local
+// edit apart from a remote change the device has not adopted yet.
+const settingsBaselineKey = 'settingsProjectionBaseline';
+const getSettingsBaseline = () => store.getters['data/localSettings'][settingsBaselineKey] || '';
+const setSettingsBaseline = (text) => {
+  const baseline = text || '';
+  if (getSettingsBaseline() !== baseline) {
+    store.dispatch('data/patchLocalSettings', { [settingsBaselineKey]: baseline });
+  }
+};
+
 let actionProvider;
 let workspaceProvider;
 
@@ -597,8 +609,8 @@ const syncDataItem = async (dataId) => {
   const clientItem = utils.deepCopy(getItem());
   let mergedItem = (() => {
     if (dataId === 'settings') {
-      // yaml text can't object-merge: remote projection wins for synced keys,
-      // locally-excluded keys keep their local values on top.
+      // yaml text can't object-merge: local-first three-way reconcile against
+      // this device's baseline, excluded keys stay local (ADR 0013).
       if (!clientItem) {
         return serverItem;
       }
@@ -607,8 +619,11 @@ const syncDataItem = async (dataId) => {
       }
       return {
         ...clientItem,
-        data: settingsYamlSvc.applyRemote(clientItem.data, serverItem.data,
-          settingsYamlSvc.excludesOf(clientItem.data)),
+        data: settingsYamlSvc.reconcileRemote(
+          clientItem.data,
+          serverItem.data,
+          getSettingsBaseline(),
+        ),
       };
     }
     if (!clientItem) {
@@ -667,6 +682,11 @@ const syncDataItem = async (dataId) => {
       syncData: store.getters['data/syncDataById'][dataId] || { id: dataId },
       ifNotTooLate: tooLateChecker(restartContentSyncAfter),
     }));
+  }
+
+  if (dataId === 'settings') {
+    // Whatever crossed (or was already there) is this device's new baseline
+    setSettingsBaseline(uploadItem.data);
   }
 
   // Copy sync data into data sync data

@@ -2,6 +2,9 @@ export default () => ({
   welcomeFileHashes: {},
   // W4 rename/delete tombstones (per device): { [gitPath]: { sha, ts } }
   gitTombstones: {},
+  // Settings Sync baseline (per device, ADR 0013): the projection text this
+  // device last reconciled as synced.
+  settingsProjectionBaseline: '',
   filePropertiesTab: '',
   explorerSortBy: 'manual',
   explorerSortDirection: 'desc',

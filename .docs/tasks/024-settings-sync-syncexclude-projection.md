@@ -30,8 +30,11 @@ Status: review
   setting」一致。
 - [x] `npm run build` 通过。
 
-实现备注：syncSvc.syncDataItem 对 settings 走专属分支——脏检查/远端变更比较/上传体
-一律投影（`settingsYamlSvc.projectForSync`），store 条目恒为全量本地文本。
+实现备注:syncSvc.syncDataItem 对 settings 走专属分支——脏检查/远端变更比较/上传体
+一律投影(`settingsYamlSvc.projectForSync`),store 条目恒为全量本地文本。
+
+后续(`041-settings-local-first-reconcile.md`,ADR 0013):本卡的「远端优先调和」
+被本地优先三路调和取代——投影层与四触点接线不变。
 
 ## Blocked by
 
