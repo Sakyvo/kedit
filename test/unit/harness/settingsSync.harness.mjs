@@ -57,6 +57,17 @@ function syncDevices(devices, cloud, maxRounds = 12) {
   assert.equal(valueOf(fresh.text, 'segmentedLoading'), false);
 }
 
+// --- 2b. No baseline yet (first sync after upgrading) is still local-first,
+//         and the remote only fills in keys this device does not have ---
+{
+  const a = newDevice('autoSyncEvery: 120000\n');
+  const cloud = { text: 'autoSyncEvery: 90000\nsegmentedLoading: false\n' };
+  syncDevices([a], cloud);
+  assert.equal(valueOf(a.text, 'autoSyncEvery'), 120000);
+  assert.equal(valueOf(a.text, 'segmentedLoading'), false);
+  assert.equal(valueOf(cloud.text, 'autoSyncEvery'), 120000);
+}
+
 // --- 3. Concurrent edits to different keys both survive ---
 {
   const a = newDevice('autoSyncEvery: 120000\n');
@@ -97,7 +108,7 @@ function syncDevices(devices, cloud, maxRounds = 12) {
   syncDevices([a, b], cloud);
   assert.equal(valueOf(a.text, 'colorTheme'), 'dark');
   assert.equal(valueOf(b.text, 'colorTheme'), 'light');
-  // First-sync (no baseline) is last-write-wins; both sides must agree after it.
+  // First-sync (no baseline) is local-first; both sides must agree after it.
   assert.equal(valueOf(a.text, 'autoSyncEvery'), valueOf(b.text, 'autoSyncEvery'));
   assert.equal(valueOf(a.text, 'autoSyncEvery'), valueOf(cloud.text, 'autoSyncEvery'));
 }

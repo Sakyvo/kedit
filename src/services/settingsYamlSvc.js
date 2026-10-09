@@ -260,7 +260,7 @@ const sameValue = (value1, value2) => canonicalValue(value1) === canonicalValue(
 // local baseline is a local edit and wins; a key the local side left alone
 // takes the remote value (a key the remote dropped is deleted); a locally
 // excluded key is local by construction and never touched.
-const planReconcile = (path, remoteNode, localNode, baselineNode, isExcluded, ops) => {
+const planReconcile = (path, remoteNode, localNode, baselineNode, hasBaseline, isExcluded, ops) => {
   if (isExcluded(path)) {
     return;
   }
@@ -269,15 +269,26 @@ const planReconcile = (path, remoteNode, localNode, baselineNode, isExcluded, op
   const baseline = isMapping(baselineNode) ? baselineNode : {};
   if (remoteMap && localMap) {
     Object.keys(remoteMap).forEach((key) => {
-      planReconcile([...path, key], remoteMap[key], localMap[key], baseline[key], isExcluded, ops);
+      planReconcile([...path, key], remoteMap[key], localMap[key], baseline[key],
+        hasBaseline, isExcluded, ops);
     });
     Object.keys(localMap).forEach((key) => {
       // Key only the local side still carries: dropped remotely and untouched
       // locally means the remote deletion wins, otherwise the edit is re-sent.
-      if (remoteMap[key] === undefined && sameValue(localMap[key], baseline[key])) {
+      if (remoteMap[key] === undefined && localMap[key] !== undefined && hasBaseline
+        && sameValue(localMap[key], baseline[key])) {
         ops.push({ path: [...path, key] });
       }
     });
+    return;
+  }
+  if (!hasBaseline) {
+    // No record of a previous sync: local-first means the local value wins, and
+    // the remote only fills in what this device does not have at all. A fresh
+    // device (empty text) therefore still pulls the whole remote config.
+    if (localNode === undefined && remoteNode !== undefined) {
+      ops.push({ path, value: remoteNode });
+    }
     return;
   }
   if (sameValue(remoteNode, localNode) || !sameValue(localNode, baselineNode)) {
@@ -289,6 +300,9 @@ const planReconcile = (path, remoteNode, localNode, baselineNode, isExcluded, op
 // Reconcile the remote projection into the local settings yaml (ADR 0013).
 // `baselineText` is what this device last had reconciled as synced; it is what
 // tells a local edit apart from a remote change the device has not adopted yet.
+// With no baseline at all, the local text is the device's only evidence of its
+// own pre-sync state, so local-first applies in full (the remote only fills in
+// keys the device lacks — a fresh device still pulls everything).
 // The local text is the output template, so comments and formatting survive.
 const reconcileRemote = (localText, remoteText, baselineText = '') => {
   const loaded = yaml.load(`${localText || ''}`);
@@ -299,11 +313,12 @@ const reconcileRemote = (localText, remoteText, baselineText = '') => {
   const local = isMapping(loaded) ? loaded : {};
   const loadedRemote = yaml.load(`${remoteText || ''}`);
   const loadedBaseline = yaml.load(`${baselineText || ''}`);
+  const hasBaseline = isMapping(loadedBaseline);
   const excluded = excludesOf(localText);
   const isExcluded = path => path.length === 1 && excluded.includes(path[0]);
   const ops = [];
   planReconcile([], isMapping(loadedRemote) ? loadedRemote : {}, local,
-    isMapping(loadedBaseline) ? loadedBaseline : {}, isExcluded, ops);
+    hasBaseline ? loadedBaseline : {}, hasBaseline, isExcluded, ops);
   let out = `${localText || ''}`;
   if (out && !out.endsWith('\n')) {
     out += '\n';

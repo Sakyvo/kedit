@@ -277,7 +277,9 @@ dispatch('data/patchExplorerOrder', { [key]: childGitPaths });
 - Reconciliation is local-first three-way (ADR 0013): a key whose local value
   differs from the baseline is a local edit and wins (kept and re-uploaded); a
   key the local side left alone takes the remote value, or is deleted when the
-  remote dropped it.
+  remote dropped it. With no baseline recorded the local value wins as well and
+  the remote only fills in keys the device lacks (a fresh device still pulls the
+  whole remote config).
 - The store item always holds the full local yaml; only the projection crosses
   the wire and only it is hashed.
 - Editing only an excluded key triggers one no-op sync upload cycle (known
@@ -290,8 +292,9 @@ dispatch('data/patchExplorerOrder', { [key]: childGitPaths });
   local value, B (not excluding) follows A/last writer.
 - Good (local-first): A edited `autoSyncEvery` locally while the remote file
   still carried a default → A keeps its edit and re-uploads it.
-- Base: fresh device with no `dataSyncData`/baseline for settings → the remote
-  projection is reconciled in (last-write-wins for non-excluded keys).
+- Base: fresh device with no baseline for settings → the remote projection is
+  reconciled in (local-first without a baseline; an empty local text takes the
+  remote values in full).
 - Bad: rebuilding the local text as `remote projection + local excluded keys`
   (the superseded ADR 0010 behaviour — the remote drops every local non-excluded
   edit).

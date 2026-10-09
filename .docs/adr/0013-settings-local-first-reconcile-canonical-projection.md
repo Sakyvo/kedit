@@ -19,6 +19,9 @@ Local-first now decides conflicts; the projection idea of ADR 0010 stays.
   - local value ≠ baseline → the local edit wins (kept, and re-uploaded);
   - local value = baseline → the remote value applies (a key the remote dropped
     is deleted);
+  - **no baseline at all** (first sync after this lands, or after a cache clear)
+    → local-first in full: the local value wins and the remote only fills in keys
+    the device does not carry at all (a fresh device still pulls everything);
   - an excluded key (`syncExclude`, ADR 0010) is local by construction and is
     never read from or written to the remote side.
 - **The wire text is canonical.** `settingsYamlSvc.projectForSync` dumps the
@@ -33,9 +36,14 @@ Local-first now decides conflicts; the projection idea of ADR 0010 stays.
 
 ## Consequences
 
-- A device with no baseline (fresh install, cleared cache) is last-write-wins on
-  every non-excluded key — the trade-off ADR 0010 knowingly took, now bounded to
-  one round instead of every round.
+- **No baseline = local-first too.** On the first sync after this change lands (or
+  after a cache clear) the device has no baseline record, and the local text is
+  its only evidence of its own pre-sync state: the local value wins, the remote
+  projection only fills in keys the device does not carry at all. A fresh device
+  (empty text) therefore still pulls the whole remote config, and the adopted
+  values become the baseline for the next round. The cost: after a cache clear
+  the device can no longer tell that a remote change happened while it was
+  offline, so its own value wins that one round.
 - Cross-device propagation survives: a key edited on A and pushed, then changed
   on B while A is offline, comes back as a conflict A wins (A's value re-uploads)
   — last writer is no longer silently authoritative.
@@ -43,7 +51,7 @@ Local-first now decides conflicts; the projection idea of ADR 0010 stays.
   `localSettings.settingsProjectionBaseline`) or the newly excluded keys look
   edited and re-upload once.
 - Verified by `test/unit/harness/settingsSync.harness.mjs` (device round model
-  over the real service): remote default can no longer discard a local edit,
-  fresh device still pulls, concurrent edits to different keys both survive,
-  remote deletions and remote multi-line changes still land, excluded keys stay
-  local, rounds converge.
+  over the real service): remote default can no longer discard a local edit
+  (with and without a baseline), fresh device still pulls, concurrent edits to
+  different keys both survive, remote deletions and remote multi-line changes
+  still land, excluded keys stay local, rounds converge.
