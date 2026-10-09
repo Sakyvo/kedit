@@ -36,6 +36,14 @@ import { mergeMutationDeltas } from './editor/mutationDeltas.js';
 import { applyTocOutlineDepths } from './editor/tocDepth.js';
 import { extractHeadings, mapHeadingsToSections, computeSectionStarts } from './editor/headingsScan.js';
 import { computeTocEntries, tocEntryKey, planTocPatch } from './editor/tocModel.js';
+import { hasReferenceDefinitions } from './editor/referenceDefs.js';
+import {
+  estimateBlockHeight,
+  computeSectionHeights,
+  computeSectionOffsets,
+  computeVisibleRange,
+  planWindowChange,
+} from './editor/previewWindow.js';
 
 const allowDebounce = (action, wait) => {
   let timeoutId;
@@ -192,6 +200,14 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     sectionDescList: [],
   },
   previewCtxMeasured: null,
+  previewPaused: false,
+  // 预览窗口（卡 014）：当前已挂载真实 HTML 的段区间 + 高度缓存。
+  previewWindowRange: null,
+  previewHeightCache: null,
+  previewInitialCharBudget: 60000,
+  // 打点（卡 014 验收取证）：预览转换 / 预览刷新 / 尺寸测量的调用次数。
+  // 预览隐藏时这三项必须不增长。
+  perfCounters: { convert: 0, refreshPreview: 0, measurePreview: 0 },
   previewCtxWithDiffs: null,
   sectionList: null,
   selectionRange: null,
@@ -247,6 +263,8 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.conversionCtx = null;
     this.previewCtx = { sectionDescList: [] };
     this.tocKeys = null;
+    this.previewWindowRange = null;
+    this.previewHeightCache = null;
     this.sectionOffsetsList = null;
     this.sectionOffsetsCache = null;
     this.tocElt.innerHTML = '';
@@ -284,6 +302,171 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.initClEditorInternal(options);
     this.restoreScrollPosition();
   },
+
+  /**
+   * 预览是否可见（卡 014）：隐藏面板即零预览工作。设备无关。
+   */
+  isPreviewVisible() {
+    const styles = store.getters['layout/styles'];
+    return !!(styles && styles.showPreview);
+  },
+
+  /**
+   * 含引用式链接定义的文档回退全量转换路径（卡 014）：分段渲染会丢跨段
+   * 引用解析上下文。判定源为模型文本；OFF 管线不需要。
+   */
+  needsFullConvertFallback() {
+    return hasReferenceDefinitions(this.docModel ? this.docModel.text : '');
+  },
+
+  /**
+   * 预览刷新入口（卡 014）：隐藏时一律不做（不 convert、不建 DOM、不测量、
+   * 不算 diffs）；可见时先补跑一次全量再进入常规降频刷新。
+   * 仅分段管线生效，OFF 保持旧行为。
+   */
+  refreshPreviewIfVisible() {
+    if (!this.segmentedPipeline) {
+      return false; // 旧路径由调用方照常执行
+    }
+    return this.isPreviewVisible();
+  },
+
+  /**
+   * 段索引是否落在当前预览窗口内（卡 014）。尚未建立窗口时 = 首屏窗口。
+   * 含引用定义、或非分段管线时恒为 true（全量路径）。
+   */
+  isSectionInPreviewWindow(index) {
+    if (!this.segmentedPipeline || this.needsFullConvertFallback()) {
+      return true;
+    }
+    const range = this.previewWindowRange;
+    if (!range) {
+      return true; // 首次刷新：按字符预算决定（见 sectionEndsInitialPreviewWindow）
+    }
+    return index >= range.from && index < range.to;
+  },
+
+  /**
+   * 首次刷新的挂载上限：按字符预算在前几个段处截止（首屏可用即返回，
+   * 其余交给 applyPreviewWindow 按滚动按需挂载）。
+   */
+  sectionEndsInitialPreviewWindow(sections) {
+    const budget = this.previewInitialCharBudget || 60000;
+    let chars = 0;
+    for (let i = 0; i < sections.length; i += 1) {
+      chars += (sections[i] && sections[i].text ? sections[i].text.length : 0);
+      if (chars >= budget) {
+        return i + 1;
+      }
+    }
+    return sections.length;
+  },
+
+  /**
+   * 预览暂停/恢复（卡 014）：不可见期间置脏；重新可见时补跑一次全量
+   * convert + refreshPreview，使预览正确收敛。
+   */
+  resumePreviewIfPaused() {
+    if (!this.segmentedPipeline || !this.previewPaused) {
+      return;
+    }
+    this.previewPaused = false;
+    this.convert();
+    this.refreshPreview();
+    this.measureSectionDimensions(false, true, true);
+  },
+
+  /**
+   * 预览按需分段渲染（卡 014）：可见窗口内的段挂真实 HTML，窗口外的段换成
+   * 轻量占位（估算高度），保持 previewElt.children[i] ↔ sectionDescList[i]
+   * 1:1（测量 / 滚动同步 / TOC 锚定均依赖此对齐）。
+   *
+   * 实测高度回填进 previewHeightCache；缓存随文档重建而清空。
+   */
+  applyPreviewWindow() {
+    // 卡 014：全量回退路径（含引用定义）不换窗，所有段始终保持挂载。
+    if (this.needsFullConvertFallback()) {
+      this.previewWindowRange = null;
+      return;
+    }
+    const descs = this.previewCtx && this.previewCtx.sectionDescList;
+    const scroller = this.previewElt && this.previewElt.parentNode;
+    if (!descs || !descs.length || !scroller) {
+      return;
+    }
+    const cache = this.previewHeightCache || (this.previewHeightCache = { measured: {}, estimated: {} });
+    const sections = descs.map(d => ({ text: (d.section && d.section.text) || '' }));
+    const opts = {
+      avgCharPx: 8,
+      lineHeight: 24,
+      viewportWidth: Math.max(200, this.previewElt.clientWidth || 800),
+    };
+    // 未测量的段用估算；已测量的用实测值
+    const heights = computeSectionHeights(sections, cache.measured, opts);
+    const starts = computeSectionOffsets(heights);
+    const range = computeVisibleRange(
+      heights,
+      starts,
+      scroller.scrollTop || 0,
+      scroller.clientHeight || 600,
+      1200,
+    );
+    const plan = planWindowChange(this.previewWindowRange, range, descs.length);
+    if (!plan.mount.length && !plan.unmount.length) {
+      this.previewWindowRange = range;
+      return;
+    }
+    const placeholderH = i => heights[i];
+    const mountOne = (i) => {
+      const desc = descs[i];
+      const elt = desc.previewElt;
+      if (!elt || elt.dataset.previewMounted === '1') {
+        return;
+      }
+      elt.innerHTML = replaceLocalImageSrc(
+        htmlSanitizer.sanitizeHtml(this.conversionCtx.htmlSectionList[i]),
+      );
+      elt.dataset.previewMounted = '1';
+      elt.style.minHeight = '';
+      extensionSvc.sectionPreview(elt, this.options, true);
+      if (elt.offsetHeight > 0) {
+        cache.measured[i] = elt.offsetHeight;
+      }
+    };
+    const unmountOne = (i) => {
+      const desc = descs[i];
+      const elt = desc.previewElt;
+      if (!elt || elt.dataset.previewMounted !== '1') {
+        return;
+      }
+      if (elt.offsetHeight > 0) {
+        cache.measured[i] = elt.offsetHeight;
+      }
+      elt.innerHTML = '';
+      elt.dataset.previewMounted = '0';
+      elt.style.minHeight = `${placeholderH(i)}px`;
+    };
+    // 先卸载后挂载（保持滚动条量级稳定）
+    for (const r of plan.unmount) {
+      for (let i = r.from; i < r.to; i += 1) {
+        unmountOne(i);
+      }
+    }
+    for (const r of plan.mount) {
+      for (let i = r.from; i < r.to; i += 1) {
+        mountOne(i);
+      }
+    }
+    this.previewWindowRange = range;
+  },
+
+  /** 滚动 / 尺寸变化时的预览窗口重算（节流）。 */
+  schedulePreviewWindow: allowDebounce(function schedulePreviewWindow() {
+    if (editorSvc.previewPaused || !editorSvc.segmentedPipeline) {
+      return;
+    }
+    editorSvc.applyPreviewWindow();
+  }, 100),
 
   /**
    * 扫描驱动 TOC（卡 015）：从模型文本行扫描重建目录 DOM，与预览渲染解耦。
@@ -534,6 +717,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     if (!this.parsingCtx || !this.parsingCtx.markdownState) {
       return; // 编辑器尚未完成首次 section 解析（init 早期事件）；无正文可转换
     }
+    this.perfCounters.convert += 1;
     this.conversionCtx = markdownConversionSvc.convert(this.parsingCtx, this.conversionCtx);
     this.emit('conversionCtx', this.conversionCtx);
     ({ tokens } = this.parsingCtx.markdownState);
@@ -545,6 +729,15 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   async refreshPreview() {
     if (!this.conversionCtx || !this.previewCtx) {
       return;
+    }
+    this.perfCounters.refreshPreview += 1;
+    // 卡 014：首次（或重开文档后）确立初始窗口 —— 按字符预算取前几段，
+    // 其余为占位；后续滚动由 applyPreviewWindow 按需换窗。
+    if (this.segmentedPipeline && !this.needsFullConvertFallback() && !this.previewWindowRange) {
+      this.previewWindowRange = {
+        from: 0,
+        to: this.sectionEndsInitialPreviewWindow(this.conversionCtx.sectionList || []),
+      };
     }
     const nextPreviewImgPathCounts = Object.create(null);
     const sectionDescList = [];
@@ -598,30 +791,45 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
             this.tocElt.removeChild(sectionTocElt);
           }
         } else if (item[0] === 1) {
-          const html = replaceLocalImageSrc(
-            htmlSanitizer.sanitizeHtml(this.conversionCtx.htmlSectionList[sectionIdx]),
-          );
           sectionIdx += 1;
+          const mountIndex = sectionIdx - 1;
+          // 卡 014：窗口外的段不落 HTML，只占位（保持 children[i] 对齐）
+          const inWindow = this.isSectionInPreviewWindow(mountIndex);
+          const html = inWindow ? replaceLocalImageSrc(
+            htmlSanitizer.sanitizeHtml(this.conversionCtx.htmlSectionList[mountIndex]),
+          ) : '';
 
           // Create preview section element
           sectionPreviewElt = document.createElement('div');
           sectionPreviewElt.className = 'cl-preview-section';
           sectionPreviewElt.innerHTML = html;
+          sectionPreviewElt.dataset.previewMounted = inWindow ? '1' : '0';
+          if (!inWindow) {
+            sectionPreviewElt.style.minHeight = `${estimateBlockHeight((section && section.text) || '', {
+              avgCharPx: 8,
+              lineHeight: 24,
+              viewportWidth: Math.max(200, this.previewElt.clientWidth || 800),
+            })}px`;
+          }
           if (insertBeforePreviewElt) {
             this.previewElt.insertBefore(sectionPreviewElt, insertBeforePreviewElt);
           } else {
             this.previewElt.appendChild(sectionPreviewElt);
           }
-          await extensionSvc.sectionPreview(sectionPreviewElt, this.options, true);
-          const imgs = Array.prototype.slice.call(sectionPreviewElt.getElementsByTagName('img')).map((imgElt) => {
-            const workspaceSrcAttr = imgElt.attributes[localImageSrcAttr];
-            if (workspaceSrcAttr) {
-              const uri = decodeURIComponent(workspaceSrcAttr.nodeValue);
-              imgElt.removeAttribute(localImageSrcAttr);
-              return { imgElt, uri };
-            }
-            return { imgElt };
-          });
+          if (inWindow) {
+            await extensionSvc.sectionPreview(sectionPreviewElt, this.options, true);
+          }
+          const imgs = inWindow
+            ? Array.prototype.slice.call(sectionPreviewElt.getElementsByTagName('img')).map((imgElt) => {
+              const workspaceSrcAttr = imgElt.attributes[localImageSrcAttr];
+              if (workspaceSrcAttr) {
+                const uri = decodeURIComponent(workspaceSrcAttr.nodeValue);
+                imgElt.removeAttribute(localImageSrcAttr);
+                return { imgElt, uri };
+              }
+              return { imgElt };
+            })
+            : [];
           loadingImages = [
             ...loadingImages,
             ...imgs,
@@ -726,12 +934,22 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
 
     // Debounce if sections have already been measured
     this.measureSectionDimensions(!!this.previewCtxMeasured);
+    // 卡 014：刷新后按当前滚动位置校正窗口（可见时才做）
+    if (this.segmentedPipeline && !this.previewPaused) {
+      this.applyPreviewWindow();
+    }
   },
 
   /**
    * Measure the height of each section in editor, preview and toc.
    */
-  measureSectionDimensions: allowDebounce((restoreScrollPosition = false, force = false) => {
+  measureSectionDimensions: allowDebounce((restoreScrollPosition = false, force = false, isPreviewMeasure = false) => {
+    if (isPreviewMeasure && editorSvc.previewPaused) {
+      return; // 卡 014：预览隐藏时不做预览侧测量
+    }
+    if (isPreviewMeasure) {
+      editorSvc.perfCounters.measurePreview += 1;
+    }
     if (force || editorSvc.previewCtx !== editorSvc.previewCtxMeasured) {
       sectionUtils.measureSectionDimensions(editorSvc);
       editorSvc.previewCtxMeasured = editorSvc.previewCtx;
@@ -994,10 +1212,35 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     });
     this.editorElt.parentNode.addEventListener('scroll', () => this.saveContentState(true));
     this.previewElt.parentNode.addEventListener('scroll', () => this.saveContentState(true));
+    // 卡 014：预览滚动 → 按需换窗（仅可见时；节流）
+    this.previewElt.parentNode.addEventListener('scroll', () => this.schedulePreviewWindow());
 
-    // 击键活跃期跳过全量 convert/refreshPreview（ADR-0012 降频行为，R1-Q3
-    // 批准）：输入停顿 200ms 后补跑一次；打开文件首次仍即时（instantPreview）。
+    // 预览面板可见性（卡 014）：隐藏时预览一律不工作；重新可见时补跑一次。
+    // Note：必须无条件注册——此刻 segmentedPipeline 尚未求值（initClEditor 在
+    // 内容 watcher 里才跑），在外层门控会永不注册。管线判定放回调内。
+    store.watch(
+      () => this.isPreviewVisible(),
+      (visible) => {
+        if (!this.segmentedPipeline) {
+          return;
+        }
+        if (visible) {
+          this.resumePreviewIfPaused();
+        } else {
+          this.previewPaused = true;
+        }
+      },
+      { immediate: true },
+    );
+
+    // 击键活跃期跳过全量 convert/refreshPreview(ADR-0012 降频行为,R1-Q3
+    // 批准):输入停顿 200ms 后补跑一次;打开文件首次仍即时(instantPreview)。
+    // 卡 014:分段管线下预览隐藏时整个刷新链不启动(不 convert/不建 DOM/不测量)。
     const refreshPreview = allowDebounce(async () => {
+      this.previewPaused = !this.refreshPreviewIfVisible();
+      if (this.previewPaused) {
+        return;
+      }
       if (instantPreview) {
         this.convert();
         await this.refreshPreview();
