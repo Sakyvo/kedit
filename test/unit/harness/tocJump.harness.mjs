@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import {
   findSectionIndexByTocElt,
+  resolveTocSectionIndex,
   resolveLiveEditorElt,
   resolveLivePreviewElt,
   offsetTopInScroller,
@@ -33,6 +34,46 @@ function mockElt({ offsetTop = 0, parentNode = null, isConnected = true, childre
   assert.equal(findSectionIndexByTocElt(list, t1), 1);
   assert.equal(findSectionIndexByTocElt(list, {}), -1);
   assert.equal(findSectionIndexByTocElt(null, t0), -1);
+}
+
+// --- resolveTocSectionIndex: identity first, positional fallback ---
+{
+  // identity hit inside a full previewCtx list
+  const t1 = {};
+  const descs = [{ tocElt: {} }, { tocElt: t1 }];
+  const root = { children: [{}, t1, {}], };
+  t1.parentNode = root;
+  assert.equal(resolveTocSectionIndex(t1, descs, root), 1, 'identity match wins');
+}
+{
+  // cold start: previewCtx empty/stale -> positional match under toc root
+  const root = { children: [] };
+  const entries = [];
+  for (let i = 0; i < 5; i += 1) {
+    const e = { parentNode: root };
+    entries.push(e);
+    root.children.push(e);
+  }
+  assert.equal(resolveTocSectionIndex(entries[3], [], root), 3, 'positional fallback');
+  assert.equal(resolveTocSectionIndex(entries[0], null, root), 0, 'null descs still resolves');
+}
+{
+  // stale previewCtx of the wrong length must NOT block the positional answer
+  const root = { children: [] };
+  const entries = [];
+  for (let i = 0; i < 4; i += 1) {
+    const e = { parentNode: root };
+    entries.push(e);
+    root.children.push(e);
+  }
+  const staleDescs = [{ tocElt: {} }, { tocElt: {} }];
+  assert.equal(resolveTocSectionIndex(entries[2], staleDescs, root), 2, 'stale list ignored');
+}
+{
+  // detached entry / missing root -> -1 (no bogus jump)
+  assert.equal(resolveTocSectionIndex(null, [], null), -1);
+  const orphan = { parentNode: null };
+  assert.equal(resolveTocSectionIndex(orphan, [], { children: [] }), -1);
 }
 
 // --- resolveLiveEditorElt prefers sectionList when connected ---
@@ -134,6 +175,60 @@ function mockElt({ offsetTop = 0, parentNode = null, isConnected = true, childre
   const previewOnly = computeTocJumpTargets({ showEditor: false, showSidePreview: false, ...args });
   assert.equal(previewOnly.editor, null);
   assert.equal(previewOnly.preview, 700);
+}
+
+// --- preview jump without geometry: positional estimate clamped into range ---
+{
+  // Mounted preview slot wins when present.
+  const scroller = { scrollHeight: 10000, clientHeight: 500 };
+  const live = mockElt({ offsetTop: 4200, isConnected: true });
+  live.offsetParent = scroller;
+  assert.equal(
+    computeTocJumpScrollTop({
+      mode: 'preview',
+      sectionDesc: { previewElt: live },
+      sectionListLength: 100,
+      index: 40,
+      previewRoot: { children: [] },
+      previewScroller: scroller,
+    }),
+    4200,
+  );
+  // Unmounted slot + no dimensions -> proportional estimate (fraction of doc).
+  const est = computeTocJumpScrollTop({
+    mode: 'preview',
+    sectionDesc: { previewElt: mockElt({ isConnected: false }) },
+    sectionListLength: 100,
+    index: 50,
+    previewRoot: { children: [] },
+    previewScroller: scroller,
+  });
+  assert.equal(est, 5000, 'halfway through a 100-section doc');
+  // Estimate is clamped to the scrollable range.
+  assert.equal(
+    computeTocJumpScrollTop({
+      mode: 'preview',
+      sectionDesc: {},
+      sectionListLength: 100,
+      index: 99,
+      previewRoot: { children: [] },
+      previewScroller: scroller,
+    }),
+    9500,
+    'clamped to maxScrollTop, not scrollHeight',
+  );
+  // No section count known -> no estimate (never invent a position).
+  assert.equal(
+    computeTocJumpScrollTop({
+      mode: 'preview',
+      sectionDesc: {},
+      sectionListLength: 0,
+      index: 3,
+      previewRoot: { children: [] },
+      previewScroller: scroller,
+    }),
+    null,
+  );
 }
 
 // --- computeTocOutlineDepths: indent reflects actual nesting, not raw level ---

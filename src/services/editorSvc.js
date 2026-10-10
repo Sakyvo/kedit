@@ -1044,6 +1044,28 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   },
 
   /**
+   * 仅编辑器侧的段几何重建(卡 014):预览隐藏时不需要预览转换/预览 DOM,但
+   * 滚动位置追踪、滚动恢复与 TOC 遮罩都需要「与当前 sectionList 等长」的几何。
+   * previewDimension 置零高度(隐藏时不参与滚动同步)。
+   */
+  measureEditorOnlyDimensions() {
+    const sectionList = this.sectionList || (this.parsingCtx && this.parsingCtx.sectionList);
+    if (!sectionList || !sectionList.length || !this.editorElt) {
+      return;
+    }
+    const sectionDescList = sectionList.map(section => ({
+      section,
+      editorElt: section.elt,
+      previewElt: null,
+      tocElt: null,
+    }));
+    const previewCtx = { section: sectionList, sectionDescList };
+    sectionUtils.measureEditorDimensions(this.editorElt, sectionDescList);
+    this.previewCtxMeasured = previewCtx;
+    this.emit('previewCtxMeasured', previewCtx);
+  },
+
+  /**
    * Measure the height of each section in editor, preview and toc.
    */
   measureSectionDimensions: allowDebounce((restoreScrollPosition = false, force = false, isPreviewMeasure = false) => {
@@ -1343,6 +1365,12 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     const refreshPreview = allowDebounce(async () => {
       if (this.segmentedPipeline && !this.isPreviewVisible()) {
         this.previewPaused = true;
+        // 卡 014 修正:预览隐藏时不做转换/不建预览 DOM/不需要预览测量，
+        // 但**必须**重建编辑器侧几何：滚动位置保存/恢复与 TOC 遮罩依赖
+        // previewCtxMeasured.sectionDescList 与 sectionList 等长。旧行为直接
+        // return 会把上一份文档的旧测量留在 previewCtxMeasured → getScrollPosition
+        // /restoreScrollPosition 取到陈旧几何（实测恢复 scrollTop 0 应为 20000）。
+        this.measureEditorOnlyDimensions();
         return;
       }
       this.previewPaused = false;

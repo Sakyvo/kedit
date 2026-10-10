@@ -43,6 +43,11 @@ const doScrollSync = () => {
   if (!store.getters['data/layoutSettings'].scrollSync || sectionDescList.length === 0) {
     return;
   }
+  // 卡 014:预览隐藏时编辑器侧几何仍会重建(供滚动位置追踪/恢复),但
+  // previewDimension 是零高度占位,同步过去只会滚到 0。隐藏即无同步目标。
+  if (!store.getters['layout/styles'].showSidePreview) {
+    return;
+  }
   // A TOC jump suppressed this window; ignore the self-induced catch-up event.
   if (tocJumpSuppressor.isSuppressed()) {
     return;

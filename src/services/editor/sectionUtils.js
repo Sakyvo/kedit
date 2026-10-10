@@ -41,6 +41,48 @@ const normalizePreviewDimensions = dimensionNormalizer('previewDimension');
 const normalizeTocDimensions = dimensionNormalizer('tocDimension');
 
 export default {
+  /**
+   * 仅编辑器侧的段几何(卡 014):预览隐藏时使用。previewElt/tocElt 不可用,
+   * 因此只算 editorDimension;preview/toc 置零高度(隐藏时不参与同步)。
+   * 段数与 sectionDescList 一致,保证 getScrollPosition/restoreScrollPosition
+   * 与 TOC 遮罩拿到当前文档的几何而不是上一份的陈旧值。
+   */
+  measureEditorDimensions(editorElt, sectionDescList) {
+    if (!editorElt || !sectionDescList || !sectionDescList.length) {
+      return;
+    }
+    let editorSectionOffset = 0;
+    let sectionDesc = sectionDescList[0];
+    let i = 1;
+    for (; i < sectionDescList.length; i += 1) {
+      const nextSectionDesc = sectionDescList[i];
+      let newEditorSectionOffset = nextSectionDesc.editorElt
+        ? nextSectionDesc.editorElt.offsetTop
+        : editorSectionOffset;
+      newEditorSectionOffset = newEditorSectionOffset > editorSectionOffset
+        ? newEditorSectionOffset
+        : editorSectionOffset;
+      sectionDesc.editorDimension = new SectionDimension(
+        editorSectionOffset,
+        newEditorSectionOffset,
+      );
+      sectionDesc.previewDimension = new SectionDimension(0, 0);
+      sectionDesc.tocDimension = new SectionDimension(0, 0);
+      editorSectionOffset = newEditorSectionOffset;
+      sectionDesc = nextSectionDesc;
+    }
+    const lastDesc = sectionDescList[i - 1];
+    if (lastDesc) {
+      lastDesc.editorDimension = new SectionDimension(
+        editorSectionOffset,
+        editorElt.scrollHeight,
+      );
+      lastDesc.previewDimension = new SectionDimension(0, 0);
+      lastDesc.tocDimension = new SectionDimension(0, 0);
+    }
+    normalizeEditorDimensions({ previewCtx: { sectionDescList } });
+  },
+
   measureSectionDimensions(editorSvc) {
     let editorSectionOffset = 0;
     let previewSectionOffset = 0;

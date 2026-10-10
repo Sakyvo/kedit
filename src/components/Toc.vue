@@ -10,7 +10,7 @@ import { mapGetters } from 'vuex';
 import editorSvc from '../services/editorSvc';
 import store from '../store';
 import {
-  findSectionIndexByTocElt,
+  resolveTocSectionIndex,
   computeTocJumpTargets,
 } from '../services/editor/tocJump';
 import { tocJumpSuppressor } from '../services/optional/scrollSync';
@@ -35,8 +35,10 @@ export default {
       if (!sectionElt) {
         return;
       }
-      const sectionDescList = editorSvc.previewCtx.sectionDescList || [];
-      const index = findSectionIndexByTocElt(sectionDescList, sectionElt);
+      const sectionDescList = (editorSvc.previewCtx && editorSvc.previewCtx.sectionDescList) || [];
+      // 卡 014:预览隐藏(移动端常态)时 previewCtx 为空或陈旧,身份匹配找不到;
+      // 回退到位置匹配(tocElt.children[i] ↔ sectionList[i] 1:1)。
+      const index = resolveTocSectionIndex(sectionElt, sectionDescList, tocElt);
       if (index < 0) {
         return;
       }
@@ -47,6 +49,7 @@ export default {
         showSidePreview: this.styles.showSidePreview,
         sectionDesc,
         sectionList: editorSvc.sectionList || (editorSvc.parsingCtx && editorSvc.parsingCtx.sectionList),
+        sectionListLength: editorSvc.sectionList ? editorSvc.sectionList.length : 0,
         index,
         editorScroller: editorSvc.editorElt && editorSvc.editorElt.parentNode,
         previewRoot: editorSvc.previewElt,
@@ -78,7 +81,7 @@ export default {
     // Snap the mask to the current section's entry on scroll
     const updateMaskY = () => {
       const scrollPosition = editorSvc.getScrollPosition();
-      if (scrollPosition) {
+      if (scrollPosition && editorSvc.previewCtxMeasured) {
         const sectionDesc = editorSvc.previewCtxMeasured.sectionDescList[scrollPosition.sectionIdx];
         if (sectionDesc && sectionDesc.tocElt) {
           this.maskY = sectionDesc.tocElt.offsetTop;

@@ -16,6 +16,38 @@ export function findSectionIndexByTocElt(sectionDescList, tocSectionElt) {
 }
 
 /**
+ * Resolve a TOC entry's section index.
+ *
+ * Preferred: identity match inside previewCtx.sectionDescList. That list only
+ * exists once the preview has rendered, so on a cold start with the preview
+ * hidden (the mobile norm under the segmented pipeline) it is empty or stale
+ * and identity matching finds nothing.
+ *
+ * Fallback: positional match. The segmented pipeline keeps
+ * tocElt.children[i] ↔ sectionList[i] 1:1, so the entry's index among its
+ * siblings IS the section index. This is what makes TOC jumps work in
+ * editor-only mode.
+ *
+ * @param {HTMLElement} tocSectionElt
+ * @param {Array} sectionDescList previewCtx list (may be empty/stale)
+ * @param {HTMLElement} tocRoot .toc__inner (container of the entries)
+ * @returns {number} section index, or -1
+ */
+export function resolveTocSectionIndex(tocSectionElt, sectionDescList, tocRoot) {
+  if (!tocSectionElt) {
+    return -1;
+  }
+  const byIdentity = findSectionIndexByTocElt(sectionDescList, tocSectionElt);
+  if (byIdentity >= 0) {
+    return byIdentity;
+  }
+  if (tocRoot && tocSectionElt.parentNode === tocRoot) {
+    return Array.prototype.indexOf.call(tocRoot.children, tocSectionElt);
+  }
+  return -1;
+}
+
+/**
  * Prefer live section element from current sectionList; fall back to
  * sectionDesc.editorElt only if still parented in the document.
  */
@@ -75,6 +107,7 @@ export function computeTocJumpScrollTop({
   mode,
   sectionDesc,
   sectionList,
+  sectionListLength,
   index,
   editorScroller,
   previewRoot,
@@ -94,6 +127,15 @@ export function computeTocJumpScrollTop({
   if (sectionDesc && sectionDesc.previewDimension && previewScroller) {
     return clampScrollTop(sectionDesc.previewDimension.startOffset, previewScroller);
   }
+  // No per-section geometry: the preview slot exists (children are kept 1:1 in
+  // the segmented pipeline) but may be unmounted, so we cannot measure it.
+  if (sectionListLength && previewScroller && previewRoot
+    && index >= 0 && index < sectionListLength) {
+    return clampScrollTop(
+      (previewScroller.scrollHeight * index) / sectionListLength,
+      previewScroller,
+    );
+  }
   return null;
 }
 
@@ -106,6 +148,7 @@ export function computeTocJumpTargets({
   showSidePreview,
   sectionDesc,
   sectionList,
+  sectionListLength,
   index,
   editorScroller,
   previewRoot,
@@ -115,6 +158,7 @@ export function computeTocJumpTargets({
     mode: 'preview',
     sectionDesc,
     sectionList,
+    sectionListLength: sectionListLength || (sectionList ? sectionList.length : 0),
     index,
     previewRoot,
     previewScroller,
