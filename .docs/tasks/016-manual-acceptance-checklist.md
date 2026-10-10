@@ -2,7 +2,7 @@
 
 ## 交付身份
 
-- **版本**: 源码 `d513685e`(master,已 push;其后仅有 docs 提交,不影响构建产物)
+- **版本**: 源码 `d513685e`(master,已 push;其后仅有 docs/test 提交,不影响构建产物)
 - **部署地址**:https://kedit.cc.cd/ (push 触发 GitHub Pages 自动部署)
 - **改动范围**:`src/services/editor/`(segmenter / segmentedDocModel / windowedDiff /
   mutationDeltas / headingsScan / tocModel / previewWindow / referenceDefs /
@@ -27,6 +27,12 @@
 | 引用定义文档回退全量 | passed | 014 |
 | OFF 开关回退旧管线(编辑器/预览/目录均有内容) | passed | 011/014 |
 | 同名标题锚点唯一化 19.9ms → 1.5ms(输出等价) | passed | 013 |
+
+**真实样本分项实测**(真实 80 万字样本,打开路径内部打点):`convert` 246ms、
+`refreshPreview` 16ms、`measureSectionDimensions` 493ms(封面测量 1.08 万段时
+`offsetTop` 读取仅 14ms —— 主项是测量的**布局抖动**)、编辑器 DOM 挂载与首帧为
+其余部分。dirty check 已核对:`setContent` 走文本比较短路,**不读 DOM**
+(全文 DOM `textContent` 只在开发哨兵里出现)。
 
 **未达成的量化目标(诚实记录)**:ADR-0012 的「打开 <1s」在桌面 dev/build 环境实测
 为 **1.75–1.87s**。已量化的剩余瓶颈:9731 段 DOM 构建 + **全文文本一次排版
