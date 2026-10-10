@@ -250,6 +250,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
    */
   initConverter() {
     this.converter = markdownConversionSvc.createConverter(this.options, true);
+    this.sectionParseCache = null; // 转换器变更 → 旧解析结果失效
   },
 
   /**
@@ -273,6 +274,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.deferredHighlightFilling = false;
     this.sectionOffsetsList = null;
     this.sectionOffsetsCache = null;
+    this.sectionParseCache = null;
     this.tocElt.innerHTML = '';
     this.previewElt.innerHTML = '';
     const segmented = isSegmentedLoadingEnabled(
@@ -304,8 +306,17 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       // 编辑器与预览共用同一 section 源（markdown-it）才能保持 1:1 配对；
       // 模型只负责文本事实（delta/窗口 diff/全选/TOC 数据源）。
       sectionParser: (text) => {
-        this.parsingCtx = markdownConversionSvc.parseSections(this.converter, text);
-        return this.parsingCtx.sections;
+        // 记忆化（卡 013）：cledit 的解析 pass 可能对同一文本连续调用多次
+        // （refreshedSections / 补齐循环 / undo 探查），markdown-it 全量重解在
+        // 810k 上是 ~10ms × N。同一文本（=== 比较，内容不变时引用稳定）直接
+        // 复用上次结果。这是纯优化：结果与重解完全一致。
+        if (this.sectionParseCache && this.sectionParseCache.text === text) {
+          return this.sectionParseCache.sections;
+        }
+        const parsingCtx = markdownConversionSvc.parseSections(this.converter, text);
+        this.parsingCtx = parsingCtx;
+        this.sectionParseCache = { text, sections: parsingCtx.sections };
+        return parsingCtx.sections;
       },
       ...(segmented ? this.buildSegmentedHooks() : {}),
       getCursorFocusRatio: () => {
@@ -523,12 +534,21 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         this.deferredHighlightCount = 0;
         return;
       }
-      const PORTION = 400;
+      // 按「字符预算」分批：段落长度差异极大（一个 fence 段可上万字），
+      // 按段数分批会让单批成本波动数十倍（实测最长帧 647ms）。改为累计
+      // 字符达到 FILL_CHAR_BUDGET 即切断，使每批工作量恒定。
+      const FILL_CHAR_BUDGET = 60000;
       const targets = new Set();
-      for (let i = 0; i < Math.min(PORTION, elts.length); i += 1) {
+      let chars = 0;
+      for (let i = 0; i < elts.length; i += 1) {
         const section = elts[i].section;
-        if (section) {
-          targets.add(section);
+        if (!section) {
+          continue;
+        }
+        targets.add(section);
+        chars += (section.text ? section.text.length : 0);
+        if (chars >= FILL_CHAR_BUDGET) {
+          break;
         }
       }
       if (!targets.size) {
