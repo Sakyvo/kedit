@@ -43,6 +43,11 @@ function arrayToHtml(arr) {
 export default (md) => {
   md.core.ruler.before('replacements', 'anchors', (state) => {
     const anchorHash = {};
+    // 同名标题的序号计数器：逐个探测 `slug-1`、`slug-2`、… 是 O(n²)，
+    // 在大量同名标题（如多段 `## User:`）的文档上可致秒级卡顿。
+    // 记住每个 slug 上次用到的序号，只需从那里继续（等价：旧写法只可能
+    // 占用连续的 `slug-1..slug-k`，计数器已覆盖已占用区间）。
+    const anchorCounters = {};
     let headingOpenToken;
     let headingContent;
     const tocTokens = [];
@@ -76,10 +81,13 @@ export default (md) => {
         slug = slug.slice(i) || 'section';
 
         let anchor = slug;
-        let index = 1;
-        while (Object.prototype.hasOwnProperty.call(anchorHash, anchor)) {
+        if (Object.prototype.hasOwnProperty.call(anchorHash, anchor)) {
+          let index = anchorCounters[slug] || 1;
+          while (Object.prototype.hasOwnProperty.call(anchorHash, `${slug}-${index}`)) {
+            index += 1;
+          }
           anchor = `${slug}-${index}`;
-          index += 1;
+          anchorCounters[slug] = index;
         }
         anchorHash[anchor] = true;
         headingOpenToken.headingAnchor = anchor;
