@@ -2,7 +2,7 @@
 
 ## 交付身份
 
-- **版本**: commit `ee3431cd`(master,已 push)
+- **版本**: 源码 `d513685e`(master,已 push;其后仅有 docs 提交,不影响构建产物)
 - **部署地址**:https://kedit.cc.cd/ (push 触发 GitHub Pages 自动部署)
 - **改动范围**:`src/services/editor/`(segmenter / segmentedDocModel / windowedDiff /
   mutationDeltas / headingsScan / tocModel / previewWindow / referenceDefs /
