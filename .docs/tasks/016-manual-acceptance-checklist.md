@@ -1,6 +1,46 @@
 # 长文档分段加载 — 人工验收清单（批次 010 / 卡 016）
 
 部署地址：https://kedit.cc.cd/ （push master 后 GitHub Pages 自动部署）
+
+## 交付身份
+
+- **版本**: commit `ca07bb4d`(master,已 push)
+- **部署地址**:https://kedit.cc.cd/ (push 触发 GitHub Pages 自动部署)
+- **改动范围**:`src/services/editor/`(segmenter / segmentedDocModel / windowedDiff /
+  mutationDeltas / headingsScan / tocModel / previewWindow / referenceDefs /
+  segmentedLoading / cledit 钩子)、`src/services/editorSvc.js`、
+  `src/extensions/libs/markdownItAnchor.js`;新增 4 个 harness。
+
+## 自动侧结论(已取证,无需人工重复)
+
+`npm run build` exit=0;`test/unit/harness/` **17/17** 通过。真实样本
+(`GlitchesSwap.md`,810,031 字符 / 33k 行 / 2038 标题)上的实测:
+
+| 项 | 结论 | 归属卡 |
+| - | - | - |
+| DOM 文本 === 模型文本 === store 文本(810,031 字符逐字相等) | passed | 012/013 |
+| `sections` 拼接 === 全文(覆盖不变式) | passed | 012 |
+| 击键路径无全文 diff / 全文 DOM 读(窗口化 diff + delta 写模型) | passed | 012 |
+| 单次击键的全量 `parseSections` ≤2 次(修复前 20 次) | passed | 013 |
+| 渐进高亮补齐收敛(延迟段归零,补齐期间不变式不破) | passed | 013 |
+| 预览隐藏即零转换/零 DOM/零测量(打点计数不增长) | passed | 014 |
+| 预览可见窗口化(600 段中编辑 1 处 → 仅 1 段重建、599 段复用) | passed | 014 |
+| TOC 与预览解耦,打开即完整;围栏内 `#` 不入目录 | passed | 015 |
+| 引用定义文档回退全量 | passed | 014 |
+| OFF 开关回退旧管线(编辑器/预览/目录均有内容) | passed | 011/014 |
+| 同名标题锚点唯一化 19.9ms → 1.5ms(输出等价) | passed | 013 |
+
+**未达成的量化目标(诚实记录)**:ADR-0012 的「打开 <1s」在桌面 dev/build 环境实测
+为 **1.75–1.87s**。已量化的剩余瓶颈:9731 段 DOM 构建 + **全文文本一次排版
+(~374ms,与段数无关)** + markdown-it 解析。**段粒度粗化经对照实验被否定**
+(41 个 2 万字大段的布局成本 395ms,与 9730 小段几乎相同)。要突破需 ADR 中被否的
+「编辑器窗口化」——见 A9 裁决项。
+
+## 部署与干扰
+
+- 打开 https://kedit.cc.cd/ 即用,无需安装;可能弹出 PWA 更新提示。
+- 真机验收需在 Honor Magic 2 上操作;桌面项可在任意桌面浏览器完成。
+- 准备样本:真实 80 万字文档(约 2MB)。
 样本：真实 80 万字文档（约 2MB）。真机：Honor Magic 2（2018 年中端机）。
 先决条件：设置 → 可视化 → 性能 → 「长文档分段加载」默认**开**。
 
