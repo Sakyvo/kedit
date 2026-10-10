@@ -1,10 +1,8 @@
 # 长文档分段加载 — 人工验收清单（批次 010 / 卡 016）
 
-部署地址：https://kedit.cc.cd/ （push master 后 GitHub Pages 自动部署）
-
 ## 交付身份
 
-- **版本**: commit `ca07bb4d`(master,已 push)
+- **版本**: commit `1b321ed0`(master,已 push;以本文件所在提交为准)
 - **部署地址**:https://kedit.cc.cd/ (push 触发 GitHub Pages 自动部署)
 - **改动范围**:`src/services/editor/`(segmenter / segmentedDocModel / windowedDiff /
   mutationDeltas / headingsScan / tocModel / previewWindow / referenceDefs /
@@ -39,10 +37,9 @@
 ## 部署与干扰
 
 - 打开 https://kedit.cc.cd/ 即用,无需安装;可能弹出 PWA 更新提示。
-- 真机验收需在 Honor Magic 2 上操作;桌面项可在任意桌面浏览器完成。
-- 准备样本:真实 80 万字文档(约 2MB)。
-样本：真实 80 万字文档（约 2MB）。真机：Honor Magic 2（2018 年中端机）。
-先决条件：设置 → 可视化 → 性能 → 「长文档分段加载」默认**开**。
+- **操作面**: 真机项需在 Honor Magic 2 上;桌面项可在任意桌面浏览器完成。
+- **真机**: Honor Magic 2(2018 年中端机);**准备样本**: 真实 80 万字文档(约 2MB)。
+- **先决条件**: 设置 → 可视化 → 性能 → 「长文档分段加载」默认**开**。
 
 自动化已取证的部分见各任务卡（011/012/013/014/015）；本清单只列必须真人操作的项目。
 逐项勾选后把卡 016 转 `done`，批次归档。
