@@ -58,6 +58,26 @@ Status: review
       —— 挂载路径仍走 `extensionSvc.sectionPreview` 与既有的图片/链接后处理；
       真机交互确认转 016
 
+## 对抗性实测发现并修复的两处真实缺陷（收尾追加）
+
+按**移动端真实顺序**（先隐藏预览、再打开文档）冷启动实测，暴露 014 引入的两处回归：
+
+1. **滚动几何陈旧**：预览隐藏时 `refreshPreview` 直接 return，`previewCtxMeasured`
+   永久停留在上一份文档（真实 800 段文档上仍为 60 段），而
+   `getScrollPosition` / `restoreScrollPosition` / `Toc.vue` 遮罩都依赖它。
+   修：新增 `measureEditorOnlyDimensions()` + `sectionUtils.measureEditorDimensions`
+   —— 重建与当前 `sectionList` 等长的**编辑器侧**几何（preview/toc 维度置零），
+   仍不转换、不建预览 DOM、不动预览测量计数。`scrollSync` 补保护：预览隐藏时直接返回。
+2. **冷启动移动端 TOC 跳转失效**：`Toc.vue` 用 `findSectionIndexByTocElt` 在
+   `previewCtx.sectionDescList` 做身份匹配，该列表在预览未渲染时为空/陈旧 →
+   `index = -1` → 直接 return（实测 afterScrollTop 恒 0）。
+   修：新增 `resolveTocSectionIndex`（身份优先、位置回退，依赖
+   `tocElt.children[i] ↔ sectionList[i]` 1:1）；`computeTocJumpScrollTop` 的预览分支
+   在无几何时按索引比例估算并 clamp。
+
+修复后实测（仅编辑冷启动，800 段）：实测段数 800 = `previewCtxMeasured` 800；
+几何往返自洽误差 0；TOC 点击条目 795 → 62101px、条目 50 → 3916px，双向准确。
+
 ## 既有 harness 回归
 
 - 全部 16 个 harness 绿（含新增 `previewWindow` / `referenceDefs`）。
