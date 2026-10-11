@@ -60,3 +60,39 @@ deferred to the on-device acceptance verdict (task 016, item A9).
 - Scroll-sync precision over never-measured segments is estimated (placeholder heights) and refines as segments materialize; TOC stays exact because it is line-scanned.
 - Editing inside a loaded segment is byte-for-byte today's experience: native echo, per-block re-highlight, undo chain intact. Development builds assert segment DOM text ≡ model slice (reconciliation sentinel).
 - Cost: the legacy full-render pipeline stays alive behind the OFF switch — dual-path maintenance is accepted on purpose (the Author's escape hatch "以防问题") until long-term on-device evidence retires it.
+
+## Measured outcomes and what remains (updated after the 010 batch)
+
+Delivered and verified on the real sample (GlitchesSwap.md, 810,031 chars / 33.5k lines
+/ 2,038 headings / 10,801 sections):
+
+- Keystroke path no longer does any O(document) work: windowed diff (810k median
+  0.13ms), model-side delta (single-char median 0.72ms), no full-DOM text read.
+- TOC is decoupled from preview rendering and exact on open (line-scanned, 2,038
+  headings) — including in editor-only mode where the preview never renders.
+- Preview renders only what is visible: 10,801 slots, ~35 mounted at a time;
+  editing one section rebuilds 1 section and reuses 599 DOM nodes.
+- Preview hidden (the mobile norm) does exactly zero preview work: convert /
+  refresh / measure counters stay at 0.
+- Progressively deferred Prism highlighting converges; DOM text ≡ model text ≡
+  stored text, byte for byte, throughout.
+
+**The open target is not met.** "Open in under 1 second" measures 1.75–1.87s on
+desktop (dev server numbers run high; production is verified functionally but not
+timed). Measured breakdown of the residue: full-text layout ~374ms, markdown-it
+parse, and building ~9.7k section nodes. Two escape routes were tested and
+**rejected**:
+
+- *Coarser segments* (41 × ~20k chars, the original ask): layout cost 395ms vs
+  374ms for 9,730 small sections — layout is a property of the text, not of the
+  node count. No gain.
+- *`content-visibility: auto`* on editor sections: keystroke median 27.4 → 28.3ms,
+  p90 39.1 → **58.8ms**. No gain, worse tail. The bottleneck is cledit's own DOM
+  traversal/application plus one full layout, which container-level CSS hints do
+  not address.
+
+Consequently the remaining option is **editor windowing** (only sections near the
+viewport in the DOM) — the structural rewrite this ADR rejected on cost grounds,
+because it forces re-deriving selection offsets, clipboard, undo, image cards and
+scroll sync. On-device keystroke latency (desktop baseline: median 27.4ms per key
+on a 9,001-section document) is the decision input for item A9.
