@@ -42,8 +42,11 @@ const normalizeTocDimensions = dimensionNormalizer('tocDimension');
 
 export default {
   /**
-   * 仅编辑器侧的段几何(卡 014):预览隐藏时使用。previewElt/tocElt 不可用,
-   * 因此只算 editorDimension;preview/toc 置零高度(隐藏时不参与同步)。
+   * 仅编辑器侧的段几何(卡 014):预览隐藏时使用。
+   *
+   * 该模式下 TOC DOM 仍由 rebuildTocFromScan 完整构建(与 sectionList 1:1),
+   * 所以 tocDimension 照常测量 —— 否则 TOC 面板的当前段落遮罩不会跟随滚动。
+   * previewElt 在隐藏态为空/陈旧,previewDimension 置零(隐藏时不同步)。
    * 段数与 sectionDescList 一致,保证 getScrollPosition/restoreScrollPosition
    * 与 TOC 遮罩拿到当前文档的几何而不是上一份的陈旧值。
    */
@@ -52,6 +55,7 @@ export default {
       return;
     }
     let editorSectionOffset = 0;
+    let tocSectionOffset = 0;
     let sectionDesc = sectionDescList[0];
     let i = 1;
     for (; i < sectionDescList.length; i += 1) {
@@ -67,7 +71,14 @@ export default {
         newEditorSectionOffset,
       );
       sectionDesc.previewDimension = new SectionDimension(0, 0);
-      sectionDesc.tocDimension = new SectionDimension(0, 0);
+      let newTocSectionOffset = nextSectionDesc.tocElt
+        ? nextSectionDesc.tocElt.offsetTop + (nextSectionDesc.tocElt.offsetHeight / 2)
+        : tocSectionOffset;
+      newTocSectionOffset = newTocSectionOffset > tocSectionOffset
+        ? newTocSectionOffset
+        : tocSectionOffset;
+      sectionDesc.tocDimension = new SectionDimension(tocSectionOffset, newTocSectionOffset);
+      tocSectionOffset = newTocSectionOffset;
       editorSectionOffset = newEditorSectionOffset;
       sectionDesc = nextSectionDesc;
     }
@@ -78,9 +89,14 @@ export default {
         editorElt.scrollHeight,
       );
       lastDesc.previewDimension = new SectionDimension(0, 0);
-      lastDesc.tocDimension = new SectionDimension(0, 0);
+      const tocRootElt = sectionDescList[0].tocElt && sectionDescList[0].tocElt.parentNode;
+      lastDesc.tocDimension = new SectionDimension(
+        tocSectionOffset,
+        (tocRootElt && tocRootElt.scrollHeight) || tocSectionOffset,
+      );
     }
     normalizeEditorDimensions({ previewCtx: { sectionDescList } });
+    normalizeTocDimensions({ previewCtx: { sectionDescList } });
   },
 
   measureSectionDimensions(editorSvc) {

@@ -1053,13 +1053,21 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     if (!sectionList || !sectionList.length || !this.editorElt) {
       return;
     }
-    const sectionDescList = sectionList.map(section => ({
+    // 幂等：几何已对应当前 sectionList 时不再重算（该入口位于每个
+    // measureSectionDimensions 调用路径上，重复计算会被读成「预览侧工作」）。
+    if (this.previewCtxMeasured
+      && this.previewCtxMeasured.sectionList === sectionList) {
+      return;
+    }
+    const sectionDescList = sectionList.map((section, index) => ({
       section,
       editorElt: section.elt,
       previewElt: null,
-      tocElt: null,
+      // TOC DOM 在仅编辑模式下仍完整构建且与 sectionList 1:1，
+      // 链接它才能让 TOC 面板的当前段落遮罩跟随滚动。
+      tocElt: this.segmentedPipeline && this.tocElt ? this.tocElt.children[index] : null,
     }));
-    const previewCtx = { section: sectionList, sectionDescList };
+    const previewCtx = { sectionList, sectionDescList };
     sectionUtils.measureEditorDimensions(this.editorElt, sectionDescList);
     this.previewCtxMeasured = previewCtx;
     this.emit('previewCtxMeasured', previewCtx);
@@ -1069,8 +1077,20 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
    * Measure the height of each section in editor, preview and toc.
    */
   measureSectionDimensions: allowDebounce((restoreScrollPosition = false, force = false, isPreviewMeasure = false) => {
+    // 卡 014:预览隐藏(分段管线)时唯一合法的几何来源是编辑器侧重建。
+    // 其余调用点(滚动同步、图片自适应…)会带 force=true 并用**陈旧的** previewCtx
+    // 覆盖 previewCtxMeasured(实测把 800 段真实几何换成 60 段),因此守卫必须放在
+    // 这个唯一入口上,而不是只放在推送可见性变化的那个分支里。
+    if (editorSvc.segmentedPipeline && !editorSvc.isPreviewVisible()) {
+      editorSvc.previewPaused = true;
+      editorSvc.measureEditorOnlyDimensions();
+      if (restoreScrollPosition) {
+        editorSvc.restoreScrollPosition();
+      }
+      return;
+    }
     if (isPreviewMeasure && editorSvc.previewPaused) {
-      return; // 卡 014：预览隐藏时不做预览侧测量
+      return; // 卡 014:预览隐藏时不做预览侧测量
     }
     if (isPreviewMeasure) {
       editorSvc.perfCounters.measurePreview += 1;
