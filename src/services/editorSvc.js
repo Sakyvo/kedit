@@ -203,6 +203,8 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   previewPaused: false,
   // 预览窗口（卡 014）：当前已挂载真实 HTML 的段区间 + 高度缓存。
   previewWindowRange: null,
+  previewWindowApplying: false,
+  previewWindowApplyingTimer: null,
   previewHeightCache: null,
   previewInitialCharBudget: 60000,
   // 编辑器侧渐进高亮（卡 013/014）：一次 pass 内高亮字符预算；超出先纯文本占位。
@@ -276,6 +278,11 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.previewCtx = { sectionDescList: [] };
     this.tocKeys = null;
     this.previewWindowRange = null;
+    this.previewWindowApplying = false;
+    if (this.previewWindowApplyingTimer) {
+      clearTimeout(this.previewWindowApplyingTimer);
+      this.previewWindowApplyingTimer = null;
+    }
     this.previewHeightCache = null;
     this.highlightCharsUsed = 0;
     this.deferredHighlightCount = 0;
@@ -452,6 +459,35 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       this.previewWindowRange = range;
       return;
     }
+    // 卡 014 修复：防抖动。窗口判据取自 scrollTop，而挂载/卸载会改变
+    // scrollHeight，浏览器随即钳制 scrollTop（在文末附近尤其明显），又反过来
+    // 触发一次换窗 —— 形成正反馈。实测双栏 + 滚动同步下窗口在 777-800 ⇄
+    // 783-800 之间持续抖动、预览高度 26341⇄26171 振荡（170px）。
+    //
+    // 两道防线：
+    // (1) 滞后阈值：视口（含 buffer）仍在当前已挂载窗口内、且余量充足时不换窗；
+    // (2) 滚动锥定：换窗后按高度差补偿 scrollTop，保持视觉位置不跳。
+    const HYSTERESIS_PX = 600;
+    const bufferPx = 1200;
+    if (this.previewWindowRange) {
+      const current = this.previewWindowRange;
+      const curTop = starts[current.from] || 0;
+      const curBottom = (current.to < starts.length)
+        ? starts[current.to]
+        : ((starts[starts.length - 1] || 0) + (heights[heights.length - 1] || 0));
+      const viewTop = (scroller.scrollTop || 0) - bufferPx;
+      const viewBottom = (scroller.scrollTop || 0) + (scroller.clientHeight || 600) + bufferPx;
+      const safelyInside = viewTop >= curTop - HYSTERESIS_PX
+        && viewBottom <= curBottom + HYSTERESIS_PX;
+      if (safelyInside) {
+        // 视口仍安稳地落在已挂载窗口内 → 不动 DOM，也不改写窗口描述
+        // （previewWindowRange 必须准确描述「已挂载了什么」）。
+        return;
+      }
+    }
+    const prevScrollTop = scroller.scrollTop || 0;
+    const prevScrollHeight = scroller.scrollHeight;
+    this.previewWindowApplying = true;
     const placeholderH = i => heights[i];
     const mountOne = (i) => {
       const desc = descs[i];
@@ -496,12 +532,30 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         mountOne(i);
       }
     }
+    // 滚动锥定：换窗改变了内容高度，把 scrollTop 按差值补偿，避免视觉跳跃
+    // （同时避免“高度变→scrollTop被钳→再换窗”的循环）。
+    const delta = scroller.scrollHeight - prevScrollHeight;
+    if (delta !== 0) {
+      scroller.scrollTop = Math.max(0, prevScrollTop + delta);
+    }
     this.previewWindowRange = range;
+    // 释放后让白身的 scroll 事件（如浏览器钳制产生的）不再触发换窗
+    if (this.previewWindowApplyingTimer) {
+      clearTimeout(this.previewWindowApplyingTimer);
+    }
+    this.previewWindowApplyingTimer = setTimeout(() => {
+      this.previewWindowApplying = false;
+      this.previewWindowApplyingTimer = null;
+    }, 150);
   },
 
-  /** 滚动 / 尺寸变化时的预览窗口重算（节流）。 */
+  /** 滚动 / 尺寸变化时的预览窗口重算(节流)。 */
   schedulePreviewWindow: allowDebounce(function schedulePreviewWindow() {
     if (editorSvc.previewPaused || !editorSvc.segmentedPipeline) {
+      return;
+    }
+    // 换窗自身引起的 scroll（高度变化→钳制）不参与重算，切断正反馈
+    if (editorSvc.previewWindowApplying) {
       return;
     }
     editorSvc.applyPreviewWindow();
