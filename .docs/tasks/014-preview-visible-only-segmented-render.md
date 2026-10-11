@@ -92,6 +92,12 @@ Status: review
    修复后 10/10、滚回 24/24；端到端点击 → `writeText('const v290 = 290;
 ')` 精确一致。
 
+6. **状态栏 HTML 统计陈旧**：StatusBar 的 HTML 数字只在 `previewCtx` /
+   `previewSelectionRange` 上更新；预览隐藏后这两个事件不再触发，面板一直显示
+   上一份文档的数字（实测仅编辑 + 400 段新文档时仍为 Welcome 的「114 字数 3 段落」）。
+   修：watch `layout/styles.showPreview`，隐藏时把 HTML 统计置空（显示「HTML 字数
+   段落」而非假数字），重新可见时由既有路径回填。实测 302/46 → 置空 → 221/35。
+
 ### 未受窗口化影响的增强（核对结论）
 
 灯箱（`openZoomedImage`）、外链打开、讨论高亮/评论 gutter 全部走 `previewElt` 上的
