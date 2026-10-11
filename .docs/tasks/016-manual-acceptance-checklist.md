@@ -42,6 +42,8 @@
 | **产物构建**(`dist/` + 静态服务,非 dev server):810,031 字符文档 DOM≡模型、TOC 2038、预览仅挂 35 段、deferred 0、measurePreview 0 | passed | 全批 |
 | **D0 自动侧:已存 OFF 跨真实重载生效**(`rawSettings="segmentedLoading: false"` → `flag/pipeline=false`、`windowRange=null`、63/63 段全挂载) | passed | 011 |
 | **D0 自动侧:已存 ON 跨真实重载生效**(互补面:`raw=true` → `pipeline=true`、`windowRange={0,46}`、46/63 挂载) | passed | 011 |
+| **A9 决策基线:击键延迟**(9,001 段 / 72k 节点:桌面 median 27.4ms、p90 39.1ms/键) | 基线已取 | 013 |
+| **已否决的低成本路径**:段粒度粗化(布局 395 vs 374ms)、`content-visibility`(p90 39→59ms) | 已实测否决 | 013/ADR-0012 |
 
 **真实样本分项实测**(真实 80 万字样本,打开路径内部打点):`convert` 246ms、
 `refreshPreview` 16ms、`measureSectionDimensions` 493ms(封面测量 1.08 万段时
