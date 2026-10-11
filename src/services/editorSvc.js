@@ -256,6 +256,14 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   /**
    * Initialize the cledit editor with markdown-it section parser and Prism highlighter
    */
+  /**
+   * 初始化 cledit 编辑器。
+   *
+   * 门控取值必须直接读 store(而不是只依赖 init() 末尾那个 watcher 事先写好的
+   * this.segmentedLoadingEnabled):该 watcher 在 init() 最末注册,而
+   * initClEditor 可能在那之前先被内容 watcher 触发(启动时已有文档就是这种
+   * 情况),于是分段管线会忽略已存的 OFF 设置。
+   */
   initClEditor() {
     this.previewCtxMeasured = null;
     editorSvc.emit('previewCtxMeasured', null);
@@ -280,6 +288,8 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     const segmented = isSegmentedLoadingEnabled(
       store.getters['data/computedSettings'],
     ) && this.segmentedLoadingEnabled !== false;
+    // 与 store 对齐:门控是设置的投影,不是独立状态
+    this.segmentedLoadingEnabled = segmented;
     this.segmentedPipeline = segmented;
     if (segmented) {
       this.docModel = this.docModel || createDocModel();
