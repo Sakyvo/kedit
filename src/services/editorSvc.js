@@ -38,6 +38,9 @@ import { extractHeadings, mapHeadingsToSections, computeSectionStarts } from './
 import { computeTocEntries, tocEntryKey, planTocPatch } from './editor/tocModel.js';
 import { hasReferenceDefinitions } from './editor/referenceDefs.js';
 import {
+  planFillBatch,
+} from './editor/highlightFillPlan.js';
+import {
   estimateBlockHeight,
   computeSectionHeights,
   computeSectionOffsets,
@@ -210,6 +213,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   // 编辑器侧渐进高亮（卡 013/014）：一次 pass 内高亮字符预算；超出先纯文本占位。
   highlightInitialCharBudget: 150000,
   highlightCharsUsed: 0,
+  // 渐进高亮补齐的单批墙上时钟预算(卡 013/A3)。起始 12ms(留足余量给
+  // 其他 idle 工作与输入);实测超支则自适应回退,过松则逐渐放宽到上限。
+  fillBatchBudgetMs: 12,
   // 打点（卡 014 验收取证）：预览转换 / 预览刷新 / 尺寸测量的调用次数。
   // 预览隐藏时这三项必须不增长。
   perfCounters: { convert: 0, refreshPreview: 0, measurePreview: 0 },
@@ -287,6 +293,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.highlightCharsUsed = 0;
     this.deferredHighlightCount = 0;
     this.deferredHighlightFilling = false;
+    this.fillBatchBudgetMs = 12;
     this.sectionOffsetsList = null;
     this.sectionOffsetsCache = null;
     this.sectionParseCache = null;
@@ -601,33 +608,44 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         this.deferredHighlightCount = 0;
         return;
       }
-      // 按「字符预算」分批：段落长度差异极大（一个 fence 段可上万字），
-      // 按段数分批会让单批成本波动数十倍（实测最长帧 647ms）。改为累计
-      // 字符达到 FILL_CHAR_BUDGET 即切断，使每批工作量恒定。
-      const FILL_CHAR_BUDGET = 60000;
-      const targets = new Set();
-      let chars = 0;
+      // 按「估算成本 + 墙上时钟预算」分批(卡 013 / A3)。
+      // 旧规则是固定 60k 字符/批,在 810k 文档上实测每批阻塞主线程
+      // 344–375ms —— 远超 50ms 长任务阈值,补齐期间打字被抢占。
+      // 现按估算成本取段(至少一段、至多 maxSections),批内再用墙上时钟
+      // 守门,使每批短小且与文档构成无关。
+      const candidates = [];
       for (let i = 0; i < elts.length; i += 1) {
         const section = elts[i].section;
-        if (!section) {
-          continue;
-        }
-        targets.add(section);
-        chars += (section.text ? section.text.length : 0);
-        if (chars >= FILL_CHAR_BUDGET) {
-          break;
+        if (section) {
+          candidates.push(section);
         }
       }
-      if (!targets.size) {
+      const { count } = planFillBatch(candidates, {
+        budgetMs: this.fillBatchBudgetMs,
+        maxSections: 400,
+      });
+      if (!count) {
         this.deferredHighlightCount = 0;
         return;
       }
-      // 补齐轮：不做预算限制，确保这批段真正完成着色
+      const targets = new Set(candidates.slice(0, count));
+      // 补齐轮:不做预算限制,确保这批段真正完成着色。
+      // `refreshHighlightedSections` 是批级 API,无法批内中断,因此批次大小
+      // 本身就是「不冻结输入」的唯一手段 —— 靠下面的自适应预算持续校正。
+      const startedAt = performance.now();
       this.deferredHighlightFilling = true;
       try {
         this.clEditor.refreshHighlightedSections(section => targets.has(section));
       } finally {
         this.deferredHighlightFilling = false;
+      }
+      // 自适应:实测超预算则下轮少取一些(估算若偏小,这里把它拉回来),
+      // 实测远低于预算则逐渐放宽(减少 idle 回调次数)。
+      const actualMs = performance.now() - startedAt;
+      if (actualMs > this.fillBatchBudgetMs && this.fillBatchBudgetMs > 2) {
+        this.fillBatchBudgetMs = Math.max(2, this.fillBatchBudgetMs * 0.6);
+      } else if (actualMs < this.fillBatchBudgetMs * 0.3 && this.fillBatchBudgetMs < 12) {
+        this.fillBatchBudgetMs = Math.min(12, this.fillBatchBudgetMs * 1.5);
       }
       this.deferredHighlightCount = this.editorElt
         .querySelectorAll('.cledit-section[data-highlight-deferred="1"]').length;
