@@ -1,5 +1,26 @@
 Status: review
 
+
+## 收尾发现的启动时序缺陷（已修，2026 后续轮次）
+
+**现象**：开关关闭后**重启/刷新不生效**——直到下一次真正切换文档才回到旧管线。
+
+**根因**：`init()` 的两个 watcher 都带 `immediate`，注册顺序即执行顺序。内容
+watcher 先跑，遇「打开已有文档」立刻调 `initClEditor`；设置 watcher 后跑，才把
+设置投影到 `this.segmentedLoadingEnabled`。于是 `initClEditor` 读到默认 `true`，
+按分段管线建好编辑器；随后 watcher 把标志改回 `false` 并打印「关」，但为时已晚。
+
+**为何本卡验收没抓到**：本卡的人工项只覆盖「运行中切换开关」（那条路径是通的），
+漏掉了「已存 OFF + 冷启动」。这也是本卡最重要的教训——门控类功能必须同时验
+「运行中翻转」和「启动即生效」两条路径。
+
+**修法**：`initClEditor` 直接读 store 推导门控（单一事实源），并与
+`this.segmentedLoadingEnabled` 对齐（它只是设置的投影，不是独立状态）。
+`init()` 末尾的 watcher 保留，负责运行中翻转。
+
+**实测**（设置置 false 后重建编辑器）：修复前 `pipeline=true`、`windowRange={0,35}`；
+修复后 `flag=false / pipeline=false / windowRange=null / 全 63 段挂载 / deferred=0`。
+
 ## Parent
 
 010-long-doc-segmented-loading.md（决策见 ADR-0012）
