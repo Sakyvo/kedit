@@ -43,6 +43,9 @@
 | **D0 自动侧:已存 OFF 跨真实重载生效**(`rawSettings="segmentedLoading: false"` → `flag/pipeline=false`、`windowRange=null`、63/63 段全挂载) | passed | 011 |
 | **D0 自动侧:已存 ON 跨真实重载生效**(互补面:`raw=true` → `pipeline=true`、`windowRange={0,46}`、46/63 挂载) | passed | 011 |
 | **A9 决策基线:击键延迟**(9,001 段 / 72k 节点:桌面 median 27.4ms、p90 39.1ms/键) | 基线已取 | 013 |
+| **讨论 marker 偏移在窗口化 diff 下正确**(远处插入不动 28→28;前方插入后移 28→**30** = +2,marker 始终指向原文本) | passed | 012/014 |
+| **B4 自动侧:讨论高亮双边绑定**(编辑器 `.discussion-editor-highlighting--<id>` + 预览 `.discussion-preview-highlighting--<id>`,gutter 存在) | passed | 014 |
+| **A8 数据侧:同步源为 store 而非 DOM**(91,890 字符大文档 store ≡ model ≡ DOM;`syncDataItem` 从 store 读,已核实与分段管线无耦合) | passed | 012 |
 | **A6 自动侧:Ctrl+A → 复制得到全文**(4,001 段:原生全选 → `selectionStart/End = 0/75780` → `getSelectedText()` 与模型**逐字相等**;copy 事件 preventDefault 后写入模型全文而非 DOM 切片) | passed | 012/013 |
 | **已否决的低成本路径**:段粒度粗化(布局 395 vs 374ms)、`content-visibility`(p90 39→59ms) | 已实测否决 | 013/ADR-0012 |
 
@@ -120,6 +123,22 @@
 | D3 | 控制台日志 | 关/开各打印一次。**自动侧已取证**:`[kedit] 长文档分段加载:关` 与 `:开` 两条均在控制台出现 | ☐ |
 | D4 | 再开启 | 恢复分段管线。**自动侧已取证**:`flag=true`、`windowRange={0,46}`、46/63 挂载 | ☐ |
 | D5 | 跨设备同步 | 开关值随设置同步到另一设备（或在 syncExclude 中显式排除） | ☐ |
+
+## E.1 跨面扫描结论(讨论 / 同步链路与分段管线的交互)
+
+针对「分段管线是否破坏非渲染链路」做了一次专门的代码审计 + 实测:
+
+- **讨论偏移**:`marker.adjustOffset()` 现在吃到的是**窗口化 diff**(而非全文
+  `diff_main`)。窗口 diff 在歧义处分解不同(实测有界、不累积)。端到端实测:
+  讨论区间在远处插入后不动、前方插入后精确后移 —— **偏移正确**。
+- **讨论同步**:`stripDiscussionOffsets` 在同步投影时**剥离偏移只留文本**
+  (ADR 0010),所以跨设备不携带可能歧义的偏移值。
+- **同步链路**:`syncDataItem` 从 **store** 取数据,不读 DOM;`docModel` 与 store
+  文本在多轮编辑后逐字相等 —— 分段管线对同步无影响。
+- **撤销链路**:`patchHandler` 走全文 `diff_main`(讨论 marker 的 makePatches),
+  与窗口 diff 是两套独立机制,互不干扰。
+
+结论:**未发现分段管线对讨论 / 同步 / 撤销链路的破坏**。
 
 ## E. 本轮补齐(清单初版之后的新增修复,需一并复验)
 
