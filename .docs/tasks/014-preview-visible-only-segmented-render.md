@@ -78,6 +78,27 @@ Status: review
 修复后实测（仅编辑冷启动，800 段）：实测段数 800 = `previewCtxMeasured` 800；
 几何往返自洽误差 0；TOC 点击条目 795 → 62101px、条目 50 → 3916px，双向准确。
 
+3. **几何被其他调用点用陈旧 previewCtx 覆写**：`measureSectionDimensions` 的 11 个
+   调用点（滚动同步、图片自适应…）带 `force=true` 直接覆盖 `previewCtxMeasured`。
+   实测打开侧栏 TOC 时 800 段真实几何被换回 60 段。修：守卫上移到该唯一入口，
+   `measureEditorOnlyDimensions` 加按 `sectionList` 身份的幂等短路。
+4. **TOC 遮罩不跟随**：仅编辑模式下 TOC DOM 仍与 sectionList 1:1，但 tocElt 被置
+   null、tocDimension 置零 → 遮罩恒 0px。修：链接 `tocElt.children[index]` 并按
+   editorDimension 同款算法测 tocDimension（含 normalizeTocDimensions）。
+   实测遮罩 top 随滚动 10px → 9169px。
+5. **滚动新挂载段的代码块复制按钮缺失**：增强钩子挂在 `previewCtx`（旧管线的一次性
+   全量挂载路径），窗口化后新挂载段不在其上。实测 10 个新 `pre` / **0 个按钮**。
+   修：挂载路径 `emit('previewSectionMounted')`，Preview.vue 订阅并单段增强。
+   修复后 10/10、滚回 24/24；端到端点击 → `writeText('const v290 = 290;
+')` 精确一致。
+
+### 未受窗口化影响的增强（核对结论）
+
+灯箱（`openZoomedImage`）、外链打开、讨论高亮/评论 gutter 全部走 `previewElt` 上的
+**事件委托**（`onClick` / `mouseover` / `mouseout`），不依赖逐段挂载时机的绑定，
+因此窗口化后天然继续可用。知识卡片、任务列表、Prism、KaTeX、Mermaid、abc 均在
+`extensionSvc.sectionPreview` 内按段处理，挂载路径已调用。
+
 ## 既有 harness 回归
 
 - 全部 16 个 harness 绿（含新增 `previewWindow` / `referenceDefs`）。
