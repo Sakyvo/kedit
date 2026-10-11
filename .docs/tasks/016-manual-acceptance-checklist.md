@@ -40,7 +40,8 @@
 | 预览模式:目录跳转到未挂载段(条目 595 → 15970px、窗口换到 {583,600}) | passed | 014 |
 | 仅编辑模式:状态栏 HTML 统计不再残留上一份文档(隐藏即置空,可见时回填 221/35) | passed | 014 |
 | **产物构建**(`dist/` + 静态服务,非 dev server):810,031 字符文档 DOM≡模型、TOC 2038、预览仅挂 35 段、deferred 0、measurePreview 0 | passed | 全批 |
-| **D0 自动侧:已存 OFF 跨真实页面重载生效**(`rawSettings` 持久化 → `flag=false / pipeline=false / windowRange=null / 63 段全挂载`) | passed | 011 |
+| **D0 自动侧:已存 OFF 跨真实重载生效**(`rawSettings="segmentedLoading: false"` → `flag/pipeline=false`、`windowRange=null`、63/63 段全挂载) | passed | 011 |
+| **D0 自动侧:已存 ON 跨真实重载生效**(互补面:`raw=true` → `pipeline=true`、`windowRange={0,46}`、46/63 挂载) | passed | 011 |
 
 **真实样本分项实测**(真实 80 万字样本,打开路径内部打点):`convert` 246ms、
 `refreshPreview` 16ms、`measureSectionDimensions` 493ms(封面测量 1.08 万段时
