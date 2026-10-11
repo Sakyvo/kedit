@@ -60,6 +60,22 @@ export default {
     editorSvc.on('selectionRange', () => this.computeText());
     editorSvc.on('previewCtx', () => this.computeHtml());
     editorSvc.on('previewSelectionRange', () => this.computeHtml());
+    // 卡 014:预览隐藏时(仅编辑模式)预览侧零转换,previewCtx 不再更新,
+    // HTML 统计会一直显示上一份文档的陈旧值。隐藏时明确置空而不是假装有数。
+    this.unwatchPreviewHidden = this.$watch(
+      () => this.styles.showPreview,
+      (showPreview) => {
+        if (!showPreview) {
+          this.htmlSelection = false;
+          this.htmlStats.forEach((stat) => { stat.value = null; });
+        }
+      },
+    );
+  },
+  beforeUnmount() {
+    if (this.unwatchPreviewHidden) {
+      this.unwatchPreviewHidden();
+    }
   },
 
   methods: {
