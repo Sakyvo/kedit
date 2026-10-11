@@ -161,7 +161,15 @@ export default {
     const enhanceCodeBlocks = () => this.enhanceCodeBlocks(previewElt);
     this.enhanceCodeBlocks(previewElt);
     editorSvc.on('previewCtx', enhanceCodeBlocks);
-    this.offPreviewCtx = () => editorSvc.off('previewCtx', enhanceCodeBlocks);
+    // 卡 014:分段预览下窗口外段是占位,滚动时按需挂载。增增强必须覆盖
+    // 「挂载」这条路径,否则新出现的代码块没有复制按钮(旧管线一次性挂载,
+    // previewCtx 事件已足够)。
+    const onSectionMounted = (elt) => this.enhanceCodeBlocks(elt);
+    editorSvc.on('previewSectionMounted', onSectionMounted);
+    this.offPreviewCtx = () => {
+      editorSvc.off('previewCtx', enhanceCodeBlocks);
+      editorSvc.off('previewSectionMounted', onSectionMounted);
+    };
     const onDiscussionEvt = cb => (evt) => {
       let elt = evt.target;
       while (elt && elt !== previewElt) {

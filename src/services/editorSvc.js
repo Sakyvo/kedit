@@ -455,6 +455,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       elt.dataset.previewMounted = '1';
       elt.style.minHeight = '';
       extensionSvc.sectionPreview(elt, this.options, true);
+      // 卡 014:预览增强(代码块复制按钮、灯箱等)原本只在 previewCtx 事件上
+      // 跑一次;窗口化后新挂载的段不在那条路径上,按钮会缺失。挂载即增强。
+      this.emit('previewSectionMounted', elt);
       if (elt.offsetHeight > 0) {
         cache.measured[i] = elt.offsetHeight;
       }
