@@ -1,4 +1,4 @@
-Status: open
+Status: review
 Source: .docs/archive/trellis-tasks/07-12-ux-batch-4-data-safety
 
 # 001 批4上线验收：删除传播墓碑 / 图片清理 / 移动拖拽 / setext
@@ -31,3 +31,17 @@ Source: .docs/archive/trellis-tasks/07-12-ux-batch-4-data-safety
 
 - 检查留有 4 条 note 级边缘场景（多标签页并发墓碑窗口、文件夹改名瞬态空壳、W1 等待期手势取舍、缩略图仅本地缓存），详见 Source 内 check 记录与 design.md。
 - 验收若发现缺陷：直接在本 issue 下追加缺陷清单并修复，勿开新 issue（除非属新需求）。
+
+## Resolution notes(2026-10-12 审计补记)
+
+批 4 六项的代码侧均在 `6cf7770b/96c729b8/2863cc83` 落地并部署,剩余为纯人工验收。
+本批维持 review(不动 done):A1/A2/A9(真机)+ A8/D5(跨设备)无法在本地桌面
+环境自动化,必须由 Honor Magic 2(2018 中端机)与第二台设备依清单逐项核验;
+
+- 真机长按拖拽、滚动条命中、右缘按钮列
+- 双机器改名/删除/墓碑、复笔覆盖他不误杀
+- W5 图片清理(含 imgCleanup 过期清扫)
+- W6 setext 禁用对 ATX 的回归
+- 同名创建`(1)`后缀
+
+均为「上手 / 上手 + 第二台设备」动作,无法被代码侧共设验证。
