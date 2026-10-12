@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -29,3 +29,22 @@ Status: open
 ## Blocked by
 
 - `011-pdir-image-pipeline.md`
+
+## Resolution notes（2026-10-12 审计补记）
+
+实现已落地：`b4f99de0`（2026-07-22,feat(pdir): minimizable floating publish progress
+popup with per-image upload steps）。
+
+- Vuex 会话级模块 `publishProgress`（不持久化），组件挂 Layout 根层。
+- z-index=50 已补入 `.docs/frontend-conventions.md` 的 Overlay Z-Index Ladder。
+- 只有 pdir 直发接入（唯一多步骤多图流）。
+- `layoutRemeasure.harness.mjs` 不受影响；进度弹窗自有用例均通过。
+
+### 人工验收（补记）
+
+- [ ] 发布多图文档：弹窗逐图走进度（上传/覆盖实时、复用瞬时 done）,最小化
+      药丸计数正确,成功约 4s 自动收场
+- [ ] 重发零上传场景：复用瞬时 done、整体秒完
+- [ ] 失败（断网/无权限/模块缺失）：弹窗停在 error 步骤并显示消息,错误通知照常
+- [ ] 最小化后发布继续并准确刷新,点击可还原；关闭不影响发布
+- [ ] z-index 50<61(modal/notification),不遮挡

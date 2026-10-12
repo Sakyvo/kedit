@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -36,3 +36,24 @@ Module（保留 Module 标题行，只替换正文）。
 ## Blocked by
 
 None - can start immediately
+
+## Resolution notes（2026-10-12 审计补记）
+
+实现已落地：`f0dc9c39`（2026-07-21,feat(pdir): direct publish to pdir module）。要点：
+
+- `src/services/providers/pdirProvider.js`（Provider id=`pdir`）+ 解析/定位/替换纯函数
+  在 `helpers/pdirPublishUtils.js`，配套 harness `pdirPublish.harness.mjs` 全绿。
+- 入口门控：`NavigationBar.vue` / `ExplorerNode.vue` 的 pdir 徽标 + `data.pdirMarks`
+  （device-local，不进同步），仅 Sakyvo token 时出菜单项；提交信息由专属弹窗承载
+  （不进 gitProviderIds 通用链）。
+- 合一确认弹窗 + Module 不存在报错重选 + `publishLocation` 标准记录（
+  providerId=pdir，带 module 标题文本）。
+- 含 `/imgs/` 私有图拒发护栏在 009 时存在；011 图片管线落地后解除（见该卡）。
+
+### 人工验收（补记，随批汇总）
+
+- [ ] 无 Sakyvo token 时菜单无此项；有则在发布菜单顶部首个、图标规格一致
+- [ ] 首发：弹窗列出当前全部 Module → 确认后目标 Module 正文被 Document 替换、
+      模块标题行不变；pdir 公开页可见新内容
+- [ ] 重发：同一确认弹窗（显示目标模块 + 提交信息）；Module 被删时报错且可重选
+- [ ] 「文件发布管理」弹窗可查看可删除 pdir publishLocation

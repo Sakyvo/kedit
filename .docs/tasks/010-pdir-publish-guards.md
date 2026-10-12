@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -23,3 +23,19 @@ Status: open
 ## Blocked by
 
 - `009-pdir-publish-minimal.md`
+
+## Resolution notes（2026-10-12 审计补记）
+
+实现已落地：`2de9e0a7`（2026-07-21,feat(pdir): publish guards）。要点：
+
+- 围栏外的 `#`/`##`/`###` ATX 标题拒发，错误提示带违规位置;
+  围栏内不触发。
+- front-matter YAML properties 在发布投影里剔除（`stripFrontMatter`）,源文档不动。
+- 由 `pdirPublish.harness.mjs` 的「guard」段覆盖,当前 19/19 全绿。
+
+### 人工验收（补记）
+
+- [ ] 含围栏外 `##` 的文档发布时被拦截,错误指出位置
+- [ ] 围栏内的 `#` 冒头不触发拦截
+- [ ] 带 front-matter 的文档发布后 pdir 正文无 YAML 块
+- [ ] 纯 `####` 起步的文档正常发出

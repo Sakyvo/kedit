@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -35,3 +35,20 @@ Status: open
 
 - `009-pdir-publish-minimal.md`
 - pdir 仓库 `008-rename-images-to-imgs.md`
+
+## Resolution notes（2026-10-12 审计补记）
+
+实现已落地：`d3b1596b`（2026-07-21,feat(pdir): image pipeline）。要点：
+
+- 投影在 `helpers/pdirPublishUtils.js`：`planImageUploads`（命名三档冲突规则 +
+  未命名编号顺延 + git blob sha 幂等复用）+ `rewriteImgRefs`（引用改写 `/imgs/…`
+  + alt 保留 + 外链原样）。
+- 投放顺序：图片先传、正文后写;孤儿图不清理。
+- 合一弹窗含图片统计展示（新传/复用/覆盖）,与实际上传行为一致。
+- `pdirPublish.harness.mjs` 的命名/编号/幂等用例当前 19/19 全绿。
+
+### 人工验收（补记）
+
+- [ ] 含命名+未命名图的文档发布后,pdir 页面全部图片正常显示,文件名符合规则
+- [ ] 未命名图编号延续 pdir 现有计数、命名图不占号
+- [ ] 内容无变化的重发零图片上传（全部 sha 复用）
