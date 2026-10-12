@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -33,3 +33,29 @@ None - can start immediately
   读 `measureSectionDimensions(false, true, true)` 这类调用点时必须先解包：实为
   `restoreScrollPosition=true, force=true`。凭签名直觉读会完全误判分支。
 - 「防抖保存 + 事件驱动恢复」组合存在固有竞态：恢复方必须以即时快照为准，不能信任防抖落盘的旧值。
+
+## Resolution notes（2026-10-12 审计补记）
+
+根因修复早已落地（同一批工作的两个提交）：
+
+- `29d60558`:`layoutRemeasure.js` —— styles watcher 在 rAF 重测前**同步**
+  `saveContentState()`（非防抖 100ms 落盘），恢复恒以「此刻真实位置」为准。
+- `048f4d75`：目录跳转直落位 —— `Toc.vue` 点击后先 `tocJumpSuppressor.suppress()`
+  抑制 scrollSync 追赶动画，再同帧分别对编辑器/预览赋 scrollTop；
+  `tocJump.js` 新增 `computeTocJumpScrollTop` + `editor/tocJump.harness.mjs`（含
+  resolveTocSectionIndex 身份优先、位置回退的定位解析）。
+- 叠加修复：`a296418c`（自动收起 tocAutoCollapse 语义）与本批 014 的
+  `resolveTocSectionIndex` 位置回退（预览未渲染时跳转也可用）。
+
+同一 fixture 的回归 harness（`layoutRemeasure.harness.mjs` /
+`tocJump.harness.mjs`）当前 19/19 全绿。自动侧能证的行为已证；「多种布局/开关
+组合下的人眼确认」列人工验收，待批 010 一并收尾。
+
+### 人工验收（补记，随批 010 汇总）
+
+- [ ] 双栏 + 自动收起开：点目录项 → 编辑器与预览同时落位且不回弹；侧栏收起/
+      面板变宽重排后仍准确。
+- [ ] 双栏跳转预览无 scrollSync 追赶动画（suppressed 直落）。
+- [ ] 纯预览模式 + 自动收起开：同上。
+- [ ] 自动收起关：跳转不退化。
+- [ ] 连续多次跳转与切文档后跳转正常（防 002 回购）。
