@@ -551,6 +551,12 @@ export default {
   }
 }
 
+// 自定义下拉（SettingsSelect）所在 form-entry：field 放行溢出（弹出列表要
+// 超出 field 边界，默认 overflow: hidden 会把列表裁成「点开但不可见」）
+.form-entry--has-select .form-entry__field {
+  overflow: visible;
+}
+
 .form-entry__info {
   font-size: 0.75em;
   opacity: 0.67;

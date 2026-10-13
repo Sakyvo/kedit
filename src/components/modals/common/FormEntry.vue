@@ -1,5 +1,5 @@
 <template>
-  <div class="form-entry" :class="{'form-entry--inline': inline}" :error="error">
+  <div class="form-entry" :class="{'form-entry--inline': inline, 'form-entry--has-select': hasSelect}" :error="error">
     <template v-if="inline">
       <label class="form-entry__inline-label" :for="uid"><slot name="field"></slot>{{label}}<span class="form-entry__label-info" v-if="info"> &mdash; {{info}}</span></label>
       <slot></slot>
@@ -18,7 +18,7 @@
 import utils from '../../../services/utils';
 
 export default {
-  props: ['label', 'info', 'error', 'inline'],
+  props: ['label', 'info', 'error', 'inline', 'hasSelect'],
   data: () => ({
     uid: utils.uid(),
   }),

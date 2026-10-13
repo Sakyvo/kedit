@@ -46,7 +46,7 @@
         </div>
       </template>
       <template v-else>
-      <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label" :info="infoOf(field)" :inline="field.type === 'toggle'">
+      <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label" :info="infoOf(field)" :inline="field.type === 'toggle'" :has-select="field.type === 'select'">
         <template v-slot:field>
           <input
             v-if="field.type === 'toggle'"

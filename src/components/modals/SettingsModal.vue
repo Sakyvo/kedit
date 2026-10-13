@@ -132,7 +132,15 @@ export default {
 // 默认预览 tab 的只读 yaml：可选中复制阅读，光标用 text（I 型）暗示可选文本
 .form-entry__field--code-editor > .code-editor[disabled] {
   cursor: text;
-} 
+}
+
+// 设置两个 yaml 编辑区启用软换行——默认配置的长中文注释或用户的超长长行不会
+// 把模态撑出横向滚动（超宽）。cledit 只需要宿主 pre 放宽 white-space。
+.modal__inner-1--settings .code-editor {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+}
 
 .modal__error--settings {
   white-space: pre-wrap;
