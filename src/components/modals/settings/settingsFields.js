@@ -6,7 +6,7 @@ export default [
   {
     title: '性能',
     fields: [
-      { path: ['segmentedLoading'], type: 'toggle', label: '长文档分段加载' },
+      { path: ['dynamicLoading'], type: 'toggle', label: '动态加载' },
     ],
   },
   {

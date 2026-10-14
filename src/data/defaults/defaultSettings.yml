@@ -7,8 +7,8 @@ maxWidthFactor: 1
 # Auto-sync frequency (in ms). Minimum is 60000.
 autoSyncEvery: 90000
 
-# 长文档分段加载（超长文档按 ~2 万字分段渐进渲染；关闭回退全量管线）
-segmentedLoading: true
+# 动态加载（超长文档编辑器分片构建 + 预览按需渲染；默认关，打开后生效）
+dynamicLoading: false
 
 # Editor settings
 editor:

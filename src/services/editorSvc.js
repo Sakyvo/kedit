@@ -29,7 +29,7 @@ import {
 } from './editor/imgSizeGuard';
 import { createLayoutRemeasure } from './editor/layoutRemeasure';
 import { applyRememberedCap, fitImgWrapper, fitAllImgWrappers } from './editor/imgLineFit';
-import { isSegmentedLoadingEnabled } from './editor/segmentedLoading';
+import { isDynamicLoadingEnabled } from './editor/dynamicLoading';
 import { createDocModel } from './editor/segmentedDocModel.js';
 import { windowedDiff } from './editor/windowedDiff.js';
 import { mergeMutationDeltas } from './editor/mutationDeltas.js';
@@ -224,9 +224,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   selectionRange: null,
   previewSelectionRange: null,
   previewSelectionStartOffset: null,
-  // 长文档分段加载总闸（ADR-0012）：ON=分段管线（后续卡切入），OFF=旧全量管线。
+  // 动态加载总闸（ADR-0012-Amendment，批 042）：ON=分片管线，OFF=旧全量管线（现网行为）。
   // 本卡（011）内 ON 行为与现状一致；标志位 + 开关变化日志供查证。
-  segmentedLoadingEnabled: true,
+  dynamicLoadingEnabled: false,
   activePreviewImgPathCounts: Object.create(null),
   activeEditorImgPathCounts: Object.create(null),
 
@@ -268,7 +268,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
    * 初始化 cledit 编辑器。
    *
    * 门控取值必须直接读 store(而不是只依赖 init() 末尾那个 watcher 事先写好的
-   * this.segmentedLoadingEnabled):该 watcher 在 init() 最末注册,而
+   * this.dynamicLoadingEnabled):该 watcher 在 init() 最末注册,而
    * initClEditor 可能在那之前先被内容 watcher 触发(启动时已有文档就是这种
    * 情况),于是分段管线会忽略已存的 OFF 设置。
    */
@@ -299,13 +299,13 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.sectionParseCache = null;
     this.tocElt.innerHTML = '';
     this.previewElt.innerHTML = '';
-    const segmented = isSegmentedLoadingEnabled(
+    const dynamic = isDynamicLoadingEnabled(
       store.getters['data/computedSettings'],
-    ) && this.segmentedLoadingEnabled !== false;
+    ) && this.dynamicLoadingEnabled !== false;
     // 与 store 对齐:门控是设置的投影,不是独立状态
-    this.segmentedLoadingEnabled = segmented;
-    this.segmentedPipeline = segmented;
-    if (segmented) {
+    this.dynamicLoadingEnabled = dynamic;
+    this.segmentedPipeline = dynamic;
+    if (dynamic) {
       this.docModel = this.docModel || createDocModel();
     }
     const options = {
@@ -1862,10 +1862,10 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     store.watch(
       () => store.getters['data/computedSettings'],
       (settings) => {
-        const enabled = isSegmentedLoadingEnabled(settings);
-        if (enabled !== this.segmentedLoadingEnabled) {
-          this.segmentedLoadingEnabled = enabled;
-          console.info(`[kedit] 长文档分段加载：${enabled ? '开' : '关'}`);
+        const enabled = isDynamicLoadingEnabled(settings);
+        if (enabled !== this.dynamicLoadingEnabled) {
+          this.dynamicLoadingEnabled = enabled;
+          console.info(`[kedit] 动态加载：${enabled ? '开' : '关'}`);
         }
       },
       { immediate: true },
