@@ -403,6 +403,22 @@ const localDbSvc = {
   },
 
   /**
+   * 强制从远端覆盖：删当前 workspace 的 IndexedDB 库，保留 workspace 登记、
+   * OAuth token、settings 等 localStorage 数据。reload 后 sync 链路以「本地完全
+   * 空」启动，getChanges/prepareChanges 会把远端仓库里所有文件走下载重建。
+   */
+  async forcedClearCurrentWorkspaceData() {
+    const currentWorkspaceId = store.getters['workspace/currentWorkspace'].id;
+    await new Promise((resolve) => {
+      const dbName = utils.getDbName(currentWorkspaceId);
+      const request = indexedDB.deleteDatabase(dbName);
+      request.onerror = resolve;
+      request.onblocked = resolve;
+      request.onsuccess = resolve;
+    });
+  },
+
+  /**
    * Create the connection and start syncing.
    */
   async init() {
@@ -415,6 +431,15 @@ const localDbSvc = {
         localStorage.removeItem(`data/${id}`);
       });
       throw new Error('RELOAD');
+    }
+
+    // 强制从远端覆盖：只清当前 workspace 的文档库，保留 workspace 登记 / OAuth /
+    // settings；清完 reload，让 sync 链路以「本地无、远端有」全部重拉
+    if (localStorage.getItem('forceSyncFromRemote')) {
+      localStorage.removeItem('forceSyncFromRemote');
+      await this.forcedClearCurrentWorkspaceData();
+      window.location.reload();
+      return;
     }
 
     // Create the connection

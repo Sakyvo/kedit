@@ -131,6 +131,11 @@
       <template v-slot:icon><icon-content-save></icon-content-save></template>
       文档空间备份
     </menu-entry>
+    <menu-entry @click.native="forceSyncFromRemote">
+      <template v-slot:icon><icon-cloud-refresh></icon-cloud-refresh></template>
+      强制从远端覆盖
+      <span>丢弃本地所有文档，从远端仓库重新拉取。保留登录授权和设置。</span>
+    </menu-entry>
     <menu-entry @click.native="reset">
       <template v-slot:icon><icon-logout></icon-logout></template>
       重置应用程序
@@ -236,6 +241,11 @@ export default {
         await store.dispatch('modal/open', 'reset');
         localStorage.setItem('resetStackEdit', '1');
         window.location.reload();
+      } catch (e) { /* Cancel */ }
+    },
+    async forceSyncFromRemote() {
+      try {
+        await store.dispatch('modal/open', 'forceSyncFromRemote');
       } catch (e) { /* Cancel */ }
     },
     about() {

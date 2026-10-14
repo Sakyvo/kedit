@@ -46,6 +46,7 @@ import ImageCleanupModal from './modals/ImageCleanupModal';
 import ChatGptModal from './modals/ChatGptModal';
 import ChatGptConfigModal from './modals/ChatGptConfigModal';
 import FolderPickerModal from './modals/FolderPickerModal';
+import ForceSyncFromRemoteModal from './modals/ForceSyncFromRemoteModal';
 
 // Providers
 import GooglePhotoModal from './modals/providers/GooglePhotoModal';
@@ -168,6 +169,7 @@ export default {
     GiteaSaveModal,
     GiteaWorkspaceModal,
     GiteaImgStorageModal,
+    ForceSyncFromRemoteModal,
     WordpressPublishModal,
     BloggerPublishModal,
     BloggerPagePublishModal,
