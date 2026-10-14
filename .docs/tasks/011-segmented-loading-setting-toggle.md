@@ -61,3 +61,10 @@ watcher 先跑，遇「打开已有文档」立刻调 `initClEditor`；设置 wa
 ## Blocked by
 
 None - can start immediately
+
+## Amendment(2026-10-12, 批 042 覆盖)
+
+- 设置项更名:`长文档分段加载` → `动态加载`
+- 键名:`segmentedLoading` → `dynamicLoading`
+- 默认值:**关**(本卡原定的「默认开」被推翻;ADR-0012-Amendment)
+- 旧键兼容:读取时已存的 `segmentedLoading` 值不再生效(单作者产品直接换键)

@@ -96,3 +96,30 @@ viewport in the DOM) — the structural rewrite this ADR rejected on cost ground
 because it forces re-deriving selection offsets, clipboard, undo, image cards and
 scroll sync. On-device keystroke latency (desktop baseline: median 27.4ms per key
 on a 9,001-section document) is the decision input for item A9.
+
+
+## Amendment (2026-10-12): goal restated as "never freeze", mechanism renamed
+
+**Decision change** — superseding the framing above (the mechanisms all stay):
+
+| Area | Old | New |
+| --- | --- | --- |
+| Success criterion | Open a ~800k chars Document in < 1s | **Never freeze the page**: no main-thread long task > ~80ms during open; typing, the side bar and the toolbar stay interactable throughout |
+| Setting | `segmentedLoading` labelled 长文档分段加载, default **on** | `dynamicLoading` labelled **动态加载**, default **off** |
+| Editor init | One synchronous 10,802-section DOM build (measured: single 3,256ms long task) | **Chunked**: rAF/idle slices with a ~40ms budget; first frame mounts only the first-viewport sections; the rest are appended slice by slice |
+| Preview at open | Converting + first-window mount right after editor readiness | Placeholder "预览生成中…" until the editor's first frame is ready; conversion begins only after that |
+
+Why: a real 810,031-character document makes cledit build the whole editor DOM up
+front (one 3.2-second long task), which is what actually locks the sidebar and the
+toolbar. The segmented pipeline's text model and hooks are precisely what make the
+chunked build feasible without touching selection, undo, clipboard, image cards or
+scroll sync. The windowed editor rewrite stays out of scope.
+
+**During chunked fill** the DOM is intentionally incomplete; the text model carries
+every invariant (store text ≡ model text; Ctrl+A copies via model; find/replace
+reads the full model; TOC is line-scanned). A TOC click that targets a
+not-yet-built section priority-builds that section first, then jumps.
+
+**Rejected again, on evidence**: collapsing to coarser structural segments (no gain,
+see above), `content-visibility: auto` (no gain, worse tail, see above), a blocking
+"loading" modal (hides the freeze, does not remove it).
