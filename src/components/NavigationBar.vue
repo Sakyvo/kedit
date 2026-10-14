@@ -64,6 +64,11 @@ const mod = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? 'Meta' : 'Ctrl';
 const getShortcut = (method) => {
   let result = '';
   Object.entries(store.getters['data/computedSettings'].shortcuts).some(([keys, shortcut]) => {
+    // null/false 覆盖预留位（历史数据兼容；mergeInto 已剧除，此为羽级保底
+    // 防御——防止未来再出现下游 crash）
+    if (!shortcut) {
+      return false;
+    }
     if (`${shortcut.method || shortcut}` === method) {
       result = keys.split('+').map(key => key.toLowerCase()).map((key) => {
         if (key === 'mod') {

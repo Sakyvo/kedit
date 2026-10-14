@@ -347,7 +347,16 @@ const mergeInto = (base, custom) => {
       return;
     }
     if (key === 'shortcuts') {
-      base[key] = Object.assign(base[key], custom[key]);
+      // custom 里写 null/false = 显式删除 defaults 的默认绑定（037）。覆盖后
+      // 剃除墓碑项，避免 null 流入下游所有读者（NavigationBar.getShortcut /
+      // optional/shortcuts 等会对 shortcut.method 抛 TypeError，拖垮顶栏渲染）。
+      const merged = Object.assign(base[key], custom[key]);
+      Object.keys(merged).forEach((combo) => {
+        if (merged[combo] === null || merged[combo] === false) {
+          delete merged[combo];
+        }
+      });
+      base[key] = merged;
     } else {
       base[key] = mergeInto(base[key], custom[key]);
     }
