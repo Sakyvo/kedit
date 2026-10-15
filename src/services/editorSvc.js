@@ -299,10 +299,12 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.sectionParseCache = null;
     this.tocElt.innerHTML = '';
     this.previewElt.innerHTML = '';
+    // 门控的唯一事实来源是设置本身。这里**不**与 this.dynamicLoadingEnabled 做与运算：
+    // 设置 watcher 在 init() 末尾才注册,若「设置已开」而标志还是构造默认值 false,
+    // 与运算会把已开的设置判成关(批 042 实测踩到)。
     const dynamic = isDynamicLoadingEnabled(
       store.getters['data/computedSettings'],
-    ) && this.dynamicLoadingEnabled !== false;
-    // 与 store 对齐:门控是设置的投影,不是独立状态
+    );
     this.dynamicLoadingEnabled = dynamic;
     this.segmentedPipeline = dynamic;
     if (dynamic) {
@@ -342,7 +344,18 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         this.sectionParseCache = { text, sections: parsingCtx.sections };
         return parsingCtx.sections;
       },
-      ...(segmented ? this.buildSegmentedHooks() : {}),
+      ...(dynamic ? this.buildSegmentedHooks() : {}),
+      // 批 042/044:首帧分片构建 —— cledit 只同步建视区需要的段,其余 rAF 逐片补。
+      // 期间主线程最长任务 ≤ ~40ms,页面任何部分都不被单点开搞死。
+      ...(dynamic ? {
+        chunkedInit: {
+          firstBudgetChars: 60000,
+          firstMaxSections: 200,
+          sliceBudgetChars: 40000,
+          sliceBudgetMs: 40,
+        },
+        onInitChunksDone: () => this.onInitChunksDone(),
+      } : {}),
       getCursorFocusRatio: () => {
         if (store.getters['data/layoutSettings'].focusMode) {
           return 1;
@@ -351,7 +364,26 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       },
     };
     this.initClEditorInternal(options);
+    // 分片补齐是否真正在排程,以 cledit 高亮器为准(小段全都装进首片时根本不会排)
+    this.initFillActive = dynamic && !!this.clEditor.highlighter.initFillActive;
+    if (!this.initFillActive) {
+      this.restoreScrollPosition();
+    }
+    // 分片补齐中:恢复/量测由 onInitChunksDone 接管(建完再量测再恢复)
+  },
+
+  /**
+   * 批 042/044：编辑器分片补齐完成 —— 此刻 DOM 才完整。此时才量测
+   * （此前 offsetTop 会把未挂载段读成 0 导致滚动位置错）+ 恢复滚动 + 起预览。
+   */
+  onInitChunksDone() {
+    this.initFillActive = false;
+    this.measureSectionDimensions(false, true, true);
     this.restoreScrollPosition();
+    if (this.isPreviewVisible()) {
+      this.convert();
+      this.refreshPreview();
+    }
   },
 
   /**
@@ -1162,6 +1194,11 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
    * Measure the height of each section in editor, preview and toc.
    */
   measureSectionDimensions: allowDebounce((restoreScrollPosition = false, force = false, isPreviewMeasure = false) => {
+    // 批 042/044：分片补齐期间段未全挂,任何测量都会读出陈旧几何 —— 推迟到
+    // onInitChunksDone 的统一入口（含编辑器侧几何与预览几何）。
+    if (editorSvc.initFillActive) {
+      return;
+    }
     // 卡 014:预览隐藏(分段管线)时唯一合法的几何来源是编辑器侧重建。
     // 其余调用点(滚动同步、图片自适应…)会带 force=true 并用**陈旧的** previewCtx
     // 覆盖 previewCtxMeasured(实测把 800 段真实几何换成 60 段),因此守卫必须放在
@@ -1380,6 +1417,10 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     let lastReconcileAt = 0;
     this.clEditor.on('highlighted', () => {
       if (!this.segmentedPipeline || !this.docModel) {
+        return;
+      }
+      // 批 042/044：分片补齐期间 DOM 本来就是缺的,哨兵不该响(补终再走对账)
+      if (this.clEditor.highlighter && this.clEditor.highlighter.initFillActive) {
         return;
       }
       const now = Date.now();
@@ -1797,6 +1838,21 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     // Watch file content changes
     let lastContentId = null;
     let lastProperties;
+    // 自愈究底（050）：若 content/current 是空壳（id=null，即 content item 不在
+    // store）但 file/current.id 存在，主动从 IDB 究底装载。装载 commit 后
+    // currentChangeTrigger 再变，本 watcher 重入 → initClEditor → 编辑器恢复。
+    // 治「IDB 有、store 没有」的一切形态，不管上游是谁造成的。
+    const loadMissingContent = async () => {
+      const fileId = store.getters['file/current'].id;
+      if (fileId && !store.getters['content/current'].id) {
+        try {
+          const { default: localDbSvc } = await import('./localDbSvc');
+          await localDbSvc.loadItem(`${fileId}/content`);
+        } catch (err) {
+          // IDB 也没有——保持空壳，交由 sync 链路下载
+        }
+      }
+    };
     store.watch(
       () => store.getters['content/currentChangeTrigger'],
       () => {
@@ -1807,6 +1863,9 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
           instantPreview = true;
           lastContentId = content.id;
           initClEditor = true;
+          if (!content.id) {
+            loadMissingContent();
+          }
         }
         // Track properties changes
         if (content.properties !== lastProperties) {
@@ -1858,7 +1917,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     this.initHighlighters();
     window.addEventListener('beforeunload', releaseAllImgUrls, { once: true });
 
-    // 分段加载总闸：跟随设置实时更新，仅在开关翻转时打日志（重启后 OFF 可证）
+    // 动态加载总闸：跟随设置实时更新，仅在开关翻转时打日志（重启后 OFF 可证）
     store.watch(
       () => store.getters['data/computedSettings'],
       (settings) => {

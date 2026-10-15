@@ -118,6 +118,11 @@ export default {
   createClEditor(editorElt) {
     this.clEditor = cledit(editorElt, editorElt.parentNode, true);
     ({ clEditor } = this);
+    // 数据保护：cledit 实例重建后，新闭包的 lastTextContent 是空 DOM。
+    // 若模块级 contentId 仍保留旧值，initClEditorInternal 会跳过
+    // options.content 注入 → 编辑器凭空空壳，且下一次打字会把空文本
+    // 回写 store/IDB 覆盖真内容。重建必须强制重传 content。
+    contentId = null;
     clEditor.on('contentChanged', (text) => {
       const oldContent = store.getters['content/current'];
       const newContent = {

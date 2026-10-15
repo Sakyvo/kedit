@@ -77,11 +77,14 @@ export default {
   },
   async getServerConf() {
     if (!store.state.offline && !isConfLoading && !isConfLoaded) {
+      isConfLoading = true;
       try {
-        isConfLoading = true;
         const res = await this.request({ url: 'conf' });
         await store.dispatch('data/setServerConf', res.body);
         isConfLoaded = true;
+      } catch (err) {
+        // 静态部署（GitHub Pages 等）没有 /conf 端点，404 属预期——
+        // 吞掉即可，否则每次启动都会产生 unhandled rejection 噪音
       } finally {
         isConfLoading = false;
       }
