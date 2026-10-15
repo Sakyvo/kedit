@@ -2,7 +2,7 @@ Status: done
 
 # 深色复活与设置模态修复批次（dark-revival-settings-fixes）
 
-## 完成记录（2026-01-03）
+## 完成记录（批次归档）
 
 五切片全部完成并推送，Pages 已自动部署：
 
@@ -12,10 +12,27 @@ Status: done
 - 035 `1318603f` tabs 改名 + 光标三连 + 右偏消解确认
 - 036 `8be64da8` 双向同步补洞（lastValid + 红字提示）
 
-验证方式：每切片 npm run build（terser 完整门槛）+ agent_browser
-程序化实测（对比度审计、像素级取样、合成拖拽事件链、真实 Selection 编辑）；
-036 另有 .docs/tasks/assert-036.cjs 逻辑断言。待真机验收项：深色整体观感、
-拖拽排序手感、切 tab 观感。
+批次后续追加三卡（真机反馈驱动）：
+
+- 037 `4523f775` 第三波反馈六条（bind 无反应、checkbox 单行化、select 光标与
+  自定义下拉、只读光标、切 tab 右偏根因 scrollbar-gutter、模态外滚轮抖动）
+- 038 `e8edc801` 设置弹窗两修（下拉被 form-entry overflow 裁掉；yaml编辑与
+  默认预览 pre-wrap 软换行治超宽）
+- 039 `0fcc9ed0` 顶栏消失根治（shortcuts 里 null 覆盖墓碑在 merge 后剃除——
+  `NavigationBar.getShortcut` 的 TypeError 拖垮整个顶栏渲染）
+- 040 `15790649` 「强制从远端覆盖」救援入口（红警示 + 手输工作区名；只清
+  当前 workspace 的 IndexedDB，保留 OAuth/settings/workspace 登记）
+- 050 `0aadc8a7` 编辑器空壳三修（content 空壳时从 IDB 自愈装载；cledit 实例
+  重建重置模块级 contentId 防空壳 init + 空文本回写覆盖真内容；/conf 404
+  噪音吞掉）——用户桌面真机验收通过（自愈路径生效）
+
+验证方式：每切片 npm run build（terser 完整门槛）+ agent_browser 程序化实测
+（对比度审计、像素级取样、合成拖拽事件链、真实 Selection 编辑）；036/037 另有
+.docs/tasks/assert-036.cjs、assert-037.cjs 逻辑断言。真机验收：深色整体观感、
+拖拽排序手感、切 tab 观感、bind 手感、编辑器自愈（均通过）。
+
+沉淀：`.docs/spec/state-management.md` 新增「Editor Content Loading Chain
+Contract」一节（空壳态判定、自愈契约、cledit 重建陷阱）。
 
 ## Problem
 

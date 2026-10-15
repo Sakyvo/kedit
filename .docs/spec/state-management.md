@@ -301,6 +301,51 @@ dispatch('data/patchExplorerOrder', { [key]: childGitPaths });
 - Bad: writing the raw full-text item to the provider (breaks exclusion
   semantics and causes a permanent dirty-hash loop).
 
+## Editor Content Loading Chain Contract
+
+### 1. Scope / Trigger
+
+Touching anything on the path `IndexedDB → content store item → cledit DOM`:
+`localDbSvc.loadItem`, `content/current`, `editorSvc.initClEditor`,
+`editorSvcDiscussions.createClEditor`, or the `contentChangeTrigger` watcher.
+
+### 2. Signatures
+
+- `content/current` getter → `itemsById[`${file/current.id}/content`] || empty()`;
+  the fallback is a **2-character shell** (`'\n'`), not an error.
+- `editorSvcDiscussions.createClEditor(editorElt)` → rebuilds the cledit
+  instance and resets the module-level `contentId` to `null`.
+- `editorSvc` `content/currentChangeTrigger` watcher → on `content.id === null`
+  with a live `file/current.id`, calls `localDbSvc.loadItem(fileId/content)`.
+- `cledit contentChanged` → `content/patchCurrent`, which **silently returns**
+  when `content.id` is null (typing is discarded, never buffered).
+
+### 3. Contracts
+
+- The editor and preview render **only** the Vuex content item. IndexedDB being
+  intact means nothing on screen; the item must be committed to the store.
+- A null `content.id` is never a valid steady state while `file/current.id`
+  exists — the watcher must self-heal by loading from IndexedDB.
+- `cledit` instance rebuild invalidates the module-level `contentId`: the new
+  instance starts from an empty DOM, so an unchanged `contentId` would skip
+  `options.content` injection — the editor would init empty **and** the next
+  keystroke would write the empty text back over the real content.
+- Content text is only ever written through `patchCurrent`; there is no other
+  writer that may bypass the id guard.
+
+### 4. Wrong vs Correct
+
+- Wrong: trusting a status-bar character count to mean the file is empty —
+  two characters is the `emptyContent` shell, and exports/`loadItem` read
+  IndexedDB directly, so both can disagree with the screen.
+- Wrong: assuming `loadItem` always hits IndexedDB. It returns early from the
+  store when the item is already there — a stale empty *item* therefore blocks
+  its own repair.
+- Correct: guard the chain at both ends (watcher self-heal + rebuild reset),
+  so no upstream writer can leave the editor in a shell state.
+- Correct: when a shell state is suspected, check `content/current.id` first —
+  null proves the store item is missing, and typing in that state loses data.
+
 ## Common Mistakes
 
 
