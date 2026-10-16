@@ -58,8 +58,10 @@ function SelectionMgr(editor) {
       this.$trigger('cursorCoordinatesChanged', coordinates);
     }
     // Range selections (Ctrl+A, drag-select, …) must not force-scroll to
-    // selectionEnd — that jumps the viewport to the document bottom.
-    if (adjustScroll && this.selectionStart === this.selectionEnd) {
+    // selectionEnd — that jumps the viewport. A numeric adjustScroll means the
+    // caller (find-replace) explicitly asked to bring the match into view.
+    if (adjustScroll && (this.selectionStart === this.selectionEnd ||
+      typeof adjustScroll === 'number')) {
       let scrollEltHeight = scrollElt.clientHeight;
       if (typeof adjustScroll === 'number') {
         scrollEltHeight -= adjustScroll;
