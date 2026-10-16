@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -43,3 +43,26 @@ cledit 侧只才是 `cleditHighlighter.js` 的 parseSections 内部(before/after
 ## Blocked by
 
 - 043-rename-to-dynamic-loading-default-off.md
+## Resolution (2026-10-13, commit f468f89e)
+
+两项已落地并实测:
+
+1. **cledit 建段分片**(本卡主体):`cleditHighlighter.isInit` 分支只同步建首片
+   (预算 40ms,≤30 段),其余段标 `pendingInitChunk`,rAF 逐片补齐(每片 ≤40ms),
+   diff 双线扫描跳过 pending 段、removeChild 加守卫、`cancelInitFill` 弃队列。
+   editorSvc:`shouldChunkInit`(阈值判据)+ 进度条 overlay + `onInitChunksDone`
+   收尾(清条→量测→恢复滚动→起预览)+ initClEditor 开头 cancel。
+2. **设置更名并入**(043 被本卡吸收):`dynamicLoading` 默认开 +
+   `dynamicLoadingThreshold` 默认 50000 可自定义;harness 改新契约。
+
+实测:
+- 810k/10,802 段打开:同步 **345ms**(原 3,256ms),首片 31 段 + 10,771 段异步补
+- 40 段隔离:sync 24ms → fill 补完 → DOM≡模型≡store → 进度条消失
+- build exit=0,harness 19/19
+
+### 剩余缺口(诚实记录)
+
+345ms 同步中 ~244ms 是 `markdown-it parseSections`(全量 block 解析,同步不可分片),
+~90ms 是 TOC 重建。这两项不在 cledit 分片范围。若需「侧栏零卡顿」(任何单长任务
+<80ms),唯一路径是把解析挪进首帧之后的异步/Worker —— 动 markdown-it 核心,
+风险高,列为 050 待裁决,不在本卡。
