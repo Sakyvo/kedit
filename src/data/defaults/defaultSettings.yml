@@ -7,8 +7,10 @@ maxWidthFactor: 1
 # Auto-sync frequency (in ms). Minimum is 60000.
 autoSyncEvery: 90000
 
-# 动态加载（超长文档编辑器分片构建 + 预览按需渲染；默认关，打开后生效）
-dynamicLoading: false
+# 动态加载（超长文档编辑器分片构建 + 进度条；保页面不卡死，默认开）
+dynamicLoading: true
+# 启用动态加载的字符阈值（文档字符数超过该值才分片构建；可自定义）
+dynamicLoadingThreshold: 50000
 
 # Editor settings
 editor:

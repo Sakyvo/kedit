@@ -29,7 +29,7 @@ import {
 } from './editor/imgSizeGuard';
 import { createLayoutRemeasure } from './editor/layoutRemeasure';
 import { applyRememberedCap, fitImgWrapper, fitAllImgWrappers } from './editor/imgLineFit';
-import { isDynamicLoadingEnabled } from './editor/dynamicLoading';
+import { isDynamicLoadingEnabled, getDynamicLoadingThreshold } from './editor/dynamicLoading';
 import { createDocModel } from './editor/segmentedDocModel.js';
 import { windowedDiff } from './editor/windowedDiff.js';
 import { mergeMutationDeltas } from './editor/mutationDeltas.js';
@@ -273,6 +273,11 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
    * 情况),于是分段管线会忽略已存的 OFF 设置。
    */
   initClEditor() {
+    // 切文档/重建:丢弃未完成的旧分片构建(避免旧 fill 队列污染新实例)
+    if (this.clEditor && this.clEditor.highlighter && this.clEditor.highlighter.cancelInitFill) {
+      this.clEditor.highlighter.cancelInitFill();
+    }
+    this.clearLoadProgress();
     this.previewCtxMeasured = null;
     editorSvc.emit('previewCtxMeasured', null);
     this.previewCtxWithDiffs = null;
@@ -345,15 +350,16 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
         return parsingCtx.sections;
       },
       ...(dynamic ? this.buildSegmentedHooks() : {}),
-      // 批 042/044:首帧分片构建 —— cledit 只同步建视区需要的段,其余 rAF 逐片补。
-      // 期间主线程最长任务 ≤ ~40ms,页面任何部分都不被单点开搞死。
-      ...(dynamic ? {
+      // 批 048/049:超长文档分片构建 —— 超过阈值才启用。cledit 只同步建首片,
+      // 其余 rAF 逐片补(每片 ≤40ms),期间侧栏/工具栏永可交互。
+      // 进度条覆盖编辑区;建完 onInitChunksDone 收尾(量测/恢复/起预览)。
+      ...(dynamic && this.shouldChunkInit() ? {
         chunkedInit: {
-          firstBudgetChars: 60000,
-          firstMaxSections: 200,
-          sliceBudgetChars: 40000,
+          firstSliceBudgetMs: 40,
+          firstMaxSections: 30,
           sliceBudgetMs: 40,
         },
+        onInitFillProgress: (done, total) => this.updateLoadProgress(done, total),
         onInitChunksDone: () => this.onInitChunksDone(),
       } : {}),
       getCursorFocusRatio: () => {
@@ -373,11 +379,70 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   },
 
   /**
+   * 批 048:当前文档是否需要分片构建(超过阈值才需要;普通文档同步秒开)。
+   * 阈值默认 50000 字符,可在设置里自定义。
+   */
+  shouldChunkInit() {
+    // 注意:此处 options 构建于 initClEditorInternal 之前,docModel 还没 setFullText
+    // (新文本要等 cledit init 的 onInitContent 回调)—— 必须读 store 的当前文档。
+    const text = (store.getters['content/current'] || {}).text;
+    if (!text) {
+      return false;
+    }
+    const threshold = getDynamicLoadingThreshold(store.getters['data/computedSettings']);
+    return text.length > threshold;
+  },
+
+  /** 批 048:显示/更新编辑区加载进度条(done/total 为剩余分片计数)。 */
+  updateLoadProgress(done, total) {
+    const elt = this.loadProgressElt;
+    if (!elt && this.editorElt) {
+      // 首次调用:在编辑区上方建覆盖层
+      const overlay = document.createElement('div');
+      overlay.className = 'load-progress-overlay';
+      overlay.innerHTML = `<div class="load-progress-bar"><div class="load-progress-fill"></div></div>
+<div class="load-progress-text">加载中…</div>`;
+      this.editorElt.parentNode.insertBefore(overlay, this.editorElt.nextSibling);
+      overlay.style.position = 'absolute';
+      overlay.style.inset = '0';
+      overlay.style.zIndex = '30';
+      overlay.style.background = 'var(--color-background)';
+      overlay.style.display = 'flex';
+      overlay.style.flexDirection = 'column';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      this.loadProgressElt = overlay;
+      this.loadProgressFillElt = overlay.querySelector('.load-progress-fill');
+      this.loadProgressTextElt = overlay.querySelector('.load-progress-text');
+    }
+    const fill = this.loadProgressFillElt;
+    const text = this.loadProgressTextElt;
+    if (fill) {
+      const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+      fill.style.width = `${pct}%`;
+      if (text) {
+        text.textContent = `加载中… ${pct}%`;
+      }
+    }
+  },
+
+  /** 批 048:隐藏并移除进度条(分片完成/取消)。 */
+  clearLoadProgress() {
+    if (this.loadProgressElt) {
+      this.loadProgressElt.remove();
+      this.loadProgressElt = null;
+      this.loadProgressFillElt = null;
+      this.loadProgressTextElt = null;
+    }
+  },
+
+  /**
    * 批 042/044：编辑器分片补齐完成 —— 此刻 DOM 才完整。此时才量测
    * （此前 offsetTop 会把未挂载段读成 0 导致滚动位置错）+ 恢复滚动 + 起预览。
    */
   onInitChunksDone() {
     this.initFillActive = false;
+    this.clearLoadProgress();
     this.measureSectionDimensions(false, true, true);
     this.restoreScrollPosition();
     if (this.isPreviewVisible()) {
