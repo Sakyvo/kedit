@@ -599,14 +599,43 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       if (!elt || elt.dataset.previewMounted === '1') {
         return;
       }
-      elt.innerHTML = replaceLocalImageSrc(
+      const mountedHtml = replaceLocalImageSrc(
         htmlSanitizer.sanitizeHtml(this.conversionCtx.htmlSectionList[i]),
       );
+      elt.innerHTML = mountedHtml;
       elt.dataset.previewMounted = '1';
       elt.style.minHeight = '';
       extensionSvc.sectionPreview(elt, this.options, true);
-      // 卡 014:预览增强(代码块复制按钮、灯箱等)原本只在 previewCtx 事件上
-      // 跑一次;窗口化后新挂载的段不在那条路径上,按钮会缺失。挂载即增强。
+      // 批 049 修复：换窗挂载段的工作区图片必须在这里补 src。
+      // refreshPreview 首轮只处理「初始窗口内」的段（走 loadingImages 链），
+      // 滚动换窗后新挂载的段不走那条路径 —— data-ws-src 摘掉了源、永远没人
+      // 回填，图片就“莫名消失”。此处把同一套异步回填逻辑本地化。
+      const imgs = Array.prototype.slice
+        .call(elt.getElementsByTagName('img'))
+        .map((imgElt) => {
+          const workspaceSrcAttr = imgElt.attributes[localImageSrcAttr];
+          if (workspaceSrcAttr) {
+            const uri = decodeURIComponent(workspaceSrcAttr.nodeValue);
+            imgElt.removeAttribute(localImageSrcAttr);
+            return { imgElt, uri };
+          }
+          return { imgElt };
+        });
+      imgs.forEach((it) => {
+        if (!it.uri) {
+          return;
+        }
+        getImgUrl(it.uri).then((newUrl) => {
+          if (newUrl) {
+            it.imgElt.src = newUrl;
+            it.imgElt.setAttribute(localImagePathAttr, getAbsoluteWorkspaceImgPath(it.uri));
+          }
+          // 补上 src 后重新按行内空间适配
+          if (it.imgElt.parentNode && it.imgElt.parentNode.classList) {
+            scheduleImgLineFit(it.imgElt.parentNode);
+          }
+        }, () => {});
+      });
       this.emit('previewSectionMounted', elt);
       if (elt.offsetHeight > 0) {
         cache.measured[i] = elt.offsetHeight;
