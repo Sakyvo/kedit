@@ -40,6 +40,10 @@ _Avoid_: outline (ambiguous with heading levels), navigator
 A per-device TOC setting (formerly "自动跳转", renamed because the jump itself always happens). When ON, after a TOC jump the TOC panel recedes: on wide layouts it falls back to the side-bar main menu (side bar stays open); on narrow/overlay layouts the whole side bar collapses back to the document. When OFF, the TOC panel stays as-is after a jump.
 _Avoid_: 自动跳转 (stale name — the setting never controlled jumping)
 
+**矩形选择（Column selection）**:
+A transient editor state drawn by holding Alt and dragging in the editor: a rectangle overlay over consecutive lines. While held, copy/cut/delete operate on each line's segment of the rectangle (delete as one undoable edit); any other input dismisses it. Deliberately not multi-caret (ADR 0014).
+_Avoid_: 多光标 (rejected), 块选择
+
 **Sync**:
 The automatic, near-real-time mirroring of **Documents** between the Author's devices (a mobile edit appears on desktop with no manual action). Internal to KEDIT; never reaches Visitors.
 _Avoid_: publish, save, backup

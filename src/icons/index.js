@@ -30,6 +30,7 @@ import Toc from './Toc';
 import Login from './Login';
 import Logout from './Logout';
 import Sync from './Sync';
+import CloudRefresh from './CloudRefresh';
 import SyncOff from './SyncOff';
 import SyncAuto from './SyncAuto';
 import SyncStop from './SyncStop';
@@ -102,6 +103,7 @@ export default ({
   'iconLogin': Login,
   'iconLogout': Logout,
   'iconSync': Sync,
+  'iconCloudRefresh': CloudRefresh,
   'iconSyncOff': SyncOff,
   'iconSyncAuto': SyncAuto,
   'iconSyncStop': SyncStop,
