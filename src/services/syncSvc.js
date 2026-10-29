@@ -294,7 +294,10 @@ const isTempFile = (fileId) => {
   const { welcomeFileHashes } = store.getters['data/localSettings'];
   const hash = utils.hash(content.text);
   const hasDiscussions = Object.keys(content.discussions).length;
-  return file.name === 'Welcome file' && welcomeFileHashes[hash] && !hasDiscussions;
+  // 新名 welcome-file 与遗留名 Welcome file 双匹配(hash 门槛不变),防止既有
+  // 设备上未编辑过的旧欢迎文件因改名突然变成真文件被推上私有仓库。
+  const welcomeNames = ['welcome-file', 'Welcome file'];
+  return welcomeNames.includes(file.name) && welcomeFileHashes[hash] && !hasDiscussions;
 };
 
 /**

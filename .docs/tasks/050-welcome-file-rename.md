@@ -1,4 +1,10 @@
-Status: open
+Status: review
+
+## 后台验证记录
+
+- 三处联动已落：welcomeFile.md=hi、localDbSvc 创建名 welcome-file、syncSvc isTempFile 新旧名双匹配（hash/讨论数门槛不变）。
+- vite build 通过。
+- 剩余（人工验收）：清数据首启创建 welcome-file/hi；遗留 Welcome file 仍判临时不同步。
 
 ## Parent
 
