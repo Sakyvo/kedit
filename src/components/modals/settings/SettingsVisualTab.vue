@@ -44,6 +44,27 @@
             @keydown="onShortcutKey(button.method, $event)"
           >
         </div>
+        <div
+          class="settings-visual__button-row settings-visual__button-row--pinned"
+          title="同步快捷键（固定在末尾，不可排序）"
+        >
+          <span class="settings-visual__drag-handle">≡</span>
+          <input type="checkbox" class="settings-visual__enable" disabled>
+          <span class="settings-visual__tile">
+            <component :is="'icon-sync'" class="settings-visual__tile-icon"></component>
+            <span class="settings-visual__tile-label">同步</span>
+          </span>
+          <input
+            class="textfield settings-visual__shortcut"
+            :class="{'settings-visual__shortcut--capturing': capturingMethod === syncButton.method}"
+            :value="shortcutLabel(syncButton)"
+            readonly
+            placeholder="NONE"
+            @focus="capturingMethod = syncButton.method"
+            @blur="capturingMethod = null"
+            @keydown="onShortcutKey(syncButton.method, $event)"
+          >
+        </div>
       </template>
       <template v-else>
       <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label" :info="infoOf(field)" :inline="field.type === 'toggle'" :has-select="field.type === 'select'">
@@ -141,6 +162,7 @@ export default {
     dragOverMethod: null,
     capturingMethod: null,
     conflictHint: null,
+    syncButton: { method: 'sync', title: '同步' },
   }),
   computed: {
     merged() {
@@ -296,6 +318,7 @@ export default {
         this.$emit('remove', { path: ['shortcuts', combo] });
         const byMethod = Object.create(null);
         pagedownButtons.forEach((b) => { byMethod[b.method] = b; });
+        byMethod.sync = this.syncButton;
         this.conflictHint = { combo, fromTitle: (byMethod[owner] || {}).title || owner };
         setTimeout(() => { this.conflictHint = null; }, 4000);
       }
@@ -391,6 +414,22 @@ export default {
   &--drop-target {
     background-color: rgba(12, 147, 228, 0.12);
     box-shadow: inset 0 2px 0 0 #0c93e4;
+  }
+
+  // 钉尾的「同步」行：占位对齐（拖拽手柄/启用框隐形），不可拖、不可作拖放目标
+  &--pinned {
+    .settings-visual__drag-handle,
+    .settings-visual__enable {
+      visibility: hidden;
+    }
+
+    .settings-visual__tile {
+      cursor: default;
+
+      &:hover {
+        background: transparent;
+      }
+    }
   }
 }
 

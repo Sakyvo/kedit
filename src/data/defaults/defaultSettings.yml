@@ -62,7 +62,7 @@ editor:
 # Keyboard shortcuts
 # See https://craig.is/killing/mice
 shortcuts:
-  mod+s: sync
+  mod+shift+s: sync
   mod+f: find
   mod+alt+f: replace
   mod+g: replace
@@ -77,7 +77,6 @@ shortcuts:
   mod+shift+l: link
   mod+shift+o: olist
   mod+shift+q: quote
-  mod+shift+s: strikethrough
   mod+shift+t: table
   mod+shift+u: ulist
   mod+shift+f: inlineformula

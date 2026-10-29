@@ -1,4 +1,11 @@
-Status: open
+Status: review
+
+## 后台验证记录
+
+- defaultSettings.yml：mod+shift+s→sync、mod+s 无绑定、删除线无默认键（js-yaml 断言通过）。
+- SettingsVisualTab：钉尾「同步」行（无拖拽/无启用框/非拖放目标，占位对齐，捕获/清除/抢断复用既有语义，抢断提示含「同步」名）。
+- vite build 通过。
+- 剩余（人工验收）：真机改键/拖拽排序不带动同步行、默认 Ctrl+Shift+S 触发同步。
 
 ## Parent
 
