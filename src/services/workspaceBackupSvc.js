@@ -256,7 +256,7 @@ export default {
     if (!includeImages) {
       return {
         blob: buildWorkspaceJsonBlob(itemsById),
-        filename: 'StackEdit workspace.json',
+        filename: 'KEDIT workspace.json',
         missingCount: 0,
       };
     }
@@ -264,7 +264,7 @@ export default {
     const result = await buildZipBlob(itemsById);
     return {
       ...result,
-      filename: 'StackEdit workspace.zip',
+      filename: 'KEDIT workspace.zip',
     };
   },
   async importZip(file) {

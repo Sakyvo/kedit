@@ -110,7 +110,7 @@ export default new Provider({
     if (!folderId) {
       const folder = await googleHelper.uploadFile({
         token,
-        name: 'StackEdit workspace',
+        name: 'KEDIT workspace',
         parents: [],
         mediaType: googleHelper.folderMimeType,
       });

@@ -1,4 +1,12 @@
-Status: open
+Status: review
+
+## 后台验证记录
+
+- About：删 Gitee/Chrome/邮箱/联系块，保留致谢行（链向上游 benweet/stackedit）、许可证、隐私策略、FAQ。
+- Tour 中性化、预设链接删、PDF 弹窗去链、CouchDB 示例中性化 + 删死链 actions、备份文件名/Drive 新建文件夹名 KEDIT 化、4 模板 style.css 自托管、package.json name/bugs 改。
+- 全局复查：剩余 stackedit 命中仅红线项（.stackedit-data/db 等持久化标识、CSS 类名、Dropbox 注册应用功能性路径、代码注释、githubHelper 模板 URL）。
+- vite build 通过。
+- 剩余（人工验收）：About/Tour/导出 HTML 实机看一眼。
 
 ## Parent
 

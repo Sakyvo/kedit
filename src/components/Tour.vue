@@ -48,7 +48,7 @@
       </div>
       <div class="tour-step__inner" v-else-if="step === 'end'">
         <h2>Enjoy!</h2>
-        <p>如果您喜欢KEDIT，请在<a href="https://gitee.com/mafgwo/stackedit">Gitee仓库</a>上点一下Star，谢谢！</p>
+        <p>感谢使用 KEDIT，祝写作愉快！</p>
         <div class="tour-step__button-bar">
           <button class="button button--resolve" @click="finish">确认</button>
         </div>

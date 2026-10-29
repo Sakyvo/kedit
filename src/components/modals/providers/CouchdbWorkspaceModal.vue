@@ -8,11 +8,7 @@
       <form-entry label="Database URL" error="dbUrl">
         <template v-slot:field><input class="textfield" type="text" v-model.trim="dbUrl" @keydown.enter="resolve()"></template>
         <div class="form-entry__info">
-          <b>例如:</b> https://instance.smileupps.com/stackedit-workspace
-        </div>
-        <div class="form-entry__actions">
-          <!-- https://community.stackedit.io/t/couchdb-workspace-setup/ -->
-          <a href="#" target="_blank">如何设置？</a>
+          <b>例如:</b> https://your-couchdb.example.com/workspace
         </div>
       </form-entry>
     </div>
