@@ -336,6 +336,19 @@ img {
   vertical-align: top;
 }
 
+// 矩形选择 overlay（ADR 0014）：仅列模式激活期间挂 host 定位
+.cl-column-selection-host {
+  position: relative;
+}
+
+.cl-column-selection {
+  position: absolute;
+  z-index: 1; // 阶梯表：panel-local 1
+  pointer-events: none;
+  background-color: rgba(12, 147, 228, 0.15);
+  border: 1px solid rgba(12, 147, 228, 0.55);
+}
+
 .page-break-after {
   page-break-after: always;
 }

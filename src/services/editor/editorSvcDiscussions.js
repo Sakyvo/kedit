@@ -118,6 +118,8 @@ export default {
   createClEditor(editorElt) {
     this.clEditor = cledit(editorElt, editorElt.parentNode, true);
     ({ clEditor } = this);
+    // 矩形选择（ADR 0014）：Alt+拖拽瞬态列模式
+    new cledit.ColumnSelection(clEditor);
     // 数据保护：cledit 实例重建后，新闭包的 lastTextContent 是空 DOM。
     // 若模块级 contentId 仍保留旧值，initClEditorInternal 会跳过
     // options.content 注入 → 编辑器凭空空壳，且下一次打字会把空文本

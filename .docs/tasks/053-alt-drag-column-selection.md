@@ -1,4 +1,20 @@
-Status: open
+Status: review
+
+## 后台验证记录
+
+- 纯变换层 cleditColumnUtils.js：红灯→绿灯 7 项断言（列拼接/列删除/归一化：排序/空段/反向/重叠/越界/同行相邻合并）；独立手算基准，不依赖实现。
+- DOM 交互层 cleditColumnSelection.js：Alt+左键拖拽(capture)画矩形 overlay（watcher.noWatch 挂载，不触内容管线）；松开按行采样（caretRangeFromPoint + getCoordinates 行顶对齐 + 行内二分收尾，短行截断到行尾）激活；active 期间拦截 copy/cut（含列删除，undoMgr setCurrentMode('single') 单次可撤销）与 Backspace/Delete；Escape/其他按键/点击/滚动/destroy 退出。
+- 接线：cledit/index.js + editorSvcDiscussions.createClEditor 实例化；CSS 在 base.scss（host 仅激活时挂 position:relative；overlay z-index 1 = 阶梯 panel-local）。
+- vite build 通过。
+
+### 人工验收清单（真机）
+
+- [ ] Alt+拖拽出现半透明矩形，松开保持高亮；深浅色主题均可见。
+- [ ] 多行不等长文本：Ctrl+C 粘贴逐行列段对齐；短行选到行尾不跨行。
+- [ ] Backspace/Delete：各行列段一次删除；单次 Ctrl+Z 完整回滚。
+- [ ] Ctrl+X = 复制+删除。
+- [ ] 随意键入/单击/滚动立即退出；普通选择、拖拽移动文本、触屏不变。
+- [ ] 大文档（动态加载）下进出列模式无异常。
 
 ## Parent
 

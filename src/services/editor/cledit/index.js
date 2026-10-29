@@ -3,6 +3,7 @@ import cledit from './cleditCore';
 import './cleditHighlighter';
 import './cleditKeystroke';
 import './cleditMarker';
+import './cleditColumnSelection';
 import './cleditSelectionMgr';
 import './cleditUndoMgr';
 import './cleditUtils';
