@@ -250,6 +250,11 @@ function SelectionMgr(editor) {
     }
 
     const save = () => {
+      // 列选区（ADR 0014）：多区 DOM 选区是矩形选择的渲染，不是光标状态；
+      // 锁定期间不回读，避免 selectionStart/End 被首段污染。
+      if (this.columnSelectionLocked) {
+        return undefined;
+      }
       let result;
       if (this.hasFocus()) {
         let { selectionStart } = this;

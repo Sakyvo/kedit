@@ -7,14 +7,23 @@ Status: review
 - 接线：cledit/index.js + editorSvcDiscussions.createClEditor 实例化；CSS 在 base.scss（host 仅激活时挂 position:relative；overlay z-index 1 = 阶梯 panel-local）。
 - vite build 通过。
 
-### 人工验收清单（真机）
+### 人工验收清单（真机）— 2026-10 重做后（Word 式列选区 + VSCode 式输入）
 
-- [ ] Alt+拖拽出现半透明矩形，松开保持高亮；深浅色主题均可见。
-- [ ] 多行不等长文本：Ctrl+C 粘贴逐行列段对齐；短行选到行尾不跨行。
-- [ ] Backspace/Delete：各行列段一次删除；单次 Ctrl+Z 完整回滚。
-- [ ] Ctrl+X = 复制+删除。
-- [ ] 随意键入/单击/滚动立即退出；普通选择、拖拽移动文本、触屏不变。
+- [ ] Alt+拖拽矩形反馈；松开后多行蓝色原生高亮（非矩形框）；深浅色主题均可见。
+- [ ] 多行不等长文本：Ctrl+C 粘贴逐行列段对齐；短行选到行尾不跨行；复制后选区保持。
+- [ ] 打一个字符：每行列段被替换为该字符，单次 Ctrl+Z 完整回滚。
+- [ ] 粘贴单行/多行（行数=列段数时逐行各异）。
+- [ ] Backspace/Delete 列删除；Ctrl+X = 复制+删除。
+- [ ] Enter/方向键/单击/工具栏撤销立即退出并恢复常规单光标；普通选择/拖拽移动/触屏不变。
 - [ ] 大文档（动态加载）下进出列模式无异常。
+
+## 重做记录（Word 式）
+
+- 高亮：CSS Custom Highlight API（::highlight(cl-column)），逐视觉行 Range；无 API 时降级持久矩形 overlay。
+- 选区隔离：SelectionMgr.save 开头 columnSelectionLocked 早退，列选区不污染光标状态。
+- 输入：cleditColumnUtils 新增 applyColumnInsertion / insertionCaretOffset / applyColumnPerRowInsertion（13 项断言全绿）；打字/粘贴/删除统一 performColumnEdit（先退出、setCurrentMode('single')、setContent、setSelection 落光标）。
+- 事件：capture keydown/paste 拦截列语义；copy/cut window capture；外部 contentChanged 静默退出；拖拽期滚动退出、激活后滚动不退。
+- vite build 通过；ADR 0014 / CONTEXT.md 同步更新。
 
 ## Parent
 

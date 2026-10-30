@@ -41,7 +41,7 @@ A per-device TOC setting (formerly "自动跳转", renamed because the jump itse
 _Avoid_: 自动跳转 (stale name — the setting never controlled jumping)
 
 **矩形选择（Column selection）**:
-A transient editor state drawn by holding Alt and dragging in the editor: a rectangle overlay over consecutive lines. While held, copy/cut/delete operate on each line's segment of the rectangle (delete as one undoable edit); any other input dismisses it. Deliberately not multi-caret (ADR 0014).
+A transient column-mode editor state entered by Alt+drag: native multi-range highlight (CSS Custom Highlight `cl-column`; persistent rectangle overlay as fallback) over per-line segments. While active, typing/paste insert per row (VSCode-style, one undoable edit), copy/cut/delete operate on each line's segment; any other input dismisses it. Deliberately not multi-caret — single-cursor architecture kept (ADR 0014).
 _Avoid_: 多光标 (rejected), 块选择
 
 **Sync**:

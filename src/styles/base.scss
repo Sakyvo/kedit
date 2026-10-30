@@ -336,7 +336,8 @@ img {
   vertical-align: top;
 }
 
-// 矩形选择 overlay（ADR 0014）：仅列模式激活期间挂 host 定位
+// 矩形选择（ADR 0014）：拖拽期间矩形反馈；激活后由 CSS Custom Highlight
+// ::highlight(cl-column) 承载多区高亮（Word 式）；不支持时降级持久矩形。
 .cl-column-selection-host {
   position: relative;
 }
@@ -347,6 +348,10 @@ img {
   pointer-events: none;
   background-color: rgba(12, 147, 228, 0.15);
   border: 1px solid rgba(12, 147, 228, 0.55);
+}
+
+::highlight(cl-column) {
+  background-color: rgba(12, 147, 228, 0.25);
 }
 
 .page-break-after {

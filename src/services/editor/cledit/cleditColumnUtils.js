@@ -55,3 +55,38 @@ export const deletionCaretOffset = (content, segments) => {
   const sorted = normalizeSegments(segments, content.length);
   return sorted.length ? sorted[0].start : 0;
 };
+
+// VSCode 式逐行插入：各行列段替换为同样的文本（一次性字符串变换，
+// 与列删除同层；非多光标编辑器状态）
+export const applyColumnInsertion = (content, segments, text) => {
+  const sorted = normalizeSegments(segments, content.length);
+  let result = '';
+  let pos = 0;
+  sorted.forEach((seg) => {
+    result += content.slice(pos, seg.start);
+    result += text;
+    pos = seg.end;
+  });
+  result += content.slice(pos);
+  return result;
+};
+
+// 插入后的落点光标：最上段起点 + 插入文本长度
+export const insertionCaretOffset = (content, segments, text) => {
+  const sorted = normalizeSegments(segments, content.length);
+  return sorted.length ? sorted[0].start + text.length : 0;
+};
+
+// 多行粘贴（行数=列段数）：第 i 行列段替换为第 i 行文本
+export const applyColumnPerRowInsertion = (content, segments, texts) => {
+  const sorted = normalizeSegments(segments, content.length);
+  let result = '';
+  let pos = 0;
+  sorted.forEach((seg, i) => {
+    result += content.slice(pos, seg.start);
+    result += texts[i] != null ? texts[i] : '';
+    pos = seg.end;
+  });
+  result += content.slice(pos);
+  return result;
+};
