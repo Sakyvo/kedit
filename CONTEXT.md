@@ -41,8 +41,8 @@ A per-device TOC setting (formerly "自动跳转", renamed because the jump itse
 _Avoid_: 自动跳转 (stale name — the setting never controlled jumping)
 
 **矩形选择（Column selection）**:
-A transient column-mode editor state entered by Alt+drag: native multi-range highlight (CSS Custom Highlight `cl-column`; persistent rectangle overlay as fallback) over per-line segments. While active, typing/paste insert per row (VSCode-style, one undoable edit), copy/cut/delete operate on each line's segment; any other input dismisses it. Deliberately not multi-caret — single-cursor architecture kept (ADR 0014).
-_Avoid_: 多光标 (rejected), 块选择
+A column-mode editor state entered by Alt+drag and behaving like Notepad4's rectangular selection: live per-line reselection while dragging, boundaries set by mouse x (not line end), virtual space beyond short lines selected and filled so the block reads as a clean rectangle, sticky multi-line insertion after the first keystroke (column caret), per-row delete, and column-aware paste (short lines padded with spaces). Real text segments are highlighted natively (CSS Custom Highlight `cl-column`); the cledit single-caret architecture is preserved — multi-line editing is expressed as full-text transforms inside column mode (ADR 0014).
+_Avoid_: 块选择 (vague), 自绘选框框
 
 **Sync**:
 The automatic, near-real-time mirroring of **Documents** between the Author's devices (a mobile edit appears on desktop with no manual action). Internal to KEDIT; never reaches Visitors.
