@@ -2,7 +2,7 @@ import cledit from './cleditCore';
 import {
   normalizeSegments, columnText, applyColumnDeletion, deletionCaretOffset,
   applyColumnInsertion, applyColumnPerRowInsertion, perRowSegmentsFromRect,
-  applyRowInsertions, applyPerCaretDeletion, padToColumn,
+  applyRowInsertions, applyPerCaretDeletion, padToColumn, autoScrollDelta,
 } from './cleditColumnUtils';
 
 // 矩形选择（ADR 0014，照搬 Notepad4 矩形选区）：Alt+拖拽即实时逐行选区，
@@ -27,6 +27,8 @@ function ColumnSelection(editor) {
   let rect = null; // 内容局部坐标 {left, top, width, height}
   let rows = []; // 视觉行 × 内容区间 + 像素信息
   let segments = []; // 归一化后的真实文本区间（编辑用）
+  let autoScrollRaf = null; // 拖出视口后的自动滚动帧
+  let lastPointer = null; // 最近一次拖拽的 client 坐标
   let selfEditing = 0; // 自己的编辑引发的 contentChanged 次数（不该触发退出）
   let gapElt = null; // 补齐矩形容器（scrollElt 子节点）
   let rectElt = null; // 无 Highlight API 时的降级整块
@@ -486,15 +488,54 @@ function ColumnSelection(editor) {
     }
   };
 
+  // 拖出视口自动滚动：指针停在视口外也不断扩选（Notepad 语义）
+  const stopAutoScroll = () => {
+    if (autoScrollRaf) {
+      cancelAnimationFrame(autoScrollRaf);
+      autoScrollRaf = null;
+    }
+  };
+
+  const scheduleAutoScroll = () => {
+    if (!autoScrollRaf) {
+      autoScrollRaf = requestAnimationFrame(autoScrollStep);
+    }
+  };
+
+  function autoScrollStep() {
+    autoScrollRaf = null;
+    if (state !== 'dragging' || !lastPointer) {
+      return;
+    }
+    const box = scrollElt.getBoundingClientRect();
+    const delta = autoScrollDelta(lastPointer.clientY, box.top, box.bottom);
+    if (!delta) {
+      return;
+    }
+    const before = scrollElt.scrollTop;
+    scrollElt.scrollTop = before + delta;
+    if (scrollElt.scrollTop === before) {
+      return; // 已到内容边界，停
+    }
+    current = clientToLocal(lastPointer.clientX, lastPointer.clientY);
+    rect = rectFromPoints();
+    render();
+    scheduleAutoScroll();
+  }
+
   const onMouseMove = (evt) => {
     if (state !== 'dragging') return;
+    lastPointer = { clientX: evt.clientX, clientY: evt.clientY };
     current = clientToLocal(evt.clientX, evt.clientY);
     rect = rectFromPoints();
     render(); // 实时逐行重算重绘
+    scheduleAutoScroll();
   };
 
   const endDrag = () => {
     if (state !== 'dragging') return;
+    stopAutoScroll();
+    lastPointer = null;
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', endDrag);
     rect = rectFromPoints();
@@ -532,6 +573,8 @@ function ColumnSelection(editor) {
   function exit({ restore = true } = {}) {
     if (state === 'idle') return;
     const wasColumn = state === 'column';
+    stopAutoScroll();
+    lastPointer = null;
     state = 'idle';
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', endDrag);
@@ -558,6 +601,7 @@ function ColumnSelection(editor) {
 
   const onAltMouseDown = (evt) => {
     if (state !== 'idle') return;
+    // Alt 仅此刻判定：拖拽中松开 Alt 仍保持矩形（Scintilla selType 粘性）
     if (!evt.altKey || evt.button !== 0) return;
     evt.preventDefault();
     evt.stopPropagation();

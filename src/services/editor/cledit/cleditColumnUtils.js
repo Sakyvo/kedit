@@ -159,3 +159,17 @@ export const applyRowInsertions = (content, ops) => {
   });
   return result;
 };
+
+// 拖出视口时的自动滚动步长（px/帧）：正=向下，负=向上，0=不滚。
+// 越界越深越快，封顶 maxStep；刚越过边距时至少 minStep。
+export const autoScrollDelta = (clientY, top, bottom, edge = 24, maxStep = 40, minStep = 4) => {
+  if (clientY < top + edge) {
+    const over = (top + edge) - clientY;
+    return -Math.min(maxStep, Math.max(minStep, over));
+  }
+  if (clientY > bottom - edge) {
+    const over = clientY - (bottom - edge);
+    return Math.min(maxStep, Math.max(minStep, over));
+  }
+  return 0;
+};

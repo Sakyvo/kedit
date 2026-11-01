@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -22,3 +22,13 @@ Status: open
 ## Definition of done
 
 长文档可从顶部拖选到屏幕外的远处，无卡死或残留滚动。
+
+## 后台验证记录
+
+- 变换层新增 `autoScrollDelta(clientY, top, bottom, edge=24, maxStep=40, minStep=4)`：视口内 0；越界越深越快，封顶 maxStep，刚越边距时抬到 minStep。断言 6 项（内部不滚、近顶/近底、越界封顶、最小步长）红→绿。
+- DOM 层：`mousemove` 记录指针并 `scheduleAutoScroll()`；`autoScrollStep` 按 rAF 逐帧改 `scrollElt.scrollTop` 后重算 `rect`+`render()` 再续帧；`scrollTop` 未变（内容到边界）即停帧。
+- 清理路径：`endDrag` 与 `exit` 均 `stopAutoScroll()` + 清 `lastPointer`；`destroy` 走 `exit`。
+- Alt 粘性：仅在 `mousedown` 判定 `altKey`，拖拽/激活期间不再检查修饰键（代码内显式注释 Scintilla selType 语义）。
+- 回归：col55/57/58/59 四组断言 + 原始 colutil 断言全绿。
+- build：EXIT=0，built in 一次通过。
+- 真机验收（skipped-manual）：向上/下拖出视口持续扩选、松开 Alt 不中断、松手后不再滚动。
