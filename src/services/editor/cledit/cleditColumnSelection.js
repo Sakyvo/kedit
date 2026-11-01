@@ -1,8 +1,8 @@
 import cledit from './cleditCore';
 import {
   normalizeSegments, columnText, applyColumnDeletion, deletionCaretOffset,
-  applyColumnInsertion, insertionCaretOffset, applyColumnPerRowInsertion,
-  perRowSegmentsFromRect, applyRowInsertions, padToColumn,
+  applyColumnInsertion, applyColumnPerRowInsertion, perRowSegmentsFromRect,
+  applyRowInsertions, applyPerCaretDeletion, padToColumn,
 } from './cleditColumnUtils';
 
 // 矩形选择（ADR 0014，照搬 Notepad4 矩形选区）：Alt+拖拽即实时逐行选区，
@@ -324,17 +324,27 @@ function ColumnSelection(editor) {
     render();
   };
 
+  // 列文本取出：有选区取各行段；零宽列光标时取各光标位置的整行？
+  // 照搬 Notepad：零宽光标下没有可选内容 → 只复制空串（不覆盖剪贴板）。
+  const columnClipText = () => (segments.length ? columnText(editor.getContent(), segments) : null);
+
   const onCopy = (evt) => {
     if (state !== 'column') return;
+    const text = columnClipText();
+    if (text == null) return;
     evt.preventDefault();
     evt.stopPropagation();
-    evt.clipboardData.setData('text/plain', columnText(editor.getContent(), segments));
+    evt.clipboardData.setData('text/plain', text);
+    lastColumnCopyText = text;
   };
   const onCut = (evt) => {
     if (state !== 'column') return;
+    const text = columnClipText();
+    if (text == null) return;
     evt.preventDefault();
     evt.stopPropagation();
-    evt.clipboardData.setData('text/plain', columnText(editor.getContent(), segments));
+    evt.clipboardData.setData('text/plain', text);
+    lastColumnCopyText = text;
     const content = editor.getContent();
     performColumnEdit(
       applyColumnDeletion(content, segments),
@@ -359,6 +369,25 @@ function ColumnSelection(editor) {
       evt.preventDefault();
       evt.stopPropagation();
       const content = editor.getContent();
+      if (isThin()) {
+        // 零宽列光标：各光标左右各删一字符，列光标保持
+        const back = key === 'backspace';
+        const firstCaret = rows[0] ? rows[0].lineStart : 0;
+        const next = applyPerCaretDeletion(
+          content, rows.map(row => row.lineStart), back ? 'backward' : 'forward',
+        );
+        if (next === content) {
+          return;
+        }
+        applyColumnTyping(next, 'single');
+        if (back) {
+          rect = {
+            left: xOfOffset(Math.max(0, firstCaret - 1)), top: rect.top, width: 0, height: rect.height,
+          };
+          render();
+        }
+        return;
+      }
       performColumnEdit(
         applyColumnDeletion(content, segments),
         deletionCaretOffset(content, segments),
@@ -405,25 +434,45 @@ function ColumnSelection(editor) {
     exit({ restore: true });
   };
 
+  // 列粘贴：自己的列复制 → 逐行带空格补齐贴入；外来文本 → 先清空矩形内
+  // 真实字符，再在左上角整段插入（Scintilla ClearSelection + stream paste）
   const onPaste = (evt) => {
     if (state !== 'column') return;
     evt.preventDefault();
     evt.stopPropagation();
     const clip = evt.clipboardData || window.clipboardData;
     const text = clip && clip.getData('text/plain');
-    if (!text) return;
+    if (!text || !rows.length) return;
     const content = editor.getContent();
-    const lines = text.split('\n');
-    let newText;
-    let caret;
-    if (lines.length > 1 && lines.length === segments.length) {
-      newText = applyColumnPerRowInsertion(content, segments, lines);
-      caret = segments[0].start + (lines[0] || '').length;
-    } else {
-      newText = applyColumnInsertion(content, segments, text);
-      caret = insertionCaretOffset(content, segments, text);
+    const own = lastColumnCopyText !== null && lastColumnCopyText === text;
+    const lines = text.split(String.fromCharCode(10))
+      .map(line => line.split(String.fromCharCode(13)).join(''));
+    while (lines.length > 1 && lines[lines.length - 1] === '') {
+      lines.pop(); // 去掉粘贴尾巴上的空行（Notepad 同样剥除尾部 EOL）
     }
-    performColumnEdit(newText, caret);
+    const LINESEP = String.fromCharCode(10);
+    const padFor = row => ' '.repeat(padToColumn(row.lineEndX, rect.left, spaceWidth()));
+    const topLeft = rows[0].lineStart;
+
+    if (own) {
+      const perRow = lines.length === rows.length && rows.length > 1;
+      if (isThin()) {
+        const ops = rows.map((row, i) => ({
+          at: row.lineStart,
+          text: padFor(row) + (perRow ? lines[i] : lines.join(LINESEP)),
+        }));
+        performColumnEdit(applyRowInsertions(content, ops), ops[0].at + ops[0].text.length);
+      } else {
+        const texts = rows.map((row, i) => padFor(row) + (perRow ? lines[i] : lines.join(LINESEP)));
+        performColumnEdit(applyColumnPerRowInsertion(content, segments, texts), topLeft + texts[0].length);
+      }
+      return;
+    }
+    // 外来文本：清空矩形内真实字符后左上角整段插入
+    const newText = isThin()
+      ? applyRowInsertions(content, [{ at: topLeft, text }])
+      : applyColumnPerRowInsertion(content, segments, [text]);
+    performColumnEdit(newText, topLeft + text.length);
   };
 
   const onMouseDown = () => exit({ restore: false });
