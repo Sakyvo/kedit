@@ -2,7 +2,7 @@ import cledit from './cleditCore';
 import {
   normalizeSegments, columnText, applyColumnDeletion, deletionCaretOffset,
   applyColumnInsertion, insertionCaretOffset, applyColumnPerRowInsertion,
-  perRowSegmentsFromRect,
+  perRowSegmentsFromRect, applyRowInsertions, padToColumn,
 } from './cleditColumnUtils';
 
 // 矩形选择（ADR 0014，照搬 Notepad4 矩形选区）：Alt+拖拽即实时逐行选区，
@@ -27,6 +27,7 @@ function ColumnSelection(editor) {
   let rect = null; // 内容局部坐标 {left, top, width, height}
   let rows = []; // 视觉行 × 内容区间 + 像素信息
   let segments = []; // 归一化后的真实文本区间（编辑用）
+  let selfEditing = 0; // 自己的编辑引发的 contentChanged 次数（不该触发退出）
   let gapElt = null; // 补齐矩形容器（scrollElt 子节点）
   let rectElt = null; // 无 Highlight API 时的降级整块
 
@@ -126,7 +127,9 @@ function ColumnSelection(editor) {
       const rawStart = offsetFromPoint(leftPt.x, leftPt.y);
       const startOff = Math.max(rowStart, Math.min(rawStart == null ? rowEnd : rawStart, rowEnd));
       let endOff;
-      if (r.width < 1 || r.left + r.width >= xOfOffset(rowEnd)) {
+      if (r.width < 1) {
+        endOff = startOff; // 零宽列光标（ThinRectangularRange）
+      } else if (r.left + r.width >= xOfOffset(rowEnd)) {
         endOff = rowEnd;
       } else {
         const rightPt = localToClient(r.left + r.width, midY);
@@ -136,6 +139,7 @@ function ColumnSelection(editor) {
       result.push({
         lineStart: startOff,
         lineEnd: endOff,
+        rowEnd,
         lineEndX: xOfOffset(rowEnd),
         top: base.top,
         height: base.height,
@@ -278,6 +282,48 @@ function ColumnSelection(editor) {
     }
   };
 
+  // 空格像素宽（补齐列对齐用）：canvas 量当前编辑器字体，不碰 DOM
+  let spaceWidthCache = null;
+  const spaceWidth = () => {
+    if (spaceWidthCache) {
+      return spaceWidthCache;
+    }
+    try {
+      const cs = window.getComputedStyle(contentElt);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      spaceWidthCache = ctx.measureText(' ').width || (parseFloat(cs.fontSize) * 0.5);
+    } catch (e) {
+      spaceWidthCache = 8;
+    }
+    return spaceWidthCache;
+  };
+
+  const isThin = () => !!rect && rect.width < 1;
+
+  // 短行补空格到目标列再插入（RealizeVirtualSpace）
+  const rowInsertOps = (text) => rows.map((row) => {
+    const pad = padToColumn(row.lineEndX, rect.left, spaceWidth());
+    if (isThin() && pad > 0) {
+      return { at: row.rowEnd, text: `${' '.repeat(pad)}${text}` };
+    }
+    return { at: row.lineStart, text };
+  });
+
+  // 列模式内的原地编辑：不退出，重算行后继续（粘性多行输入）
+  const applyColumnTyping = (newText, mode) => {
+    const content = editor.getContent();
+    if (newText === content) {
+      return;
+    }
+    editor.undoMgr.setCurrentMode(mode); // 'typing' → 连续按键合并为单个 undo 单元
+    selfEditing += 1; // 自己的编辑不该触发"外部内容变更 → 退出"
+    editor.setContent(newText);
+    setTimeout(() => { selfEditing = 0; }, 0); // 兜底：观察回调必为微任务，先于该定时器
+    render();
+  };
+
   const onCopy = (evt) => {
     if (state !== 'column') return;
     evt.preventDefault();
@@ -323,10 +369,36 @@ function ColumnSelection(editor) {
       evt.preventDefault();
       evt.stopPropagation();
       const content = editor.getContent();
-      performColumnEdit(
-        applyColumnInsertion(content, segments, evt.key),
-        insertionCaretOffset(content, segments, evt.key),
-      );
+      if (isThin()) {
+        // 粘性多行输入：各光标处插入（短行先补空格到该列），列随输入右移
+        const ops = rowInsertOps(evt.key);
+        const firstOp = ops[0];
+        if (!firstOp) {
+          return;
+        }
+        applyColumnTyping(applyRowInsertions(content, ops), 'typing');
+        rect = {
+          left: xOfOffset(firstOp.at + firstOp.text.length),
+          top: rect.top,
+          width: 0,
+          height: rect.height,
+        };
+        render();
+        return;
+      }
+      const firstRow = rows[0];
+      if (!firstRow) {
+        return;
+      }
+      const nextText = applyColumnInsertion(content, segments, evt.key);
+      const caretOffset = firstRow.lineStart + evt.key.length;
+      applyColumnTyping(nextText, 'typing');
+      // 收成零宽列光标（ThinRectangularRange）：垂直范围不变，宽度归零
+      rect = {
+        left: xOfOffset(caretOffset), top: rect.top, width: 0, height: rect.height,
+      };
+      segments = [];
+      render();
       return;
     }
     // 其余任何按键（Enter/方向/Home/组合键/IME…）：退出不吞，交还常规编辑
@@ -356,6 +428,10 @@ function ColumnSelection(editor) {
 
   const onMouseDown = () => exit({ restore: false });
   const onContentChanged = () => {
+    if (selfEditing > 0) {
+      selfEditing -= 1; // 自己刚落的编辑，不是外部变更
+      return;
+    }
     if (state === 'column') {
       exit({ restore: false }); // 外部内容变更（同步/撤销）→ 静默退出
     }

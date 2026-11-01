@@ -146,3 +146,16 @@ export const perRowSegmentsFromRect = (rows, leftX, rightX) => {
     };
   });
 };
+
+// 逐行插入（可带前置补齐空格）：ops = [{ at, text }]，倒序施加避免偏移串扰
+export const applyRowInsertions = (content, ops) => {
+  const sorted = (ops || [])
+    .filter(op => op && op.text)
+    .map(op => ({ at: Math.max(0, Math.min(op.at, content.length)), text: op.text }))
+    .sort((a, b) => b.at - a.at);
+  let result = content;
+  sorted.forEach(({ at, text }) => {
+    result = result.slice(0, at) + text + result.slice(at);
+  });
+  return result;
+};
