@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -24,3 +24,9 @@ Status: open
 ## Definition of done
 
 变换层函数齐备且被断言覆盖；不引入任何 DOM 依赖。
+
+## 后台验证记录
+
+- 新增 applyPerCaretInsertion / applyPerCaretDeletion / padToColumn / perRowSegmentsFromRect，均零 DOM 依赖。
+- 独立断言 13 项（零宽插入含乱序/去重、双向删除含行首行尾不跨界、补齐数四舍五入/负值/零宽保护、虚拟段与 gap 分类）全绿；既有 13 项断言无回归。
+- build：`NODE_OPTIONS=--max-old-space-size=4096 node node_modules/vite/bin/vite.js build --mode production` ✓ built in 39.57s（默认堆会段错误，已固定该调用方式）。

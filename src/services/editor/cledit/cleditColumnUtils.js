@@ -90,3 +90,59 @@ export const applyColumnPerRowInsertion = (content, segments, texts) => {
   result += content.slice(pos);
   return result;
 };
+
+// ---- 零宽列光标（粘性多行插入，Scintilla ThinRectangularRange 语义）----
+// 各 caret 处插入同一文本；倒序施加避免偏移串扰
+export const applyPerCaretInsertion = (content, carets, text) => {
+  const sorted = [...new Set((carets || []).map(c => Math.max(0, Math.min(c, content.length))))]
+    .sort((a, b) => b - a);
+  let result = content;
+  sorted.forEach((caret) => {
+    result = result.slice(0, caret) + text + result.slice(caret);
+  });
+  return result;
+};
+
+// 各 caret 左侧/右侧删一字符；不跨越换行（行首 backward / 行尾 forward 不动）
+export const applyPerCaretDeletion = (content, carets, direction = 'backward') => {
+  const sorted = [...new Set((carets || []).map(c => Math.max(0, Math.min(c, content.length))))]
+    .sort((a, b) => b - a);
+  let result = content;
+  sorted.forEach((caret) => {
+    const from = direction === 'forward' ? caret : caret - 1;
+    if (from < 0 || from >= result.length || result[from] === '\n') {
+      return;
+    }
+    result = result.slice(0, from) + result.slice(from + 1);
+  });
+  return result;
+};
+
+// 短行补空格数：把行尾推到目标像素列（RealizeVirtualSpace 语义）
+export const padToColumn = (currentX, targetX, spaceWidth) => {
+  if (!spaceWidth || spaceWidth <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.round((targetX - currentX) / spaceWidth));
+};
+
+// 矩形像素边界 + 各行行尾像素 → 行段（含虚拟空间补齐信息）。
+// rows: [{ lineStart, lineEnd, lineEndX }]，lineStart/End 由 DOM 层按左边界换算。
+// virtual=true 表示该行没有真实字符落在矩形内（整段为虚拟空间）。
+export const perRowSegmentsFromRect = (rows, leftX, rightX) => {
+  const left = Math.min(leftX, rightX);
+  const right = Math.max(leftX, rightX);
+  return (rows || []).map((row) => {
+    const { lineStart, lineEnd, lineEndX } = row;
+    const allVirtual = lineEndX <= left;
+    const gapFromX = Math.max(lineEndX, left);
+    const hasGap = gapFromX < right;
+    return {
+      start: lineStart,
+      end: allVirtual ? lineStart : lineEnd,
+      virtual: allVirtual,
+      gapFromX: hasGap ? gapFromX : null,
+      gapToX: hasGap ? right : null,
+    };
+  });
+};
