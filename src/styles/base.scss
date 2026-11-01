@@ -336,18 +336,26 @@ img {
   vertical-align: top;
 }
 
-// 矩形选择（ADR 0014）：拖拽期间矩形反馈；激活后由 CSS Custom Highlight
-// ::highlight(cl-column) 承载多区高亮（Word 式）；不支持时降级持久矩形。
-.cl-column-selection-host {
-  position: relative;
+// 矩形选择（ADR 0014）：真实文本段用 CSS Custom Highlight 绘制；短行虚拟
+// 空间由 .cl-column-gap 同色补齐成整齐矩形块；无 Highlight API 时降级为
+// .cl-column-selection 整块。补齐块挂在滚动容器上（cledit 会清理
+// contentElt 下的非 section 子节点）。
+.cl-column-gaps {
+  position: absolute;
+  z-index: 1; // 阶梯表：panel-local 1
+  pointer-events: none;
+}
+
+.cl-column-gap {
+  position: absolute;
+  background-color: rgba(12, 147, 228, 0.25);
 }
 
 .cl-column-selection {
   position: absolute;
   z-index: 1; // 阶梯表：panel-local 1
   pointer-events: none;
-  background-color: rgba(12, 147, 228, 0.15);
-  border: 1px solid rgba(12, 147, 228, 0.55);
+  background-color: rgba(12, 147, 228, 0.25);
 }
 
 ::highlight(cl-column) {
