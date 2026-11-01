@@ -77,6 +77,18 @@ recursive component with:
 - Renaming visible StackEdit strings together with persisted identifiers. Only
   user-visible branding was rebranded to KEDIT.
 
+### Editor Hot-Path Geometry (cledit)
+
+`cledit.Utils.findContainer` / `selectionMgr.getCoordinates` walk the whole
+content DOM per call — O(document text). NEVER call them inside mousemove /
+scroll / drag hot paths (batch them once per frame at most). Line-level
+geometry for editor overlays must come from band-scanning
+`Range.getClientRects()` over only the nodes intersecting the target vertical
+band (prune by section element boundingRect first). Overlay containers
+mounted on the scroll element need an explicit `left:0;top:0` origin —
+auto-positioned absolute containers land at their static flow position
+(below the content) and every child coordinate silently shifts.
+
 ### Overlay Z-Index Ladder
 
 Fixed stacking order for app-level overlays (established 2026-07; keep new
