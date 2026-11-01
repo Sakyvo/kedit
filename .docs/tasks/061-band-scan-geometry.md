@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -25,3 +25,12 @@ Status: open
 ## Definition of done
 
 行几何输出与旧接口同形状（rows），供选中层与编辑语义消费；性能量级 O(可见行)。
+
+## 后台验证记录
+
+- 纯函数 snapBandToLines / clusterFragmentsByTop 落 cleditColumnUtils；断言 9 项（行带吸附四种形态、空/null、±2px 聚类合并、空输入）红→绿。
+- DOM 侧 scanLines：contentElt.children 先按 .cledit-section + boundingRect 剪枝，TreeWalker 文本节点 + range.getClientRects 逐片段，与带纵向相交才收；clusterFragmentsByTop 聚成视觉行（局部几何 + 本帧视口探测坐标分离）。
+- rAF 节流：mousemove/scroll/autoscroll 只 requestRender()，renderFrame 每帧一次 rect→scan→paint；exit cancelAnimationFrame。
+- 热路径核查：grep getCoordinates|findContainer 仅命中注释（0 代码调用）；断言 6 组全回归 PASS。
+- build：APP=0 STYLE=0，bundle 含 getClientRects/createTreeWalker/caretRangeFromPoint。
+- 真机验收（skipped-manual）：2MB 级文档拖拽流畅。

@@ -173,3 +173,45 @@ export const autoScrollDelta = (clientY, top, bottom, edge = 24, maxStep = 40, m
   }
   return 0;
 };
+
+// —— 带状扫描几何（v4，纯函数）——
+// 行带吸附（Notepad/Word 语义：纵向选区以行为单位，band 起止吸附到
+// 相交行的边界）。lines: [{top,bottom}] 按 top 升序；无相交返回 null。
+export const snapBandToLines = (lines, top, bottom) => {
+  let snappedTop = null;
+  let snappedBottom = null;
+  (lines || []).forEach((line) => {
+    if (line.bottom > top && line.top < bottom) {
+      if (snappedTop === null || line.top < snappedTop) {
+        snappedTop = line.top;
+      }
+      if (snappedBottom === null || line.bottom > snappedBottom) {
+        snappedBottom = line.bottom;
+      }
+    }
+  });
+  return snappedTop === null ? null : { top: snappedTop, bottom: snappedBottom };
+};
+
+// 视觉行片段聚类：top 相差 ≤2px 的片段属于同一视觉行（wrapped 行/语法
+// span 会把一行拆成多个片段）。输出按 top 升序，含合并外接矩形与原片段。
+export const clusterFragmentsByTop = (fragments) => {
+  const sorted = [...(fragments || [])].sort((a, b) => a.top - b.top);
+  const groups = [];
+  sorted.forEach((frag) => {
+    const last = groups[groups.length - 1];
+    if (last && frag.top - last.top <= 2) {
+      last.fragments.push(frag);
+      last.top = Math.min(last.top, frag.top);
+      last.bottom = Math.max(last.bottom, frag.bottom);
+      last.left = Math.min(last.left, frag.left);
+      last.right = Math.max(last.right, frag.right);
+    } else {
+      groups.push({
+        top: frag.top, bottom: frag.bottom, left: frag.left, right: frag.right,
+        fragments: [frag],
+      });
+    }
+  });
+  return groups;
+};

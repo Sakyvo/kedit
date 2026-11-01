@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -27,3 +27,11 @@ Status: open
 ## Definition of done
 
 页面上唯一可见物 = Word 2016 式实心选中块。
+
+## 后台验证记录
+
+- 唯一可见物 = .cl-column-layer（scrollElt 子节点，显式 left:0;top:0; pointer-events:none; z-index 1）内单个 .cl-column-block：left/width = 带左右边界（虚拟空间自然覆盖短行），top/height = snapBandToLines 吸附行界 —— Word 2016 实心矩形。
+- 深色主题 .app--dark 专属色；零宽/零高/无相交行 display:none；exit 移除整个层。
+- 删除清单落地：supportsHighlight/buildRanges/ensureRect/removeRect/paintGaps/CSS.highlights 全部 0 残留（模块与 scss）；dist/style.css 无 ::highlight(cl-column)、无 cl-column-gap/selection；bundle 无 CSS.highlights/new Highlight。
+- build：APP=0 STYLE=0 + copyfiles；dist/style.css 含 cl-column-layer/block（1 处）。
+- 真机验收（skipped-manual）：拖拽中即见实心选中块，无任何边框/游离框。

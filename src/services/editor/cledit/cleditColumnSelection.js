@@ -1,37 +1,39 @@
 import cledit from './cleditCore';
 import {
   normalizeSegments, columnText, applyColumnDeletion, deletionCaretOffset,
-  applyColumnInsertion, applyColumnPerRowInsertion, perRowSegmentsFromRect,
-  applyRowInsertions, applyPerCaretDeletion, padToColumn, autoScrollDelta,
+  applyColumnInsertion, applyColumnPerRowInsertion, applyRowInsertions,
+  applyPerCaretDeletion, padToColumn, autoScrollDelta,
+  snapBandToLines, clusterFragmentsByTop,
 } from './cleditColumnUtils';
 
-// 矩形选择（ADR 0014，照搬 Notepad4 矩形选区）：Alt+拖拽即实时逐行选区，
-// 边界取鼠标像素 x（非行尾截断），短行缺失段用同色实心补齐成整齐矩形块。
-// 真实文本段由 CSS Custom Highlight API（::highlight(cl-column)）绘制；
-// 无该 API 时降级为整块自绘矩形。cledit 单光标架构不变——批量编辑一律
-// 表达为整段字符串变换。
-//
-// 补齐矩形挂载在滚动容器而非 contentElt：cledit 高亮器会移除 contentElt
-// 下所有非 section 子节点（cleditHighlighter.js 「Remove unauthorized nodes」）。
+// 矩形选择 v4（ADR 0014，照搬 Notepad4 / Word 2016 观感）：
+// - 行几何 = 带状扫描：Range.getClientRects 只扫与拖拽带纵向相交的文本
+//   节点（先按 section boundingRect 剪枝），O(可见行)；热路径零
+//   findContainer/getCoordinates（O(全文)，spec: Editor Hot-Path Geometry）。
+// - 绘制 = 单一自绘选中块（实心半透明矩形，含虚拟空间），Word 2016 式。
+//   无 CSS Highlight API、无边框、无补齐容器。
+// - 偏移 = DOM 偏移空间 + 全量挂载不变量（稳态 DOM 文本 ≡ 模型文本；
+//   分片构建瞬态直接判不可用），编辑走 cleditColumnUtils 整段变换。
 function ColumnSelection(editor) {
   const contentElt = editor.$contentElt;
   const scrollElt = editor.$scrollElt || contentElt;
   const selectionMgr = editor.selectionMgr;
-  const HIGHLIGHT_NAME = 'cl-column';
-  const supportsHighlight = typeof window !== 'undefined'
-    && window.CSS && window.CSS.highlights && typeof window.Highlight === 'function';
 
   let state = 'idle'; // idle | dragging | column
   let anchor = null; // 内容局部坐标 {x,y}
   let current = null;
-  let rect = null; // 内容局部坐标 {left, top, width, height}
-  let rows = []; // 视觉行 × 内容区间 + 像素信息
-  let segments = []; // 归一化后的真实文本区间（编辑用）
-  let autoScrollRaf = null; // 拖出视口后的自动滚动帧
-  let lastPointer = null; // 最近一次拖拽的 client 坐标
-  let selfEditing = 0; // 自己的编辑引发的 contentChanged 次数（不该触发退出）
-  let gapElt = null; // 补齐矩形容器（scrollElt 子节点）
-  let rectElt = null; // 无 Highlight API 时的降级整块
+  let rect = null; // 内容局部带 {left,top,width,height}
+  let lines = []; // 本帧行（局部几何 + 视口探测坐标）
+  let rows = []; // 偏移行（模型空间）
+  let segments = []; // 真实行段（模型空间）
+  let layerElt = null;
+  let blockElt = null;
+  let lastColumnCopyText = null;
+  let selfEditing = 0;
+  let rafId = null;
+  let autoScrollRaf = null;
+  let lastPointer = null;
+  let spaceWidthCache = null;
 
   const contentOrigin = () => {
     const cRect = contentElt.getBoundingClientRect();
@@ -42,126 +44,150 @@ function ColumnSelection(editor) {
     };
   };
   const clientToLocal = (clientX, clientY) => {
-    const rect0 = contentElt.getBoundingClientRect();
-    return { x: clientX - rect0.left, y: clientY - rect0.top };
-  };
-  const localToClient = (x, y) => {
-    const rect0 = contentElt.getBoundingClientRect();
-    return { x: x + rect0.left, y: y + rect0.top };
+    const cRect = contentElt.getBoundingClientRect();
+    return { x: clientX - cRect.left, y: clientY - cRect.top };
   };
 
-  // client 点 → 内容偏移；补齐矩形 pointer-events:none，不挡命中
-  const offsetFromPoint = (clientX, clientY) => {
-    let range = null;
-    if (document.caretRangeFromPoint) {
-      range = document.caretRangeFromPoint(clientX, clientY);
-    } else if (document.caretPositionFromPoint) {
-      const pos = document.caretPositionFromPoint(clientX, clientY);
-      if (pos) {
-        range = document.createRange();
-        range.setStart(pos.offsetNode, pos.offset);
+  // —— 带状扫描（每帧，仅几何；viewport 探测坐标仅本帧有效）——
+  const scanLines = (band) => {
+    const contentRect = contentElt.getBoundingClientRect();
+    const topV = band.top + contentRect.top;
+    const bottomV = topV + band.height;
+    const frags = [];
+    const sections = contentElt.children;
+    for (let i = 0; i < sections.length; i += 1) {
+      const elt = sections[i];
+      if (!elt.classList || !elt.classList.contains('cledit-section')) {
+        continue; // trailingNode 等非 section 元素
+      }
+      const sRect = elt.getBoundingClientRect();
+      if (!sRect.height || sRect.bottom <= topV || sRect.top >= bottomV) {
+        continue; // section 剪枝
+      }
+      const walker = document.createTreeWalker(elt, window.NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (!node.nodeValue.length) {
+          continue;
+        }
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const rects = range.getClientRects();
+        for (let j = 0; j < rects.length; j += 1) {
+          const r = rects[j];
+          if (r.width <= 0 && r.height <= 0) {
+            continue;
+          }
+          if (r.bottom <= topV || r.top >= bottomV) {
+            continue;
+          }
+          frags.push({ top: r.top, bottom: r.bottom, left: r.left, right: r.right });
+        }
       }
     }
-    if (!range || !contentElt.contains(range.startContainer)) {
-      return null;
-    }
-    const r = document.createRange();
-    r.setStart(contentElt, 0);
-    try {
-      r.setEnd(range.startContainer, range.startOffset);
-    } catch (e) {
-      return null;
-    }
-    return r.toString().length;
+    return clusterFragmentsByTop(frags).map(g => ({
+      top: g.top - contentRect.top,
+      bottom: g.bottom - contentRect.top,
+      left: g.left - contentRect.left,
+      right: g.right - contentRect.left,
+      topV: g.top,
+      bottomV: g.bottom,
+      midV: (g.top + g.bottom) / 2,
+      leftV: g.left,
+      rightV: g.right,
+    }));
   };
 
-  // 二分找 [from, bound] 内与 top 同一视觉行的最大偏移（换行后 top 递增）
-  const rowEndWithTop = (from, top, bound) => {
-    let lo = from;
-    let hi = bound;
+  // —— DOM 偏移索引（每次计算行偏移时一次全量遍历，O(节点数)）——
+  // 稳态 DOM 文本 ≡ 模型文本（分片构建瞬态由 total 校验兜住）
+  const buildOffsetIndex = () => {
+    const entries = [];
+    const base = new Map();
+    let offset = 0;
+    const walker = document.createTreeWalker(contentElt, window.NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      base.set(node, offset);
+      entries.push({ node, offset });
+      offset += node.nodeValue.length;
+    }
+    return { base, entries, total: offset };
+  };
+
+  const caretFromPoint = (x, y) => {
+    if (document.caretRangeFromPoint) {
+      const range = document.caretRangeFromPoint(x, y);
+      if (range && contentElt.contains(range.startContainer)) {
+        return { node: range.startContainer, offset: range.startOffset };
+      }
+      return null;
+    }
+    if (document.caretPositionFromPoint) {
+      const pos = document.caretPositionFromPoint(x, y);
+      if (pos && contentElt.contains(pos.offsetNode)) {
+        return { node: pos.offsetNode, offset: pos.offset };
+      }
+    }
+    return null;
+  };
+
+  // 行内 x → DOM 偏移：阶梯探测（x、x-2、x-8），命中 caret 的 top 必须
+  // 落在该行内（防止浏览器把超界点吸到相邻行）
+  const caretOffsetAt = (x, line, index) => {
+    const ladder = [x, x - 2, x - 8];
+    for (let i = 0; i < ladder.length; i += 1) {
+      const pos = caretFromPoint(ladder[i], line.midV);
+      if (!pos) {
+        continue;
+      }
+      const baseOff = index.base.get(pos.node);
+      if (baseOff === undefined) {
+        continue;
+      }
+      try {
+        const r = document.createRange();
+        r.setStart(pos.node, pos.offset);
+        r.collapse(true);
+        const cr = r.getBoundingClientRect();
+        if (cr.top < line.topV - 3 || cr.top > line.bottomV - 3) {
+          continue;
+        }
+      } catch (e) {
+        continue;
+      }
+      return baseOff + pos.offset;
+    }
+    return null;
+  };
+
+  // 模型偏移 → 像素 x（内容局部）：编辑后推进列光标用，冷路径
+  const xOfModelOffset = (offset, index) => {
+    const list = index.entries;
+    let lo = 0;
+    let hi = list.length - 1;
     while (lo < hi) {
       const mid = (lo + hi + 1) >> 1;
-      if (selectionMgr.getCoordinates(mid).top === top) {
+      if (list[mid].offset <= offset) {
         lo = mid;
       } else {
         hi = mid - 1;
       }
     }
-    return lo;
-  };
-
-  const xOfOffset = (offset) => {
-    const coords = selectionMgr.getCoordinates(offset);
-    return coords.left;
-  };
-
-  // 逐视觉行采集：行内容区间 + 行尾像素 + 行顶/高
-  const computeRows = (r) => {
-    if (!r || r.height < 1) {
-      return [];
+    if (!list.length) {
+      return 0;
     }
-    const content = editor.getContent();
-    const result = [];
-    const yBottom = r.top + r.height;
-    let y = r.top + 1;
-    let guard = 0;
-    while (y <= yBottom && guard < 2000) {
-      guard += 1;
-      const probePt = localToClient(r.left, y);
-      const probe = offsetFromPoint(probePt.x, probePt.y);
-      if (probe == null) {
-        break;
-      }
-      const base = selectionMgr.getCoordinates(probe);
-      if (!base.height || base.top > yBottom) {
-        break;
-      }
-      const midY = base.top + base.height / 2;
-      const rowStartPt = localToClient(1, midY);
-      let rowStart = offsetFromPoint(rowStartPt.x, rowStartPt.y);
-      if (rowStart == null) {
-        rowStart = probe;
-      }
-      const logicalEndIdx = content.indexOf('\n', rowStart);
-      const logicalEnd = logicalEndIdx === -1 ? content.length : logicalEndIdx;
-      const rowEnd = Math.min(rowEndWithTop(rowStart, base.top, logicalEnd), logicalEnd);
-      const leftPt = localToClient(r.left, midY);
-      const rawStart = offsetFromPoint(leftPt.x, leftPt.y);
-      const startOff = Math.max(rowStart, Math.min(rawStart == null ? rowEnd : rawStart, rowEnd));
-      let endOff;
-      if (r.width < 1) {
-        endOff = startOff; // 零宽列光标（ThinRectangularRange）
-      } else if (r.left + r.width >= xOfOffset(rowEnd)) {
-        endOff = rowEnd;
-      } else {
-        const rightPt = localToClient(r.left + r.width, midY);
-        const rawEnd = offsetFromPoint(rightPt.x, rightPt.y);
-        endOff = Math.max(startOff, Math.min(rawEnd == null ? rowEnd : rawEnd, rowEnd));
-      }
-      result.push({
-        lineStart: startOff,
-        lineEnd: endOff,
-        rowEnd,
-        lineEndX: xOfOffset(rowEnd),
-        top: base.top,
-        height: base.height,
-      });
-      y = base.top + base.height;
-      if (base.height <= 0) {
-        break;
-      }
+    const entry = list[lo];
+    const rel = Math.max(0, Math.min(offset - entry.offset, entry.node.nodeValue.length));
+    try {
+      const r = document.createRange();
+      r.setStart(entry.node, rel);
+      r.collapse(true);
+      const cr = r.getBoundingClientRect();
+      const contentRect = contentElt.getBoundingClientRect();
+      return cr.left - contentRect.left;
+    } catch (e) {
+      return 0;
     }
-    return result;
-  };
-
-  const computeAll = (r) => {
-    rows = computeRows(r);
-    segments = normalizeSegments(
-      rows.filter(row => row.lineEnd > row.lineStart)
-        .map(row => ({ start: row.lineStart, end: row.lineEnd })),
-      editor.getContent().length,
-    );
-    return perRowSegmentsFromRect(rows, r.left, r.left + r.width);
   };
 
   const rectFromPoints = () => {
@@ -175,117 +201,144 @@ function ColumnSelection(editor) {
     };
   };
 
-  // —— 补齐矩形（短行虚拟空间）——
-  const clearGaps = () => {
-    if (gapElt) {
-      const elt = gapElt;
-      gapElt = null;
-      elt.remove();
-    }
-  };
-  // segs 与 rows 严格 1:1（同序），按索引配对——不能用 find，两行行尾像素
-  // 相同时会错配到相邻行
-  const paintGaps = (segs) => {
-    const filled = segs
-      .map((seg, i) => ({ seg, row: rows[i] }))
-      .filter(({ seg, row }) => row && seg.gapFromX != null && seg.gapToX > seg.gapFromX);
-    if (!filled.length) {
-      clearGaps();
+  // —— 计算行偏移（endDrag / 每次编辑后）——
+  const computeRows = () => {
+    const content = editor.getContent();
+    const index = buildOffsetIndex();
+    if (index.total !== content.length) {
+      rows = []; // 分片构建瞬态：DOM ⊂ 模型，偏移不可信
+      segments = [];
       return;
     }
-    if (!gapElt) {
-      gapElt = document.createElement('div');
-      gapElt.className = 'cl-column-gaps';
-      scrollElt.appendChild(gapElt);
-    }
-    const origin = contentOrigin();
-    gapElt.textContent = '';
-    filled.forEach(({ seg, row }) => {
-      const elt = document.createElement('div');
-      elt.className = 'cl-column-gap';
-      elt.style.cssText = `left:${origin.x + seg.gapFromX}px;top:${origin.y + row.top}px`
-        + `;width:${seg.gapToX - seg.gapFromX}px;height:${row.height}px;`;
-      gapElt.appendChild(elt);
-    });
-  };
-
-  // —— 真实文本高亮 / 降级整块 ——
-  const ensureRect = () => {
-    if (!rectElt) {
-      rectElt = document.createElement('div');
-      rectElt.className = 'cl-column-selection';
-      scrollElt.appendChild(rectElt);
-    }
-  };
-  const removeRect = () => {
-    if (rectElt) {
-      rectElt.remove();
-      rectElt = null;
-    }
-  };
-
-  const buildRanges = () => {
-    const content = editor.getContent();
-    const list = [];
-    segments.forEach((seg) => {
-      let offset = seg.start;
-      let guard = 0;
-      while (offset < seg.end && guard < 1000) {
-        guard += 1;
-        const top = selectionMgr.getCoordinates(offset).top;
-        const nl = content.indexOf('\n', offset);
-        const bound = Math.min(seg.end, nl === -1 ? content.length : nl);
-        const end = Math.max(rowEndWithTop(offset, top, bound), offset);
-        list.push(selectionMgr.createRange(offset, end));
-        offset = end > offset ? end : offset + 1;
+    const contentRect = contentElt.getBoundingClientRect();
+    const thin = rect.width < 1;
+    rows = lines.map((line) => {
+      const leftXv = Math.max(rect.left + contentRect.left, line.leftV - 1);
+      const rightXv = Math.min(rect.left + rect.width + contentRect.left, line.rightV);
+      const startOff = caretOffsetAt(leftXv, line, index);
+      if (startOff == null) {
+        return null;
       }
-    });
-    return list;
+      let endOff = startOff;
+      if (!thin && rightXv > leftXv) {
+        const endProbe = rightXv >= line.rightV - 0.5 ? line.rightV - 0.5 : rightXv;
+        const probed = caretOffsetAt(endProbe, line, index);
+        if (probed != null && probed >= startOff) {
+          endOff = probed;
+        }
+      }
+      const rowEndProbe = line.rightV - 0.5;
+      let rowEnd = endOff;
+      const rowProbed = caretOffsetAt(rowEndProbe, line, index);
+      if (rowProbed != null && rowProbed >= endOff) {
+        rowEnd = rowProbed;
+      }
+      return {
+        lineStart: startOff,
+        lineEnd: endOff,
+        rowEnd,
+        lineEndX: line.right,
+        top: line.top,
+        height: line.bottom - line.top,
+      };
+    }).filter(row => row && row.rowEnd > row.lineStart);
+    segments = normalizeSegments(
+      rows.filter(row => row.lineEnd > row.lineStart)
+        .map(row => ({ start: row.lineStart, end: row.lineEnd })),
+      content.length,
+    );
   };
 
-  // 统一渲染入口：拖拽期与激活期同一路径（照搬 Notepad 的实时选区）
-  const render = () => {
-    if (!rect) {
+  // —— 绘制：单一选中块（Word 2016 式实心矩形，含虚拟空间）——
+  const ensureLayer = () => {
+    if (!layerElt) {
+      layerElt = document.createElement('div');
+      layerElt.className = 'cl-column-layer';
+      scrollElt.appendChild(layerElt);
+      blockElt = document.createElement('div');
+      blockElt.className = 'cl-column-block';
+      layerElt.appendChild(blockElt);
+    }
+  };
+  const removeLayer = () => {
+    if (layerElt) {
+      layerElt.remove();
+      layerElt = null;
+      blockElt = null;
+    }
+  };
+
+  const paint = () => {
+    if (state === 'idle' || !rect || rect.width < 1 || rect.height < 1) {
+      if (blockElt) {
+        blockElt.style.display = 'none';
+      }
       return;
     }
-    const segs = computeAll(rect);
-    if (supportsHighlight) {
-      const ranges = buildRanges();
-      window.CSS.highlights.set(HIGHLIGHT_NAME, new window.Highlight(...ranges));
-      paintGaps(segs);
-      removeRect();
-    } else {
-      ensureRect();
-      const origin = contentOrigin();
-      rectElt.style.cssText = `left:${origin.x + rect.left}px;top:${origin.y + rect.top}px`
-        + `;width:${rect.width}px;height:${rect.height}px;`;
-      paintGaps(segs);
+    const snap = snapBandToLines(lines, rect.top, rect.top + rect.height);
+    if (!snap) {
+      if (blockElt) {
+        blockElt.style.display = 'none';
+      }
+      return;
+    }
+    ensureLayer();
+    const origin = contentOrigin();
+    blockElt.style.display = '';
+    blockElt.style.cssText = `display:block;left:${origin.x + rect.left}px`
+      + `;top:${origin.y + snap.top}px;width:${rect.width}px;height:${snap.bottom - snap.top}px;`;
+  };
+
+  // —— rAF 节流渲染 ——
+  const requestRender = () => {
+    if (!rafId) {
+      rafId = requestAnimationFrame(renderFrame);
     }
   };
 
-  const clearPaint = () => {
-    if (supportsHighlight) {
-      window.CSS.highlights.delete(HIGHLIGHT_NAME);
+  function renderFrame() {
+    rafId = null;
+    if (state === 'idle') {
+      return;
     }
-    clearGaps();
-    removeRect();
-  };
+    rect = rectFromPoints();
+    lines = scanLines(rect);
+    paint();
+  }
 
-  const caretTopLeft = () => (segments.length ? segments[0].start : 0);
-
-  // 统一编辑出口：先退出列模式（不恢复选区），再以单次可撤销编辑落盘
-  const performColumnEdit = (newText, caret) => {
-    const content = editor.getContent();
-    exit({ restore: false });
-    if (newText !== content) {
-      editor.undoMgr.setCurrentMode('single');
-      editor.setContent(newText);
-      editor.setSelection(caret, caret);
+  // —— 自动滚动（拖出视口持续扩选）——
+  const stopAutoScroll = () => {
+    if (autoScrollRaf) {
+      cancelAnimationFrame(autoScrollRaf);
+      autoScrollRaf = null;
     }
   };
+  const scheduleAutoScroll = () => {
+    if (!autoScrollRaf) {
+      autoScrollRaf = requestAnimationFrame(autoScrollStep);
+    }
+  };
+  function autoScrollStep() {
+    autoScrollRaf = null;
+    if (state !== 'dragging' || !lastPointer) {
+      return;
+    }
+    const box = scrollElt.getBoundingClientRect();
+    const delta = autoScrollDelta(lastPointer.clientY, box.top, box.bottom);
+    if (!delta) {
+      return;
+    }
+    const before = scrollElt.scrollTop;
+    scrollElt.scrollTop = before + delta;
+    if (scrollElt.scrollTop === before) {
+      return; // 内容边界
+    }
+    current = clientToLocal(lastPointer.clientX, lastPointer.clientY);
+    requestRender();
+    scheduleAutoScroll();
+  }
 
-  // 空格像素宽（补齐列对齐用）：canvas 量当前编辑器字体，不碰 DOM
-  let spaceWidthCache = null;
+  // —— 编辑语义（模型空间整段变换）——
   const spaceWidth = () => {
     if (spaceWidthCache) {
       return spaceWidthCache;
@@ -303,31 +356,35 @@ function ColumnSelection(editor) {
   };
 
   const isThin = () => !!rect && rect.width < 1;
+  const caretTopLeft = () => (segments.length ? segments[0].start : (rows.length ? rows[0].lineStart : 0));
 
-  // 短行补空格到目标列再插入（RealizeVirtualSpace）
-  const rowInsertOps = (text) => rows.map((row) => {
-    const pad = padToColumn(row.lineEndX, rect.left, spaceWidth());
-    if (isThin() && pad > 0) {
-      return { at: row.rowEnd, text: `${' '.repeat(pad)}${text}` };
+  const performColumnEdit = (newText, caret) => {
+    const content = editor.getContent();
+    exit({ restore: false });
+    if (newText !== content) {
+      editor.undoMgr.setCurrentMode('single');
+      editor.setContent(newText);
+      editor.setSelection(caret, caret);
     }
-    return { at: row.lineStart, text };
-  });
+  };
 
-  // 列模式内的原地编辑：不退出，重算行后继续（粘性多行输入）
+  // 列模式内原地编辑（不退出）：重算行并重绘
   const applyColumnTyping = (newText, mode) => {
     const content = editor.getContent();
     if (newText === content) {
       return;
     }
-    editor.undoMgr.setCurrentMode(mode); // 'typing' → 连续按键合并为单个 undo 单元
-    selfEditing += 1; // 自己的编辑不该触发"外部内容变更 → 退出"
+    editor.undoMgr.setCurrentMode(mode);
+    selfEditing += 1;
     editor.setContent(newText);
-    setTimeout(() => { selfEditing = 0; }, 0); // 兜底：观察回调必为微任务，先于该定时器
-    render();
+    setTimeout(() => {
+      selfEditing = 0;
+    }, 0);
+    lines = scanLines(rect);
+    computeRows();
+    paint();
   };
 
-  // 列文本取出：有选区取各行段；零宽列光标时取各光标位置的整行？
-  // 照搬 Notepad：零宽光标下没有可选内容 → 只复制空串（不覆盖剪贴板）。
   const columnClipText = () => (segments.length ? columnText(editor.getContent(), segments) : null);
 
   const onCopy = (evt) => {
@@ -360,7 +417,7 @@ function ColumnSelection(editor) {
     const key = `${evt.key}`.toLowerCase();
     if (NON_EXIT_KEYS.has(key)) return;
     const mod = evt.ctrlKey || evt.metaKey;
-    if (mod && (key === 'c' || key === 'x')) return; // copy/cut 事件处理
+    if (mod && (key === 'c' || key === 'x')) return;
     if (key === 'escape') {
       evt.preventDefault();
       evt.stopPropagation();
@@ -372,9 +429,8 @@ function ColumnSelection(editor) {
       evt.stopPropagation();
       const content = editor.getContent();
       if (isThin()) {
-        // 零宽列光标：各光标左右各删一字符，列光标保持
         const back = key === 'backspace';
-        const firstCaret = rows[0] ? rows[0].lineStart : 0;
+        const firstCaret = rows.length ? rows[0].lineStart : 0;
         const next = applyPerCaretDeletion(
           content, rows.map(row => row.lineStart), back ? 'backward' : 'forward',
         );
@@ -383,10 +439,16 @@ function ColumnSelection(editor) {
         }
         applyColumnTyping(next, 'single');
         if (back) {
+          const index = buildOffsetIndex();
           rect = {
-            left: xOfOffset(Math.max(0, firstCaret - 1)), top: rect.top, width: 0, height: rect.height,
+            left: xOfModelOffset(Math.max(0, firstCaret - 1), index),
+            top: rect.top,
+            width: 0,
+            height: rect.height,
           };
-          render();
+          lines = scanLines(rect);
+          computeRows();
+          paint();
         }
         return;
       }
@@ -401,43 +463,44 @@ function ColumnSelection(editor) {
       evt.stopPropagation();
       const content = editor.getContent();
       if (isThin()) {
-        // 粘性多行输入：各光标处插入（短行先补空格到该列），列随输入右移
-        const ops = rowInsertOps(evt.key);
-        const firstOp = ops[0];
-        if (!firstOp) {
+        const ops = rows.map((row) => {
+          const pad = padToColumn(row.lineEndX, rect.left, spaceWidth());
+          return { at: row.lineStart, text: pad > 0 ? `${' '.repeat(pad)}${evt.key}` : evt.key };
+        });
+        if (!ops.length) {
           return;
         }
         applyColumnTyping(applyRowInsertions(content, ops), 'typing');
+        const index = buildOffsetIndex();
         rect = {
-          left: xOfOffset(firstOp.at + firstOp.text.length),
+          left: xOfModelOffset(ops[0].at + ops[0].text.length, index),
           top: rect.top,
           width: 0,
           height: rect.height,
         };
-        render();
-        return;
-      }
-      const firstRow = rows[0];
-      if (!firstRow) {
+        lines = scanLines(rect);
+        computeRows();
+        paint();
         return;
       }
       const nextText = applyColumnInsertion(content, segments, evt.key);
-      const caretOffset = firstRow.lineStart + evt.key.length;
+      const caretOffset = segments.length ? segments[0].start + evt.key.length : 0;
       applyColumnTyping(nextText, 'typing');
-      // 收成零宽列光标（ThinRectangularRange）：垂直范围不变，宽度归零
+      const index = buildOffsetIndex();
       rect = {
-        left: xOfOffset(caretOffset), top: rect.top, width: 0, height: rect.height,
+        left: xOfModelOffset(caretOffset, index),
+        top: rect.top,
+        width: 0,
+        height: rect.height,
       };
-      segments = [];
-      render();
+      lines = scanLines(rect);
+      computeRows();
+      paint();
       return;
     }
-    // 其余任何按键（Enter/方向/Home/组合键/IME…）：退出不吞，交还常规编辑
     exit({ restore: true });
   };
 
-  // 列粘贴：自己的列复制 → 逐行带空格补齐贴入；外来文本 → 先清空矩形内
-  // 真实字符，再在左上角整段插入（Scintilla ClearSelection + stream paste）
   const onPaste = (evt) => {
     if (state !== 'column') return;
     evt.preventDefault();
@@ -447,30 +510,32 @@ function ColumnSelection(editor) {
     if (!text || !rows.length) return;
     const content = editor.getContent();
     const own = lastColumnCopyText !== null && lastColumnCopyText === text;
-    const lines = text.split(String.fromCharCode(10))
+    const lines0 = text.split(String.fromCharCode(10))
       .map(line => line.split(String.fromCharCode(13)).join(''));
-    while (lines.length > 1 && lines[lines.length - 1] === '') {
-      lines.pop(); // 去掉粘贴尾巴上的空行（Notepad 同样剥除尾部 EOL）
+    while (lines0.length > 1 && lines0[lines0.length - 1] === '') {
+      lines0.pop();
     }
     const LINESEP = String.fromCharCode(10);
     const padFor = row => ' '.repeat(padToColumn(row.lineEndX, rect.left, spaceWidth()));
     const topLeft = rows[0].lineStart;
 
     if (own) {
-      const perRow = lines.length === rows.length && rows.length > 1;
+      const perRow = lines0.length === rows.length && rows.length > 1;
       if (isThin()) {
         const ops = rows.map((row, i) => ({
           at: row.lineStart,
-          text: padFor(row) + (perRow ? lines[i] : lines.join(LINESEP)),
+          text: padFor(row) + (perRow ? lines0[i] : lines0.join(LINESEP)),
         }));
         performColumnEdit(applyRowInsertions(content, ops), ops[0].at + ops[0].text.length);
       } else {
-        const texts = rows.map((row, i) => padFor(row) + (perRow ? lines[i] : lines.join(LINESEP)));
-        performColumnEdit(applyColumnPerRowInsertion(content, segments, texts), topLeft + texts[0].length);
+        const texts = rows.map((row, i) => padFor(row) + (perRow ? lines0[i] : lines0.join(LINESEP)));
+        performColumnEdit(
+          applyColumnPerRowInsertion(content, segments, texts),
+          topLeft + texts[0].length,
+        );
       }
       return;
     }
-    // 外来文本：清空矩形内真实字符后左上角整段插入
     const newText = isThin()
       ? applyRowInsertions(content, [{ at: topLeft, text }])
       : applyColumnPerRowInsertion(content, segments, [text]);
@@ -478,57 +543,22 @@ function ColumnSelection(editor) {
   };
 
   const onMouseDown = () => exit({ restore: false });
+  const onScrollRetrack = () => requestRender();
   const onContentChanged = () => {
     if (selfEditing > 0) {
-      selfEditing -= 1; // 自己刚落的编辑，不是外部变更
+      selfEditing -= 1;
       return;
     }
     if (state === 'column') {
-      exit({ restore: false }); // 外部内容变更（同步/撤销）→ 静默退出
+      exit({ restore: false });
     }
   };
-
-  // 拖出视口自动滚动：指针停在视口外也不断扩选（Notepad 语义）
-  const stopAutoScroll = () => {
-    if (autoScrollRaf) {
-      cancelAnimationFrame(autoScrollRaf);
-      autoScrollRaf = null;
-    }
-  };
-
-  const scheduleAutoScroll = () => {
-    if (!autoScrollRaf) {
-      autoScrollRaf = requestAnimationFrame(autoScrollStep);
-    }
-  };
-
-  function autoScrollStep() {
-    autoScrollRaf = null;
-    if (state !== 'dragging' || !lastPointer) {
-      return;
-    }
-    const box = scrollElt.getBoundingClientRect();
-    const delta = autoScrollDelta(lastPointer.clientY, box.top, box.bottom);
-    if (!delta) {
-      return;
-    }
-    const before = scrollElt.scrollTop;
-    scrollElt.scrollTop = before + delta;
-    if (scrollElt.scrollTop === before) {
-      return; // 已到内容边界，停
-    }
-    current = clientToLocal(lastPointer.clientX, lastPointer.clientY);
-    rect = rectFromPoints();
-    render();
-    scheduleAutoScroll();
-  }
 
   const onMouseMove = (evt) => {
     if (state !== 'dragging') return;
     lastPointer = { clientX: evt.clientX, clientY: evt.clientY };
     current = clientToLocal(evt.clientX, evt.clientY);
-    rect = rectFromPoints();
-    render(); // 实时逐行重算重绘
+    requestRender(); // 每帧至多一次重算
     scheduleAutoScroll();
   };
 
@@ -539,58 +569,54 @@ function ColumnSelection(editor) {
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', endDrag);
     rect = rectFromPoints();
-    render();
-    if (!segments.length) {
-      // 纯虚拟空间矩形（整段超出所有行尾）仍算有效选区，只有零面积才退出
-      if (!rect.width && !rect.height) {
-        exit({ restore: false });
-        return;
-      }
-      if (!rect.width) {
-        exit({ restore: false });
-        return;
-      }
+    lines = scanLines(rect);
+    computeRows();
+    if (!rows.length && (!rect.width || !rect.height)) {
+      exit({ restore: false });
+      return;
+    }
+    if (!rows.length) {
+      // 偏移不可用（分片构建瞬态）——保留几何但不进入编辑模式
+      exit({ restore: false });
+      return;
     }
     state = 'column';
     selectionMgr.columnSelectionLocked = true;
     selectionMgr.setSelectionStartEnd(caretTopLeft(), caretTopLeft(), false);
+    paint();
     window.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('copy', onCopy, true);
     window.addEventListener('cut', onCut, true);
     window.addEventListener('mousedown', onMouseDown, true);
     contentElt.addEventListener('paste', onPaste, true);
-    scrollElt.addEventListener('scroll', onScrollRetrack, true);
   };
-
-  // 滚动时补齐矩形与高亮都要重定位（高亮随文本走，补齐块用的是容器坐标）
-  function onScrollRetrack() {
-    if (state === 'column' || state === 'dragging') {
-      const segs = perRowSegmentsFromRect(rows, rect.left, rect.left + rect.width);
-      paintGaps(segs);
-    }
-  }
 
   function exit({ restore = true } = {}) {
     if (state === 'idle') return;
     const wasColumn = state === 'column';
     stopAutoScroll();
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
     lastPointer = null;
     state = 'idle';
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', endDrag);
+    scrollElt.removeEventListener('scroll', onScrollRetrack, true);
     if (wasColumn) {
       window.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('copy', onCopy, true);
       window.removeEventListener('cut', onCut, true);
       window.removeEventListener('mousedown', onMouseDown, true);
       contentElt.removeEventListener('paste', onPaste, true);
-      scrollElt.removeEventListener('scroll', onScrollRetrack, true);
       selectionMgr.columnSelectionLocked = false;
     }
     const caret = wasColumn ? caretTopLeft() : 0;
-    clearPaint();
+    removeLayer();
     segments = [];
     rows = [];
+    lines = [];
     rect = null;
     anchor = null;
     current = null;
@@ -608,10 +634,10 @@ function ColumnSelection(editor) {
     state = 'dragging';
     anchor = clientToLocal(evt.clientX, evt.clientY);
     current = { ...anchor };
-    rect = rectFromPoints();
     scrollElt.addEventListener('scroll', onScrollRetrack, true);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', endDrag);
+    requestRender();
   };
 
   contentElt.addEventListener('mousedown', onAltMouseDown, true);

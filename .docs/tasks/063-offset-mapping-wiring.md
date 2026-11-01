@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -27,3 +27,12 @@ Status: open
 ## Definition of done
 
 Notepad4 全套编辑语义在新引擎上恢复，动态加载大文档下选中与编辑都发生在正确位置。
+
+## 后台验证记录
+
+- 偏移方案：统一 DOM 偏移空间 + 全量挂载不变量 —— buildOffsetIndex 一次 TreeWalker 建 node→base 映射，total !== content.length（分片构建瞬态）时 rows/segments 置空、endDrag 静默退出，绝不产生错位编辑。稳态 DOM 文本 ≡ 模型文本（dynamicLoading 为分片构建而非持久虚拟挂载，已核实）。
+- 行内偏移：caretRangeFromPoint 阶梯探测（x、x-2、x-8）+ 命中 caret top 必须落行内（防跨行吸附）；行尾探测 rightV-0.5。
+- 编辑语义全部恢复在新几何上：粘性列光标（首键替换→零宽列、连续打字 rowInsertOps+padToColumn 补空格、列 x 经 xOfModelOffset 二分推进）、双向零宽删除（backward 列左移）、列复制/剪切（lastColumnCopyText 比对）、列粘贴（自贴补空格逐行/外来先清后插）、自动滚动（autoScrollDelta + rAF、边界停帧、全路径清理）、Alt 粘性（仅 mousedown 判定）、selfEditing 防误退、columnSelectionLocked 保持。
+- 静态回归核查：监听成对解绑（mousemove/mouseup/keydown/copy/cut/mousedown/paste/scroll + 两个 rAF）；exit 清全部状态与 DOM；编辑路径无 findContainer/getCoordinates。
+- 回归：6 组断言（colutil/55/57/58/59/61）全 PASS；build APP=0 STYLE=0。
+- 真机人工验收清单：拖拽→连打 abc 三行同现、单 Ctrl+Z 整串回滚、零宽 Backspace/Delete、列复制回贴对齐补空格、外来粘贴先清后插、拖出视口扩选、Esc/单击退出、大文档不卡。
