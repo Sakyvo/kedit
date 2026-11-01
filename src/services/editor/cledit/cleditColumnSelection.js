@@ -183,8 +183,12 @@ function ColumnSelection(editor) {
       elt.remove();
     }
   };
+  // segs 与 rows 严格 1:1（同序），按索引配对——不能用 find，两行行尾像素
+  // 相同时会错配到相邻行
   const paintGaps = (segs) => {
-    const filled = segs.filter(seg => seg.gapFromX != null && seg.gapToX > seg.gapFromX);
+    const filled = segs
+      .map((seg, i) => ({ seg, row: rows[i] }))
+      .filter(({ seg, row }) => row && seg.gapFromX != null && seg.gapToX > seg.gapFromX);
     if (!filled.length) {
       clearGaps();
       return;
@@ -196,11 +200,7 @@ function ColumnSelection(editor) {
     }
     const origin = contentOrigin();
     gapElt.textContent = '';
-    filled.forEach((seg) => {
-      const row = rows.find(r0 => r0.lineStart === seg.start || r0.lineEnd === seg.end);
-      if (!row) {
-        return;
-      }
+    filled.forEach(({ seg, row }) => {
       const elt = document.createElement('div');
       elt.className = 'cl-column-gap';
       elt.style.cssText = `left:${origin.x + seg.gapFromX}px;top:${origin.y + row.top}px`
