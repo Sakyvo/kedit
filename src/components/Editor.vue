@@ -317,20 +317,10 @@ export default {
     vertical-align: -1px;
   }
 
-  // 标题/代码块上下文行高为 $line-height-title（markdownHighlighting.scss），
-  // 落在其内部的 .lf 按局部行高保持 +2px。
-  .h1,
-  .h11,
-  .h2,
-  .h22,
-  .h3,
-  .h4,
-  .h5,
-  .h6,
-  .pre {
-    .lf {
-      line-height: calc(#{$line-height-title} * 1em + 2px);
-    }
+  // 代码块行高为 $line-height-title（markdownHighlighting.scss），落在其内部
+  // 的 .lf 按局部行高保持同样的 +2px。标题不可能包含硬换行，无需处理。
+  .pre .lf {
+    line-height: calc(#{$line-height-title} * 1em + 2px);
   }
 
   .cledit-section {
