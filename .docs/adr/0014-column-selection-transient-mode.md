@@ -1,25 +1,31 @@
-# 矩形选择照搬 Notepad4 语义（自绘选中层）
+# 矩形选择：原生选区观感 + 行内虚拟空间补齐
 
-Alt+拖拽的矩形选择按 **Notepad4 / Scintilla 的矩形选区语义**实现；选中高亮为**全自绘选中层**——逐行半透明矩形叠加在文字上，短行同色补齐成整齐矩形块，观感对齐 **Word 2016 的 Alt 矩形选择**。页面上不允许出现"选框边框"或游离的框形元素。
+Alt+拖拽的矩形选择按 **Notepad4 / Scintilla 的实现语义**参考，前端视觉**不照搬** Notepad4：真实文字必须与 KEDIT 普通选区**完全同色同字色**；短行仅在所属文字行的行尾补齐虚拟空间，不绘制独立的整块选框。**无文字的空白区域不启动、不清理、不产生任何交互或装饰**。
 
-- **拖拽期实时选区**：Alt 按下即进入，鼠标移动逐行重算并重绘（Scintilla `SetRectangularRange`）。
-- **行几何 = 带状扫描**：只用 `Range.getClientRects()` 扫与拖拽矩形纵向相交的文本节点（先按 section 元素 boundingRect 剪枝），O(可见行)；全部重算经 rAF 节流（每帧至多一次）。
-- **边界 = 鼠标像素 x**；短行超出部分算选中（虚拟空间），缺失段同色补齐。
-- **粘性多行插入 / 双向列删除 / 列粘贴（自贴补空格、外来先清后插）/ 拖出视口自动滚动 / Alt 粘性**：语义见锚卡 054 与任务卡 055–059，变换层（cleditColumnUtils）承载。
-- **偏移空间**：选中几何在 DOM 偏移空间计算，编辑前经 **DOM↔模型偏移映射**（动态加载下两空间不等）换算后走整段字符串变换；cledit 单光标架构不变。
+## 核心决策（v5，批 064）
+
+- **真实文字高亮 = CSS Custom Highlight**（`::highlight(cl-column)`），逐视觉行 DOM Range，仅覆盖真实文本——不穿越文字外空白。Chromium 原生多 Range 选区不可用（实测 `selection.addRange()` 二次后 `rangeCount=1`）。
+- **色彩恒等单一来源**：CSS 变量 `--selection-bg` / `--selection-fg`（浅/深主题各一套），`::selection`、`::highlight(cl-column)`、补齐小块三者**全部引用同一组变量**。任何主题下三者必然同色——列选区看起来就是原生选区。
+- **补齐块**：仅短行「行尾 → 矩形右边界」的行高小块（挂滚动容器、显式 `left:0;top:0`、`pointer-events:none`），视觉上是选中块的延续；`cl-column-block` 整块矩形与 `cl-column-layer` 整层一并删除。
+- **起手判定**（与普通拖拽一致 + 无文字处零交互）：Alt 按下时 `caretRangeFromPoint` 必须命中编辑器文本，且该 y 与**有文字的视觉行 rect** 纵向相交；两条都满足才启动，否则**完全不响应**（不 preventDefault、不建任何 DOM、浏览器照常）。行尾右侧同行的空白可起手（吸到行尾）；文末下方空白、段落空行不可起手。
+- **空行/文末空白一律不画**：不产生高亮也不产生小块。
+- 交互节奏同普通选区：拖拽实时更新、松手保持、单击他处退出；**不额外设置原生 caret**（`columnSelectionLocked` 抑制回读，无双重视觉）。
+
+## 语义保留（批 054–063 成果）
+
+粘性多列光标逐行输入（短行补空格）、双向列删除、列粘贴（自贴补空格/外来先清后插）、拖出视口自动滚动、Alt 粘性、带状扫描 + rAF 节流（热路径禁 `findContainer/getCoordinates`，spec: Editor Hot-Path Geometry）、DOM↔模型偏移不变量、退出后光标回落首行。
 
 ## Considered Options
 
-- **v1 自绘边框矩形（无输入语义）**：被否决——"画了一个框"，文字没被选中。
-- **v2 Word 式 + CSS Custom Highlight API、v3 API+补齐容器+fallback**：被否决。三次真机事故的根因：
-  1. 热路径调用 `selectionMgr.getCoordinates`/`Utils.findContainer`（O(全文) DOM 遍历）且每 mousemove 全量重算 → 大文档整页卡死；
-  2. 补齐容器 `.cl-column-gaps` 挂载未给显式零点，浏览器按流内静态位置摆放（整篇内容下方），子块坐标全体错位 → 页面上出现游离的框；
-  3. `caretRangeFromPoint` 给的是 DOM 偏移，行段/编辑用模型全文偏移，动态加载分片挂载下两空间错位 → 高亮 Range 指错位置，选中从未可见。
+- **v1 自绘边框矩形**：被否决——"画了一个框"，文字没被选中。
+- **v2/v3 CSS Highlight + 补齐容器 + fallback**：被否决。热路径 O(全文) 卡死、补齐容器无零点错位、DOM/模型偏移错位致选中不可见。
+- **v4 自绘整块选中层（单 `.cl-column-block`）**：被否决——p1 淡蓝大块、任意空白处都能"凭空画矩形"，与 KEDIT 原生选中风格不一致。
+- **照搬 Notepad4 配色/样式**：被否决（用户明确排除：notepad420 只是**实现方式**参考，不照搬前端样式）。
 - **编辑器级真多光标**：仍被否决；多行编辑以列模式内整段变换表达。
 
 ## Consequences
 
-- 选中层挂滚动容器、显式 `left:0;top:0`、`pointer-events:none`、颜色取主题选中色；不依赖 CSS Custom Highlight API。
-- `Utils.findContainer` 禁止出现在 mousemove/scroll 热路径（已沉淀至 frontend-conventions）。
-- 短行补空格是真实内容变更（会进文档与同步），照搬 Notepad 的必然代价。
+- `::selection` 被显式定义（原为浏览器默认）——换来 `::selection`/`::highlight`/补齐块三者的恒等一致；改动需保持变量单一来源。
+- 短行补齐是行高内的延续块，不是整块矩形；无文字区域零渲染零交互。
+- 短行补空格是真实内容变更（进文档与同步），照搬 Notepad 的必然代价。
 - IME 组成中、非常规按键不进列语义，直接退出交还常规编辑。

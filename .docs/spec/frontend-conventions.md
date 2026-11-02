@@ -77,6 +77,20 @@ recursive component with:
 - Renaming visible StackEdit strings together with persisted identifiers. Only
   user-visible branding was rebranded to KEDIT.
 
+### Selection Colors (single source)
+
+Editor selection colours live in exactly one place: the `--selection-bg` /
+`--selection-fg` pair (light and dark theme values). `::selection`,
+`::highlight(...)` and any editor-drawn selection fill block must all reference
+that pair — never restate a literal colour in one channel only. A column/block
+selection must be indistinguishable in colour from an ordinary text selection.
+
+Editor overlays that mark a selection must never paint where there is no text:
+no full-band rectangle, no decorative block over trailing whitespace or empty
+paragraphs. Fill only the parts of a real text row (line-height bounded) that
+the selection actually covers, and let the gesture not start at all when the
+press point has no text row.
+
 ### Editor Hot-Path Geometry (cledit)
 
 `cledit.Utils.findContainer` / `selectionMgr.getCoordinates` walk the whole
