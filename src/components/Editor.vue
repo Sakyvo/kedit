@@ -309,6 +309,30 @@ export default {
     line-height: $line-height-base;
   }
 
+  // 软/硬换行区分：每个 \n 渲染为 .lf（cleditHighlighter 的 lfHtml）。
+  // line-height +2px 会在基线上下各多 1px，vertical-align: -1px 抵消上侧
+  // 增量，使 2px 全部落在换行处下方 —— 硬换行比软换行（pre-wrap 折行）松 2px。
+  .lf {
+    line-height: calc(#{$line-height-base} * 1em + 2px);
+    vertical-align: -1px;
+  }
+
+  // 标题/代码块上下文行高为 $line-height-title（markdownHighlighting.scss），
+  // 落在其内部的 .lf 按局部行高保持 +2px。
+  .h1,
+  .h11,
+  .h2,
+  .h22,
+  .h3,
+  .h4,
+  .h5,
+  .h6,
+  .pre {
+    .lf {
+      line-height: calc(#{$line-height-title} * 1em + 2px);
+    }
+  }
+
   .cledit-section {
     font-family: inherit;
   }

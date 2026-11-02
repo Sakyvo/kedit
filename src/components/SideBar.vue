@@ -93,15 +93,19 @@ export default {
     tocAutoCollapse() {
       return store.getters['data/layoutSettings'].tocAutoCollapse;
     },
-    // Narrow screens render the side bar as a full-width overlay over the
-    // document (see layoutOverflow in store/layout.js), so its ✕ returns to
-    // the document by closing the side bar. On wider screens the side bar is
-    // a column beside the document and the ✕ only falls back to the main menu.
+    // The ✕ closes the whole side bar only from the main menu itself or,
+    // on narrow overlay layouts (see layoutOverflow in store/layout.js),
+    // from the TOC — matching the TOC auto-collapse semantics (the TOC
+    // recedes back to the document). Every other panel's ✕ falls back to
+    // the main menu panel instead.
     closeHint() {
       return this.closesSideBar ? '关闭侧边栏' : '返回主菜单';
     },
     closesSideBar() {
-      return this.panel === 'menu' || this.styles.layoutOverflow;
+      if (this.panel === 'menu') {
+        return true;
+      }
+      return this.styles.layoutOverflow && this.panel === 'toc';
     },
     ...mapGetters('layout', [
       'styles',
