@@ -346,9 +346,32 @@ img {
   vertical-align: top;
 }
 
-// 矩形选择 v4（ADR 0014）：唯一可见物 = Word 2016 式实心选中块。
-// 容器挂滚动容器、显式零点（防静态位置错位）；无 Highlight API、无边框。
-.cl-column-layer {
+// 选中色彩单一来源（ADR 0014 v5 / frontend-conventions「Selection Colors」）：
+// ::selection、::highlight(cl-column)、短行补齐块三者共用同一组变量，
+// 保证列选区与原生选区在任何主题下完全同色。
+:root {
+  --selection-bg: #0078d7;
+  --selection-fg: #ffffff;
+}
+
+.app--dark {
+  --selection-bg: #0a5ea8;
+  --selection-fg: #ffffff;
+}
+
+::selection {
+  background-color: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+// 矩形选择的真实文字高亮：只覆盖真实文本，与原生选区同色同字色
+::highlight(cl-column) {
+  background-color: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+// 短行补齐：仅「行尾 → 矩形右边界」的行高小块（不是整块矩形）
+.cl-column-gaps {
   position: absolute;
   left: 0;
   top: 0;
@@ -356,13 +379,9 @@ img {
   pointer-events: none;
 }
 
-.cl-column-block {
+.cl-column-gap {
   position: absolute;
-  background-color: rgba(12, 147, 228, 0.25);
-
-  .app--dark & {
-    background-color: rgba(41, 139, 231, 0.30);
-  }
+  background-color: var(--selection-bg);
 }
 
 .page-break-after {

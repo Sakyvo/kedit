@@ -6,12 +6,13 @@ import {
   snapBandToLines, clusterFragmentsByTop,
 } from './cleditColumnUtils';
 
-// 矩形选择 v4（ADR 0014，照搬 Notepad4 / Word 2016 观感）：
+// 矩形选择 v5（ADR 0014）：
 // - 行几何 = 带状扫描：Range.getClientRects 只扫与拖拽带纵向相交的文本
 //   节点（先按 section boundingRect 剪枝），O(可见行)；热路径零
 //   findContainer/getCoordinates（O(全文)，spec: Editor Hot-Path Geometry）。
-// - 绘制 = 单一自绘选中块（实心半透明矩形，含虚拟空间），Word 2016 式。
-//   无 CSS Highlight API、无边框、无补齐容器。
+// - 绘制 = 真实文字走 CSS Custom Highlight（与 ::selection 同色同字色），
+//   短行仅补「行尾→矩形右边界」的行高小块；绝不绘制整块矩形，无文字
+//   区域不画任何东西。
 // - 偏移 = DOM 偏移空间 + 全量挂载不变量（稳态 DOM 文本 ≡ 模型文本；
 //   分片构建瞬态直接判不可用），编辑走 cleditColumnUtils 整段变换。
 function ColumnSelection(editor) {
@@ -26,8 +27,7 @@ function ColumnSelection(editor) {
   let lines = []; // 本帧行（局部几何 + 视口探测坐标）
   let rows = []; // 偏移行（模型空间）
   let segments = []; // 真实行段（模型空间）
-  let layerElt = null;
-  let blockElt = null;
+  let gapLayerElt = null; // 短行补齐小块容器（scrollElt 子节点，显式零点）
   let lastColumnCopyText = null;
   let selfEditing = 0;
   let rafId = null;
@@ -98,7 +98,17 @@ function ColumnSelection(editor) {
     }));
   };
 
-  // —— DOM 偏移索引（每次计算行偏移时一次全量遍历，O(节点数)）——
+  // —— DOM 偏移索引（缓存；内容变更时失效。避免每帧全量 TreeWalker）——
+  let offsetIndexCache = null;
+  const invalidateOffsetIndex = () => {
+    offsetIndexCache = null;
+  };
+  const getOffsetIndex = () => {
+    if (!offsetIndexCache) {
+      offsetIndexCache = buildOffsetIndex();
+    }
+    return offsetIndexCache;
+  };
   // 稳态 DOM 文本 ≡ 模型文本（分片构建瞬态由 total 校验兜住）
   const buildOffsetIndex = () => {
     const entries = [];
@@ -112,6 +122,27 @@ function ColumnSelection(editor) {
       offset += node.nodeValue.length;
     }
     return { base, entries, total: offset };
+  };
+
+  // 偏移 → {node, rel}（Range 构造用）；越界返回 null
+  const entryAtOffset = (index, offset) => {
+    const list = index.entries;
+    if (!list.length) {
+      return null;
+    }
+    let lo = 0;
+    let hi = list.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (list[mid].offset <= offset) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    const entry = list[lo];
+    const rel = Math.max(0, Math.min(offset - entry.offset, entry.node.nodeValue.length));
+    return { node: entry.node, rel };
   };
 
   const caretFromPoint = (x, y) => {
@@ -204,7 +235,7 @@ function ColumnSelection(editor) {
   // —— 计算行偏移（endDrag / 每次编辑后）——
   const computeRows = () => {
     const content = editor.getContent();
-    const index = buildOffsetIndex();
+    const index = getOffsetIndex();
     if (index.total !== content.length) {
       rows = []; // 分片构建瞬态：DOM ⊂ 模型，偏移不可信
       segments = [];
@@ -249,44 +280,101 @@ function ColumnSelection(editor) {
     );
   };
 
-  // —— 绘制：单一选中块（Word 2016 式实心矩形，含虚拟空间）——
-  const ensureLayer = () => {
-    if (!layerElt) {
-      layerElt = document.createElement('div');
-      layerElt.className = 'cl-column-layer';
-      scrollElt.appendChild(layerElt);
-      blockElt = document.createElement('div');
-      blockElt.className = 'cl-column-block';
-      layerElt.appendChild(blockElt);
-    }
+  // —— 绘制（v5）：真实文字用 CSS Custom Highlight；短行只补行尾→右边界 ——
+  const HIGHLIGHT_NAME = 'cl-column';
+  const supportsHighlight = typeof window !== 'undefined'
+    && window.CSS && window.CSS.highlights && typeof window.Highlight === 'function';
+
+  // 行段 → 逐视觉行 Range（只覆盖真实文本节点，绝不跨到空白）
+  const buildRanges = () => {
+    const index = getOffsetIndex();
+    const ranges = [];
+    rows.forEach((row) => {
+      if (row.lineEnd <= row.lineStart) {
+        return; // 该行没有真实文字落入矩形 → 不画
+      }
+      const start = entryAtOffset(index, row.lineStart);
+      const end = entryAtOffset(index, row.lineEnd);
+      if (!start || !end) {
+        return;
+      }
+      const range = document.createRange();
+      try {
+        range.setStart(start.node, start.rel);
+        range.setEnd(end.node, end.rel);
+      } catch (e) {
+        return;
+      }
+      ranges.push(range);
+    });
+    return ranges;
   };
-  const removeLayer = () => {
-    if (layerElt) {
-      layerElt.remove();
-      layerElt = null;
-      blockElt = null;
+
+  const clearHighlight = () => {
+    if (supportsHighlight) {
+      window.CSS.highlights.delete(HIGHLIGHT_NAME);
     }
   };
 
-  const paint = () => {
-    if (state === 'idle' || !rect || rect.width < 1 || rect.height < 1) {
-      if (blockElt) {
-        blockElt.style.display = 'none';
-      }
+  const clearGapLayer = () => {
+    if (gapLayerElt) {
+      gapLayerElt.remove();
+      gapLayerElt = null;
+    }
+  };
+
+  // 短行补齐：仅「行尾像素 → 矩形右边界」的行高小块
+  const paintGaps = () => {
+    const fills = rows
+      .map(row => ({
+        row,
+        from: row.lineEndX,
+        to: rect.left + rect.width,
+      }))
+      .filter(({ from, to }) => to - from > 1);
+    if (!supportsHighlight) {
+      // 无 Highlight API：文字段也由小块承载不了，直接不画（宁可无装饰）
+      clearGapLayer();
       return;
     }
-    const snap = snapBandToLines(lines, rect.top, rect.top + rect.height);
-    if (!snap) {
-      if (blockElt) {
-        blockElt.style.display = 'none';
-      }
+    if (!fills.length) {
+      clearGapLayer();
       return;
     }
-    ensureLayer();
+    if (!gapLayerElt) {
+      gapLayerElt = document.createElement('div');
+      gapLayerElt.className = 'cl-column-gaps';
+      scrollElt.appendChild(gapLayerElt);
+    }
     const origin = contentOrigin();
-    blockElt.style.display = '';
-    blockElt.style.cssText = `display:block;left:${origin.x + rect.left}px`
-      + `;top:${origin.y + snap.top}px;width:${rect.width}px;height:${snap.bottom - snap.top}px;`;
+    gapLayerElt.textContent = '';
+    fills.forEach(({ row, from, to }) => {
+      const elt = document.createElement('div');
+      elt.className = 'cl-column-gap';
+      elt.style.cssText = `left:${origin.x + from}px;top:${origin.y + row.top}px`
+        + `;width:${to - from}px;height:${row.height}px;`;
+      gapLayerElt.appendChild(elt);
+    });
+  };
+
+  const paint = () => {
+    if (state === 'idle' || !rect || !rows.length) {
+      clearHighlight();
+      clearGapLayer();
+      return;
+    }
+    if (!supportsHighlight) {
+      clearHighlight();
+      clearGapLayer();
+      return;
+    }
+    const ranges = buildRanges();
+    if (ranges.length) {
+      window.CSS.highlights.set(HIGHLIGHT_NAME, new window.Highlight(...ranges));
+    } else {
+      window.CSS.highlights.delete(HIGHLIGHT_NAME);
+    }
+    paintGaps();
   };
 
   // —— rAF 节流渲染 ——
@@ -303,6 +391,7 @@ function ColumnSelection(editor) {
     }
     rect = rectFromPoints();
     lines = scanLines(rect);
+    computeRows();
     paint();
   }
 
@@ -363,6 +452,7 @@ function ColumnSelection(editor) {
     exit({ restore: false });
     if (newText !== content) {
       editor.undoMgr.setCurrentMode('single');
+      invalidateOffsetIndex();
       editor.setContent(newText);
       editor.setSelection(caret, caret);
     }
@@ -376,6 +466,7 @@ function ColumnSelection(editor) {
     }
     editor.undoMgr.setCurrentMode(mode);
     selfEditing += 1;
+    invalidateOffsetIndex();
     editor.setContent(newText);
     setTimeout(() => {
       selfEditing = 0;
@@ -439,7 +530,7 @@ function ColumnSelection(editor) {
         }
         applyColumnTyping(next, 'single');
         if (back) {
-          const index = buildOffsetIndex();
+          const index = getOffsetIndex();
           rect = {
             left: xOfModelOffset(Math.max(0, firstCaret - 1), index),
             top: rect.top,
@@ -471,7 +562,7 @@ function ColumnSelection(editor) {
           return;
         }
         applyColumnTyping(applyRowInsertions(content, ops), 'typing');
-        const index = buildOffsetIndex();
+        const index = getOffsetIndex();
         rect = {
           left: xOfModelOffset(ops[0].at + ops[0].text.length, index),
           top: rect.top,
@@ -486,7 +577,7 @@ function ColumnSelection(editor) {
       const nextText = applyColumnInsertion(content, segments, evt.key);
       const caretOffset = segments.length ? segments[0].start + evt.key.length : 0;
       applyColumnTyping(nextText, 'typing');
-      const index = buildOffsetIndex();
+      const index = getOffsetIndex();
       rect = {
         left: xOfModelOffset(caretOffset, index),
         top: rect.top,
@@ -543,8 +634,11 @@ function ColumnSelection(editor) {
   };
 
   const onMouseDown = () => exit({ restore: false });
+  // 失焦兜底：mouseup 可能丢失（在窗口外松手、切走应用），否则拖拽态会僵死
+  const onWindowBlur = () => exit({ restore: false });
   const onScrollRetrack = () => requestRender();
   const onContentChanged = () => {
+    invalidateOffsetIndex();
     if (selfEditing > 0) {
       selfEditing -= 1;
       return;
@@ -613,7 +707,8 @@ function ColumnSelection(editor) {
       selectionMgr.columnSelectionLocked = false;
     }
     const caret = wasColumn ? caretTopLeft() : 0;
-    removeLayer();
+    clearHighlight();
+    clearGapLayer();
     segments = [];
     rows = [];
     lines = [];
@@ -625,10 +720,32 @@ function ColumnSelection(editor) {
     }
   }
 
+  // 起手准入（v5）：Alt 按下点必须落在可编辑文本上，且该 y 与某个有文字的
+  // 视觉行相交。任一不满足 → 完全不响应（不 preventDefault、不建 DOM），
+  // 浏览器按普通点击/拖拽处理。
+  const canStartAt = (clientX, clientY) => {
+    const pos = caretFromPoint(clientX, clientY);
+    if (!pos || !contentElt.contains(pos.node)) {
+      return false;
+    }
+    if (!pos.node.nodeValue || !pos.node.nodeValue.length) {
+      return false;
+    }
+    const contentRect = contentElt.getBoundingClientRect();
+    const y = clientY - contentRect.top;
+    return scanLines({ top: y, height: 1 }).length > 0;
+  };
+
   const onAltMouseDown = (evt) => {
+    if (state === 'dragging') {
+      endDrag(); // 上一轮 mouseup 丢失：先收尾再重新起手
+    }
     if (state !== 'idle') return;
     // Alt 仅此刻判定：拖拽中松开 Alt 仍保持矩形（Scintilla selType 粘性）
     if (!evt.altKey || evt.button !== 0) return;
+    if (!canStartAt(evt.clientX, evt.clientY)) {
+      return; // 无文字处：零响应，交给浏览器
+    }
     evt.preventDefault();
     evt.stopPropagation();
     state = 'dragging';
@@ -641,8 +758,12 @@ function ColumnSelection(editor) {
   };
 
   contentElt.addEventListener('mousedown', onAltMouseDown, true);
+  window.addEventListener('blur', onWindowBlur);
   editor.on('contentChanged', onContentChanged);
-  editor.on('destroy', () => exit({ restore: false }));
+  editor.on('destroy', () => {
+    exit({ restore: false });
+    window.removeEventListener('blur', onWindowBlur);
+  });
 }
 
 cledit.ColumnSelection = ColumnSelection;

@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -27,3 +27,16 @@ Status: open
 ## Definition of done
 
 页面唯一可见物 = 与原生选区同色的文字高亮 + 短行行内延续块，无整块矩形。
+
+## 后台验证记录
+
+- `.cl-column-block` / `.cl-column-layer` 及其 JS 引用全部删除（`grep -rn "cl-column-block|cl-column-layer|blockElt|layerElt" src/services` = 0）。
+- 真实文字走 `CSS.highlights.set('cl-column', new Highlight(...ranges))`，Range 由行段 DOM 偏移经 `entryAtOffset` 构造（逐视觉行，只覆盖真实文本节点）。
+- 色彩单一来源：base.scss `:root` / `.app--dark` 各一套 `--selection-bg/--selection-fg`；`::selection`、`::highlight(cl-column)`、`.cl-column-gap` 三者全部引用变量；src 内已无本功能硬编码选中色（剩余 4 处 rgba 属设置面板高亮，非选中色）。
+- 短行补齐：仅 `lineEndX → rect.left+width` 的行高小块（`.cl-column-gap`），容器显式 `left:0;top:0` + `pointer-events:none`；无补齐需求时不创建容器。
+- 浏览器实测（dev server + 真实事件）：3 行文档 Alt 拖拽 → `ranges = [" i -g @cometix/cla", " i -g @openai/cod", "t"]`，`gaps = 1`（短行 `short` 行内一块 134×18），`forbiddenBlocks = 0`；截图与 p2 风格一致（深蓝底白字）。
+- `vite build` APP=0 / STYLE=0；dist/style.css 含 `::highlight(cl-column)` 与 `--selection-bg`，无旧 block/layer。
+
+## 真机确认（本次已在浏览器实测，非仅人工清单）
+
+- 选中外观 = 原生选区外观；短行只有行内延续块；无整块矩形。

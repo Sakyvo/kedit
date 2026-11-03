@@ -1,4 +1,4 @@
-Status: open
+Status: review
 
 ## Parent
 
@@ -32,3 +32,13 @@ Status: open
 ## Definition of done
 
 无文字区域零响应零渲染；有文字处交互节奏与普通选区一致。
+
+## 后台验证记录
+
+- `canStartAt(clientX, clientY)`：`caretFromPoint` 必须命中 `contentElt` 内**有内容的文本节点**，且以 `[y, y+1]` 带做 `scanLines` 必须找到有文字的视觉行；任一不满足 → `return`（在 `preventDefault` 之前，741 vs 744 行）。
+- 浏览器实测（dev server）：文末空白 y=400 处 Alt 拖拽 → `highlight = 0`、`gaps = 0`（零响应零渲染）；有文字行 y=100 处 Alt 拖拽 → 正常产生 ranges。
+- 拖拽实时：mousemove 每帧重算 `rect → scanLines → computeRows → paint`（rAF 节流，单帧一次）。
+- 松手保持：mouseup 后 ranges 与 gaps 保留（实测 `afterUp.ranges.length = 3`, `gaps = 1`）。
+- 不额外 caret：仅 `columnSelectionLocked` 抑制回读 + 退出时回落首行。
+- 退出路径：Esc 后 `highlight = 0`、`gaps = 0`；监听成对解绑；rAF 取消。
+- 健壮性补充：`window blur` 兜底退出（防 mouseup 丢失僵死）；`dragging` 态再次按下先 `endDrag()` 收尾。
