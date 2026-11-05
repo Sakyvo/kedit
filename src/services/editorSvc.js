@@ -261,7 +261,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     // 软/硬换行区分（预览侧）：breaks 开启时段内 \n 渲染为 softbreak，而
     // Chromium 忽略 <br> 自身的 line-height 与盒模型，纯 CSS 加不了间距。
     // 故在 softbreak 后输出零宽块级垫片，由 .cl-preview-section
-    // .softbreak-gap 提供 +2px（编辑区对应 Editor.vue 的 .lf 规则）。
+    // .softbreak-gap 提供 +3px（编辑区对应 Editor.vue 的 .lf 规则）。
     // 换行符必须保留：预览 textContent 与 markdown 原文靠它对齐偏移映射。
     // 导出 HTML 用 exportSvc 自建的 converter，不含此标记。
     this.converter.renderer.rules.softbreak = () => '<br>\n<span class="softbreak-gap"></span>';

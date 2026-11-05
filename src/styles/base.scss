@@ -128,14 +128,23 @@ h6 {
   }
 }
 
-/* 软/硬换行区分（预览侧；编辑区对应 Editor.vue 的 .lf 规则）：预览中段内
-   硬换行（breaks:true，单个 \n → softbreak）后紧跟的零宽块级垫片撑出
-   +2px，使硬换行比软换行（浏览器折行）松 2px。<br> 在 Chromium 中忽略
-   line-height 与盒模型，垫片由 markdownConversionSvc 的 softbreak
-   renderer 输出（仅预览 converter，导出 HTML 不含）。 */
-.cl-preview-section .softbreak-gap {
-  display: block;
-  height: 2px;
+/* 软/硬换行区分（预览侧；编辑区对应 Editor.vue 的 .lf 规则）：软换行（浏览器
+   自动折行）基准行高收紧 2px，硬换行（breaks:true，单个 \n → softbreak）由
+   后面的零宽块级垫片再掉 3px，合计相差 5px。<br> 在 Chromium 中忽略
+   line-height 与盒模型，垫片由 editorSvc 的 softbreak renderer 输出（仅
+   预览 converter，导出 HTML 不含）。 */
+.cl-preview-section {
+  line-height: calc(#{$line-height-base} * 1em - 2px);
+
+  /* 代码块没有软换行，保持收回原有行高 */
+  pre {
+    line-height: $line-height-base;
+  }
+
+  .softbreak-gap {
+    display: block;
+    height: 3px;
+  }
 }
 
 ol ul,

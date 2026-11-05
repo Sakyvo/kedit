@@ -306,21 +306,22 @@ export default {
   word-wrap: break-word;
 
   * {
-    line-height: $line-height-base;
+    line-height: calc(#{$line-height-base} * 1em - 2px);
   }
 
   // 软/硬换行区分：每个 \n 渲染为 .lf（cleditHighlighter 的 lfHtml）。
-  // line-height +2px 会在基线上下各多 1px，vertical-align: -1px 抵消上侧
-  // 增量，使 2px 全部落在换行处下方 —— 硬换行比软换行（pre-wrap 折行）松 2px。
+  // 硬换行行高比软换行（pre-wrap 折行）多 5px：软换行基准已收紧 2px，
+  // .lf 又回加 3px。line-height 的增量在基线上下各一半，vertical-align
+  // 取增量的一半把上侧撑高抵消掉，使 5px 全部落在硬换行处下方。
   .lf {
-    line-height: calc(#{$line-height-base} * 1em + 2px);
-    vertical-align: -1px;
+    line-height: calc(#{$line-height-base} * 1em + 3px);
+    vertical-align: -1.5px;
   }
 
   // 代码块行高为 $line-height-title（markdownHighlighting.scss），落在其内部
-  // 的 .lf 按局部行高保持同样的 +2px。标题不可能包含硬换行，无需处理。
+  // 的 .lf 按局部行高保持同样的 +3px。标题不可能包含硬换行，无需处理。
   .pre .lf {
-    line-height: calc(#{$line-height-title} * 1em + 2px);
+    line-height: calc(#{$line-height-title} * 1em + 3px);
   }
 
   .cledit-section {
