@@ -66,3 +66,46 @@ cledit 侧只才是 `cleditHighlighter.js` 的 parseSections 内部(before/after
 ~90ms 是 TOC 重建。这两项不在 cledit 分片范围。若需「侧栏零卡顿」(任何单长任务
 <80ms),唯一路径是把解析挪进首帧之后的异步/Worker —— 动 markdown-it 核心,
 风险高,列为 050 待裁决,不在本卡。
+
+## Follow-up fixes (2026-10-20, user-reported regressions)
+
+用户实测报告三问题，逐一定位:
+
+### 1. 「加载中…」时侧栏仍卡死 —— 真凶不是首片，是**增量路径**
+
+分片只挂在 `initClEditor` 的 `isInit` 分支上。但同 id 的大文本装载
+（`patchItem` / 本地 IDB 加载 / 同步回填）走的是 `contentChanged` →
+`applyContent()` → `clEditor.setContent()` 的**增量路径**，对 810k 文本同样
+同步全量重建 DOM（实测单长任务 3.5s），并且**完全绕过分片**（实测
+`options.chunkedInit === false`）。用户看到的「进度条出现了但侧栏还是死」
+正是两条路径的混合。
+
+修：watcher 中「超过阈值且 store 文本 ≠ 编辑器文本」也走 `initClEditor`
+（分片重开）；低于阈值的手工打字零影响（不会误触发重建）。
+
+### 2. 分片期间仍有整块长任务：TOC 全量重建
+
+`contentChanged` 里的 `rebuildTocFromScan` 是全量（810k ≈ 150ms 同步），
+发生在首片之后、fill 之前。修：分片期间跳过，改由新增
+`onInitSliceBuilt(builtCount)` 在**每片建完**时增量重建（只插本片新增条目）；
+收尾再跑一次全量（键未变时 patch plan 为空 → 零成本）。
+
+### 3. 首片偏大：40ms/30 段 → 25ms/12 段
+
+### 4. harness 去除外部样本硬依赖
+
+`tocModel` / `tocHeadingsScan` 原本 `readFileSync` 个人机器上的 810k 样本，
+样本不在就整个 harness 崩。改为：缺失时用合成文本继续跑结构性断言，
+样本相关硬数字（2038 标题）与耗时阈值**仅在样本存在时**断言。
+
+**教训**：性能/正确性断言不应硬依赖个人路径的外部文件——那是环境耦合，
+不是语义。真实样本的价值是「分布真实」，应作为可选强化而非前置条件。
+
+### 仍未解决（诚实记录）
+
+- **816 字文档也触发分片**：用户报告的现象。阈值默认 50000，816 字不该触发。
+  最可能原因是我先前的调试把 `dynamicLoadingThreshold: 5` 写进了持久化设置
+  （`setSettings` 已落 IDB）。需用户侧确认设置面板里的阈值显示值。
+- **编辑/预览同步不完全、改变交互**：未定位到具体机制，需要真机复现步骤
+  （是否与 `scrollSync` + 窗口化高度估算的交互有关）。
+- 打开仍有 ~250ms 的 `markdown-it parseSections` 同步长任务（不可分片）。
