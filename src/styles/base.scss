@@ -128,26 +128,28 @@ h6 {
   }
 }
 
-/* 软/硬换行区分（预览侧；编辑区对应 Editor.vue 的 .lf 规则）：软换行（浏览器
-   自动折行）基准行高收紧 2px（18px 字号下 30.06 → 28.06），硬换行（breaks:true，
-   单个 \n → softbreak）后面跟一个 5px 高的零宽块级垫片，合计 33.06，相差 5px。
-   <br> 在 Chromium 中忽略 line-height 与盒模型，垫片由 editorSvc 的
-   softbreak renderer 输出（仅预览 converter，导出 HTML 不含）。 */
+/* 软/硬换行区分（预览侧；编辑区对应 Editor.vue 的 .lf 规则）：两个偏移量来自
+   设置（ADR 0015）。软换行（浏览器自动折行）基准为 1.67em + 软偏移；硬换行
+   （breaks:true，单个 \n → softbreak）后面跟一个零宽块级垫片，高度取两者之差
+   （基准已含软偏移，所以只补差额，总行高 = 1.67em + 硬偏移）。<br> 在 Chromium
+   中忽略 line-height 与盒模型，垫片由 editorSvc 的 softbreak renderer 输出
+   （仅预览 converter，导出 HTML 不含）。var() 的兜底值必须与设置默认值一致，
+   因为 base.scss 也可能被不在 .app 下的模板加载。 */
 .cl-preview-section {
-  line-height: calc(#{$line-height-base} * 1em - 2px);
+  line-height: calc(#{$line-height-base} * 1em + var(--kedit-soft-wrap-offset, -2px));
 
   .softbreak-gap {
     display: block;
-    height: 5px;
+    height: calc(
+      var(--kedit-hard-break-offset, 3px) - var(--kedit-soft-wrap-offset, -2px)
+    );
   }
 
-  /* 代码块没有软换行，收回原有行高；其硬换行增量与编辑区一致，只需 3px */
+  /* 代码块没有软换行，按标题行高 $line-height-title 渲染，与编辑器 .pre 一致
+     （同一个代码块两面疏密相同）。块内的换行是代码块自身的字面换行，不经
+     softbreak，故无垫片可补，也不需要 pre 下的 .softbreak-gap 覆盖。 */
   pre {
-    line-height: $line-height-base;
-
-    .softbreak-gap {
-      height: 3px;
-    }
+    line-height: $line-height-title;
   }
 }
 

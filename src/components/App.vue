@@ -1,5 +1,5 @@
 <template>
-  <div class="app" :class="classes" @keydown.esc="close">
+  <div class="app" :class="classes" :style="breakGapVars" @keydown.esc="close">
     <splash-screen v-if="!ready"></splash-screen>
     <layout v-else></layout>
     <modal></modal>
@@ -46,6 +46,16 @@ export default {
     classes() {
       const result = themeClasses[store.getters['data/computedSettings'].colorTheme];
       return Array.isArray(result) ? result : themeClasses.light;
+    },
+    // Break-gap offsets flow one way into CSS custom properties here, then the
+    // editor/preview styles consume them (ADR 0015). Set once on the app root so
+    // the two surfaces cannot disagree.
+    breakGapVars() {
+      const { softWrapOffset, hardBreakOffset } = store.getters['data/computedSettings'];
+      return {
+        '--kedit-soft-wrap-offset': `${softWrapOffset}px`,
+        '--kedit-hard-break-offset': `${hardBreakOffset}px`,
+      };
     },
   },
   methods: {

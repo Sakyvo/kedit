@@ -91,6 +91,24 @@ paragraphs. Fill only the parts of a real text row (line-height bounded) that
 the selection actually covers, and let the gesture not start at all when the
 press point has no text row.
 
+### Configurable Visual Sizes (CSS variables)
+
+A visual size the Author can configure (line-height offsets, future spacing
+knobs) flows one way: `defaultSettings.yml` key → `computedSettings` → a CSS
+custom property set once on the app root (`.app`, inline style from `App.vue`)
+→ SCSS consumes it. Do not hardcode the value in a component style, and do not
+bind the same value separately in two components.
+
+Always give `var()` a fallback equal to the default, e.g.
+`var(--kedit-soft-wrap-offset, -2px)`: `src/styles/base.scss` is reachable from
+templates that never render under `.app` (export / self-contained HTML), where
+an unresolved `var()` drops the whole declaration and silently falls back to the
+browser default line-height.
+
+Contexts with different bases (prose `1.67em` vs code blocks `1.33em`) need
+their own override of every derived property (`line-height`, `vertical-align`,
+spacer height) — one variable does not flatten them.
+
 ### Editor Hot-Path Geometry (cledit)
 
 `cledit.Utils.findContainer` / `selectionMgr.getCoordinates` walk the whole

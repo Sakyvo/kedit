@@ -46,6 +46,22 @@ export default [
         step: 0.05,
       },
       {
+        path: ['softWrapOffset'],
+        type: 'number',
+        label: '自动换行行高偏移（px）',
+        min: -20,
+        max: 40,
+        step: 0.5,
+      },
+      {
+        path: ['hardBreakOffset'],
+        type: 'number',
+        label: '手动换行行高偏移（px）',
+        min: -20,
+        max: 40,
+        step: 0.5,
+      },
+      {
         path: ['autoSyncEvery'],
         type: 'number',
         label: '自动同步间隔（毫秒）',

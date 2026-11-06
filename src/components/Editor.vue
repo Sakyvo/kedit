@@ -306,25 +306,26 @@ export default {
   word-wrap: break-word;
 
   * {
-    line-height: calc(#{$line-height-base} * 1em - 2px);
+    line-height: calc(#{$line-height-base} * 1em + var(--kedit-soft-wrap-offset, -2px));
   }
 
   // 软/硬换行区分：每个 \n 渲染为 .lf（cleditHighlighter 的 lfHtml）。
-  // 实际行高：软换行（pre-wrap 折行）= 1.67em - 2px = 28.06px（18px 字号），
-  // 硬换行 = 1.67em + 3px = 33.06px，相差 5px。
-  // line-height 的增量在基线上下各一半，vertical-align 取增量（5px）的一半
-  // 抵消上侧撑高，使 5px 全部落在换行处下方而不上提上一行。
+  // 两个偏移量来自设置（ADR 0015），默认 -2 / +3 时内联为 28.06 / 33.06px。
+  // line-height 的增量在基线上下各一半，vertical-align 取增量的一半反向
+  // （软 - 硬 的一半）把上侧撑高抵消掉，使差额全落在换行处下方而不上提上一行。
   .lf {
-    line-height: calc(#{$line-height-base} * 1em + 3px);
-    vertical-align: -2.5px;
+    line-height: calc(#{$line-height-base} * 1em + var(--kedit-hard-break-offset, 3px));
+    vertical-align: calc(
+      (var(--kedit-soft-wrap-offset, -2px) - var(--kedit-hard-break-offset, 3px)) / 2
+    );
   }
 
-  // 代码块行高为 $line-height-title（markdownHighlighting.scss，不受上面的
-  // -2px 影响），所以 .lf 相对其上下文的增量只有 3px，偏移取 1.5px。
+  // 代码块行高为 $line-height-title（markdownHighlighting.scss），不含软换行偏移，
+  // 所以 .lf 相对上下文的增量只有硬换行偏移，偏移取它的一半。
   // 标题不可能包含硬换行，无需处理。
   .pre .lf {
-    line-height: calc(#{$line-height-title} * 1em + 3px);
-    vertical-align: -1.5px;
+    line-height: calc(#{$line-height-title} * 1em + var(--kedit-hard-break-offset, 3px));
+    vertical-align: calc(-1 * var(--kedit-hard-break-offset, 3px) / 2);
   }
 
   .cledit-section {

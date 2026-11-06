@@ -14,6 +14,7 @@
     "build": "vite build --mode production && npm run build-style",
     "build-style": "vite build --config vite.style.config.js && copyfiles -f --up=1 diststyle/static/fonts/* dist/static/fonts && copyfiles -f --up=1 diststyle/style.css* dist",
     "preview": "vite preview",
+    "test:node": "node --test test/node/",
     "copystatic": "copyfiles -f --up=1 diststyle/style.css* dist"
   },
   "dependencies": {

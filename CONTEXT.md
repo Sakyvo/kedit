@@ -40,6 +40,14 @@ _Avoid_: outline (ambiguous with heading levels), navigator
 A per-device TOC setting (formerly "自动跳转", renamed because the jump itself always happens). When ON, after a TOC jump the TOC panel recedes: on wide layouts it falls back to the side-bar main menu (side bar stays open); on narrow/overlay layouts the whole side bar collapses back to the document. When OFF, the TOC panel stays as-is after a jump.
 _Avoid_: 自动跳转 (stale name — the setting never controlled jumping)
 
+**自动换行（软换行）**:
+A line break produced by the container's width — the source text has no character at that point; the editor shows no `.lf` span and the preview shows no `<br>`. Its line-height is author-tunable via the `softWrapOffset` setting (px added to the `1.67em` base).
+_Avoid_: 折行 (fine in prose, not a term), 换行 (alone — does not say which kind)
+
+**手动换行（硬换行）**:
+A line break the Author typed, i.e. a `\n` in the source text. The editor renders each one as its own `.lf` span and the preview as `<br>` plus a zero-width block spacer, which is what makes it visually distinguishable from an **自动换行**. (Inside a fenced code block the preview shows the newline literally — a code block has no soft wrap to be distinguished from, so no spacer is involved.) Author-tunable via the `hardBreakOffset` setting; the gap the Author actually sees is the difference between the two offsets.
+_Avoid_: 换行符 (names the character, not the typographic break), 回车
+
 **矩形选择（Column selection）**:
 A column-mode editor state entered by Alt+drag, referencing Notepad4's rectangular-selection mechanics but **not** its visuals: real text is highlighted through CSS Custom Highlight (`::highlight(cl-column)`) and reads exactly like KEDIT's own selection — `::selection`, the highlight, and the short-line fill blocks all draw from one pair of `--selection-bg` / `--selection-fg` variables. Short lines get a row-height fill from their line end to the rectangle's right edge; no whole-block rectangle is ever drawn. Where there is no text — trailing whitespace area, empty paragraphs — nothing is drawn and Alt+drag does not start at all (the browser keeps normal behaviour). Live per-row reselection via band-scan geometry (Range.getClientRects, rAF-throttled; Utils.findContainer is O(document) and banned from hot paths), boundaries from mouse x, sticky column caret after the first keystroke, per-row delete, column-aware paste. Geometry lives in DOM-offset space; edits map DOM↔model offsets and land as full-text transforms — the cledit single-caret architecture is preserved (ADR 0014).
 _Avoid_: 块选择 (vague), 选框/装饰块 (v1–v4 artifacts, rejected), 照搬 Notepad4 配色

@@ -4,6 +4,10 @@ colorTheme: light
 fontSizeFactor: 1
 # Adjust maximum text width in editor and preview
 maxWidthFactor: 1
+# 自动换行（软换行）行高相对 1.67em 基准的偏移，单位 px
+softWrapOffset: -2
+# 手动换行（硬换行）行高相对 1.67em 基准的偏移，单位 px
+hardBreakOffset: 3
 # Auto-sync frequency (in ms). Minimum is 60000.
 autoSyncEvery: 90000
 

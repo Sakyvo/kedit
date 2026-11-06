@@ -23,7 +23,15 @@ export default {
     uid: utils.uid(),
   }),
   mounted() {
-    this.$el.querySelector('input,select,textarea').id = this.uid;
+    // A custom select (SettingsSelect) renders a combobox div, not a native
+    // input, so this can legitimately find nothing. Throwing here broke the
+    // settings modal open: the rejection left Vue's scheduler unable to flush,
+    // which froze every later reactive update (theme class included) until a
+    // reload.
+    const field = this.$el.querySelector('input,select,textarea');
+    if (field) {
+      field.id = this.uid;
+    }
   },
 };
 </script>
