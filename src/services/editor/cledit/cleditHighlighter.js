@@ -122,6 +122,9 @@ function Highlighter(editor) {
       if (editor.options.onInitFillProgress) {
         editor.options.onInitFillProgress(done, total);
       }
+      if (editor.options.onInitSliceBuilt && built > 0) {
+        editor.options.onInitSliceBuilt(total - this.initFillQueue.length);
+      }
       if (!this.initFillQueue.length) {
         const opts = editor.options;
         this.initFillActive = false;
@@ -287,6 +290,9 @@ function Highlighter(editor) {
           this.initFillQueue = chunkedFillQueue;
           this.initFillTotal = chunkedFillQueue.length;
           this.initFillActive = true;
+          if (editor.options.onInitSliceBuilt) {
+            editor.options.onInitSliceBuilt(this.initFillTotal && contentElt.children.length);
+          }
           if (editor.options.onInitFillProgress) {
             editor.options.onInitFillProgress(0, chunkedFillQueue.length);
           }

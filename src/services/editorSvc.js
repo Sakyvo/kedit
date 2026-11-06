@@ -362,11 +362,15 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       // 进度条覆盖编辑区;建完 onInitChunksDone 收尾(量测/恢复/起预览)。
       ...(dynamic && this.shouldChunkInit() ? {
         chunkedInit: {
-          firstSliceBudgetMs: 40,
-          firstMaxSections: 30,
-          sliceBudgetMs: 40,
+          firstSliceBudgetMs: 25,
+          firstMaxSections: 12,
+          sliceBudgetMs: 35,
         },
         onInitFillProgress: (done, total) => this.updateLoadProgress(done, total),
+        // 每片建完:增量重建 TOC(只插本片新增),不再有 150ms 的整块
+        onInitSliceBuilt: builtCount => this.rebuildTocFromScan(
+          (this.parsingCtx && this.parsingCtx.sectionList || []).slice(0, builtCount),
+        ),
         onInitChunksDone: () => this.onInitChunksDone(),
       } : {}),
       getCursorFocusRatio: () => {
@@ -450,6 +454,10 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
   onInitChunksDone() {
     this.initFillActive = false;
     this.clearLoadProgress();
+    // 分片期间 TOC 是逐片增量建的;收尾跑一次全量(键未变时 plan 为空,零成本)
+    if (this.segmentedPipeline && this.parsingCtx && this.parsingCtx.sectionList) {
+      this.rebuildTocFromScan(this.parsingCtx.sectionList);
+    }
     this.measureSectionDimensions(false, true, true);
     this.restoreScrollPosition();
     if (this.isPreviewVisible()) {
@@ -1483,7 +1491,11 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       // 注意：不在此处写 this.sectionList——onEditorChanged 依赖它与
       // newSectionList 的差异来触发 refreshPreview，抢先赋值会让预览永不刷新。
       if (this.segmentedPipeline) {
-        this.rebuildTocFromScan(sectionList);
+        // 批 049:分片构建期间把 TOC 全量重建(810k≈150ms 同步)挪到
+        // fill 片内增量做(每片只插本片新增条目);此处只在非分片时立即重建。
+        if (!this.initFillActive) {
+          this.rebuildTocFromScan(sectionList);
+        }
       }
     });
     if (this.segmentedPipeline) {
@@ -1967,6 +1979,20 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
           if (!content.id) {
             loadMissingContent();
           }
+        }
+        // 批 049 修复：同 id 的大文本装载(本地加载完成/paste/同步回填)也要走
+        // 分片重开 —— 否则 applyContent→setContent 走**增量路径**,对 810k 文本
+        // 同步全量重建 DOM(实测单长任务 3.5s,侧栏卡死同打开)。判据与
+        // shouldChunkInit 一致:超过阈值才重开,普通打字零影响。
+        if (!initClEditor
+          && content.text
+          && this.dynamicLoadingEnabled
+          && content.text.length > getDynamicLoadingThreshold(
+            store.getters['data/computedSettings'],
+          )
+          && this.clEditor
+          && content.text !== this.clEditor.getContent()) {
+          initClEditor = true;
         }
         // Track properties changes
         if (content.properties !== lastProperties) {
