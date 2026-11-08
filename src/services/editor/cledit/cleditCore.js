@@ -3,6 +3,7 @@ import TurndownService from 'turndown/lib/turndown.browser.umd';
 import htmlSanitizer from '../../../libs/htmlSanitizer';
 import store from '../../../store';
 import { textFromBeforeInput } from '../beforeinputPaste';
+import { installFolderPaste } from '../folderPaste';
 import { upgradeCopiedSelection } from '../../clipboardSvc';
 
 /** True when paste/drop payload includes a raster image (not just HTML with <img>). */
@@ -517,6 +518,14 @@ function cledit(contentElt, scrollEltOpt, isMarkdown = false) {
   editor.addKeystroke = addKeystroke;
   editor.addMarker = addMarker;
   editor.removeMarker = removeMarker;
+
+  if (isMarkdown) {
+    installFolderPaste(editor, {
+      getDocumentId: () => store.state.file.currentId,
+      watchDocument: callback => store.watch(state => state.file.currentId, callback),
+      notify: message => store.dispatch('notification/info', message),
+    });
+  }
 
   editor.init = (opts = {}) => {
     const options = ({

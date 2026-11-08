@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "KEDIT 文件夹路径粘贴",
+  "version": "1.0.0",
+  "description": "仅在 KEDIT 粘贴时读取 Windows 文件夹完整路径，不修改剪贴板。",
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://kedit.cc.cd/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA16o9f8ExdY0jNjSSCaLLcOalE2MlgwQJqPw6/Z7HEjHp/RBM5riaGBvL4r5QuSEuFb8WNa8MqGKy3vyOhTBONXlySY5wFk5TdfVSrb4QYPtLdtMbHjYwBvlv5A7ut9TnND0HUVH0lABZILO8aOL9r3ggri5mWaWLSrwQn7vYko1Mpj5yIgkyHMMHkhEwiYEo2G4S984Ve8m/Box7QEbDcENIVP9dg6XMLOU4fnBv2YSQNRrXm68Yf8WEaDuTWuy+nmGSTm8I956Zf7HAVEFysa54t0hiVKrfy+qAk6t2xPXwshaorjcn8DSCivRpcgRy9GMIv5BekE3zl0HbhWiFCQIDAQAB"
+}
