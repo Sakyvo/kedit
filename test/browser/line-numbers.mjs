@@ -5,7 +5,10 @@ import { preview } from 'vite';
 
 const require = createRequire(import.meta.url);
 const puppeteer = require(process.env.PUPPETEER_MODULE || 'puppeteer-core');
-const server = await preview({ preview: { host: '127.0.0.1', port: 0, open: false, proxy: {} } });
+const server = await preview({
+  ...(process.env.KEDIT_TEST_DIST ? { build: { outDir: process.env.KEDIT_TEST_DIST } } : {}),
+  preview: { host: '127.0.0.1', port: 0, open: false, proxy: {} },
+});
 let browser;
 try {
   browser = await puppeteer.launch({
