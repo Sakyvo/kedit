@@ -1,7 +1,7 @@
 <template>
   <div class="editor-container">
     <div ref="editorRoot" class="editor" ondrop="return false;">
-      <pre class="editor__inner markdown-highlighting" :style="{padding: styles.editorPadding}" :class="{monospaced: computedSettings.editor.monospacedFontOnly}"></pre>
+      <pre class="editor__inner markdown-highlighting" :style="{padding: styles.editorPadding, paddingLeft: `calc(${styles.editorPadding.split(' ')[3]} + var(--editor-line-number-space, 0px))`}" :class="{monospaced: computedSettings.editor.monospacedFontOnly}"></pre>
       <div class="gutter" :style="{left: styles.editorGutterLeft + 'px'}">
         <comment-list v-if="styles.editorGutterWidth"></comment-list>
         <editor-new-discussion-button v-if="!isCurrentTemp"></editor-new-discussion-button>
@@ -128,6 +128,11 @@ export default {
         }
       }
     },
+  },
+  beforeUnmount() {
+    if (editorSvc.editorElt?.parentNode === this.$refs.editorRoot) {
+      editorSvc.disposeLineNumbers?.();
+    }
   },
   mounted() {
     // Overlay scrollbar target (the .editor element is the scroller)
@@ -295,6 +300,30 @@ export default {
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+.editor__line-numbers {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-family: $font-family-monospace;
+  font-size: $font-size-monospace;
+  font-variant-numeric: tabular-nums;
+  color: $editor-color-light-blockquote;
+  pointer-events: none;
+  user-select: none;
+
+  .app--dark & {
+    color: $editor-color-dark-blockquote;
+  }
+}
+
+.editor__line-number {
+  position: absolute;
+  left: 0;
+  right: 1ch;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .editor__inner {

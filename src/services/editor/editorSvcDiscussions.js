@@ -1,5 +1,6 @@
 import DiffMatchPatch from 'diff-match-patch';
 import cledit from './cledit';
+import mountLineNumbers from './lineNumbers';
 import utils from '../utils';
 import diffUtils from '../diffUtils';
 import store from '../../store';
@@ -116,7 +117,9 @@ function reversePatches(patches) {
 
 export default {
   createClEditor(editorElt) {
+    if (this.disposeLineNumbers) this.disposeLineNumbers();
     this.clEditor = cledit(editorElt, editorElt.parentNode, true);
+    this.disposeLineNumbers = mountLineNumbers(this.clEditor);
     ({ clEditor } = this);
     // 矩形选择（ADR 0014）：Alt+拖拽瞬态列模式
     new cledit.ColumnSelection(clEditor);
