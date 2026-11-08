@@ -89,6 +89,7 @@ const inlineWorkspaceImages = async (rootElt) => {
 };
 
 const buildPreviewClipboardContent = async () => {
+  if (!await editorSvc.waitForPreviewRendering()) return null;
   const previewElt = editorSvc.previewElt;
   if (!previewElt) {
     return null;
@@ -192,13 +193,13 @@ export default {
       store.dispatch('data/setSideBarPanel', 'help');
     },
     async copyPreview() {
-      const content = await buildPreviewClipboardContent();
-      if (!content || !content.html) {
-        store.dispatch('notification/error', '当前没有可复制的预览内容。');
-        return;
-      }
-
+      let content;
       try {
+        content = await buildPreviewClipboardContent();
+        if (!content || !content.html) {
+          store.dispatch('notification/error', '预览尚未就绪或文档已切换，请稍后重试。');
+          return;
+        }
         if (navigator.clipboard && window.ClipboardItem && window.isSecureContext) {
           await navigator.clipboard.write([
             new ClipboardItem({
@@ -211,6 +212,10 @@ export default {
         }
         store.dispatch('notification/info', '预览内容已复制，可粘贴到知乎或公众号等编辑器。');
       } catch (err) {
+        if (!content) {
+          store.dispatch('notification/error', '预览渲染失败，无法复制。');
+          return;
+        }
         try {
           await copyPlainText(content.text);
           store.dispatch('notification/info', '已复制纯文本内容。');

@@ -30,6 +30,18 @@ const stackeditStaticBundle = () => ({
 
       mkdirSync(staticOutputDir, { recursive: true });
       cpSync(faviconSource, resolve(staticOutputDir, 'favicon.png'), { force: true });
+      // Static hosting needs files for the existing Flask routes.
+      const pages = {
+        'app/index.html': 'index.html',
+        'oauth2/callback/index.html': 'static/oauth2/callback.html',
+        'share.html': 'static/landing/share.html',
+        'gistshare.html': 'static/landing/gistshare.html',
+      };
+      Object.entries(pages).forEach(([target, source]) => {
+        const destination = resolve(__dirname, 'dist', target);
+        mkdirSync(resolve(destination, '..'), { recursive: true });
+        cpSync(resolve(__dirname, 'dist', source), destination);
+      });
     },
   },
 });
@@ -44,7 +56,7 @@ const appShellEntries = () => ({
         ...entries,
         {
           url: '/',
-          revision: revisionForFile(resolve(__dirname, 'dist/static/landing/index.html')),
+          revision: `${revisionForFile(resolve(__dirname, 'dist/index.html'))}-${revisionForFile(resolve(__dirname, 'dist/static/landing/index.html'))}`,
         },
         {
           url: '/app',
@@ -101,6 +113,15 @@ export default defineConfig({
     }
   },
   plugins: [
+    {
+      name: 'startup-icon',
+      transformIndexHtml(html) {
+        const icon = readFileSync(resolve(__dirname, 'src/assets/iconKedit.svg'), 'utf8')
+          .replaceAll('prefix__', 'startup__')
+          .replace('<svg ', '<svg aria-hidden="true" ');
+        return html.replace('<!-- startup-icon -->', icon);
+      },
+    },
     vue(),
     // visualizer(), // temp off: build OOM when system free RAM is low
     viteCompression({
@@ -184,6 +205,7 @@ export default defineConfig({
     minify: 'terser',
     cssCodeSplit: true, // 如果设置为false，整个项目中的所有 CSS 将被提取到一个 CSS 文件中
     terserOptions: {
+      maxWorkers: 1,
       compress: {
         // warnings: false,
         drop_console: true, // 打包时删除console
@@ -230,7 +252,7 @@ export default defineConfig({
     // },
     // brotliSize: false
   },
-  base: './',
+  base: '/',
   css: {
     file: true,
     preprocessorOptions: {

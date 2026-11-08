@@ -12,15 +12,17 @@ if (!indexedDB) {
   throw new Error('不支持您的浏览器，请升级到最新版本。');
 }
 
-const updateServiceWorker = registerSW({
-  onNeedRefresh: async () => {
-    if (!store.state.light) {
-      await localDbSvc.sync();
-      localStorage.updated = true;
-    }
-    updateServiceWorker();
-  },
-});
+const registerServiceWorker = () => {
+  const updateServiceWorker = registerSW({
+    onNeedRefresh: async () => {
+      if (!store.state.light) {
+        await localDbSvc.sync();
+        localStorage.updated = true;
+      }
+      updateServiceWorker();
+    },
+  });
+};
 
 if (localStorage.updated) {
   store.dispatch('notification/info', 'KEDIT刚刚更新了！');
@@ -44,7 +46,16 @@ if (!localStorage.installPrompted) {
   });
 }
 
-const app = createApp(App);
+const app = createApp(App, {
+  onReady() {
+    // Keep the existing offline cache; install it only after Layout can be used.
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(registerServiceWorker, { timeout: 1000 });
+    } else {
+      setTimeout(registerServiceWorker, 0);
+    }
+  },
+});
 
 // Global directives
 app.directive('focus', {

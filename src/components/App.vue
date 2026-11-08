@@ -1,7 +1,6 @@
 <template>
   <div class="app" :class="classes" :style="breakGapVars" @keydown.esc="close">
-    <splash-screen v-if="!ready"></splash-screen>
-    <layout v-else></layout>
+    <layout v-if="ready"></layout>
     <modal></modal>
     <notification></notification>
     <context-menu></context-menu>
@@ -16,7 +15,6 @@ import Layout from './Layout';
 import Modal from './Modal';
 import Notification from './Notification';
 import ContextMenu from './ContextMenu';
-import SplashScreen from './SplashScreen';
 import syncSvc from '../services/syncSvc';
 import networkSvc from '../services/networkSvc';
 import tempFileSvc from '../services/tempFileSvc';
@@ -32,12 +30,12 @@ const themeClasses = {
 };
 
 export default {
+  emits: ['ready'],
   components: {
     Layout,
     Modal,
     Notification,
     ContextMenu,
-    SplashScreen,
   },
   data: () => ({
     ready: false,
@@ -132,6 +130,9 @@ export default {
       store.dispatch('theme/setPreviewTheme', previewTheme || 'default');
       this.ready = true;
       tempFileSvc.setReady();
+      await this.$nextTick();
+      document.getElementById('startup')?.remove();
+      this.$emit('ready');
     } catch (err) {
       if (err && err.message === 'RELOAD') {
         window.location.reload();

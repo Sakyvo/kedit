@@ -54,7 +54,7 @@ export default {
 }
 
 .icon-provider--kedit {
-  background-image: url(../assets/logo.png);
+  background-image: url(../assets/iconKedit.svg);
 }
 
 .icon-provider--pdir {

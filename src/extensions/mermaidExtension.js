@@ -1,4 +1,3 @@
-import mermaid from 'mermaid';
 import extensionSvc from '../services/extensionSvc';
 import utils from '../services/utils';
 
@@ -42,6 +41,19 @@ const baseConfig = {
 };
 
 let currentTheme;
+let mermaidPromise;
+let renderQueue = Promise.resolve();
+const pendingRenders = new WeakMap();
+
+const loadMermaid = () => {
+  if (!mermaidPromise) {
+    mermaidPromise = import('mermaid').then(module => module.default).catch((error) => {
+      mermaidPromise = null;
+      throw error;
+    });
+  }
+  return mermaidPromise;
+};
 
 const getTheme = (elt) => {
   if (elt.closest('.app--dark')) {
@@ -50,7 +62,7 @@ const getTheme = (elt) => {
   return 'default';
 };
 
-const ensureConfig = (theme) => {
+const ensureConfig = (mermaid, theme) => {
   if (currentTheme === theme) {
     return;
   }
@@ -68,35 +80,50 @@ const escapeHtml = (value = '') => value
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
-const render = async (elt) => {
-  const source = (elt.dataset.mermaidSource || elt.textContent).trim();
-  if (!source) {
-    return;
-  }
-  try {
-    ensureConfig(getTheme(elt));
-    const svgId = `mermaid-svg-${utils.uid()}`;
-    const { svg } = await mermaid.render(svgId, source);
-    elt.dataset.mermaidSource = source;
-    elt.innerHTML = svg;
-    elt.classList.add('mermaid-diagram');
-    elt.classList.remove('mermaid-error');
-  } catch (e) {
-    console.error('Mermaid rendering error:', e);
-    elt.classList.remove('mermaid-diagram');
-    elt.classList.add('mermaid-error');
-    elt.innerHTML = `
-      <div class="mermaid-error__title">Mermaid 渲染失败</div>
-      <pre class="mermaid-error__message">${escapeHtml(e && e.message ? e.message : 'Unknown Mermaid error')}</pre>
-    `;
-  }
+const render = (elt) => {
+  const code = elt.querySelector('.prism.language-mermaid');
+  const source = (code ? code.textContent : elt.dataset.mermaidSource || '').trim();
+  if (!source || !elt.isConnected) return Promise.resolve();
+  const theme = getTheme(elt);
+  const pending = pendingRenders.get(elt);
+  if (pending && pending.source === source && pending.theme === theme) return pending.promise;
+  const job = { source, theme };
+  const isCurrent = () => elt.isConnected && pendingRenders.get(elt) === job
+    && (!code || (elt.contains(code) && code.textContent.trim() === source));
+  job.promise = renderQueue.then(async () => {
+    try {
+      const mermaid = await loadMermaid();
+      if (!isCurrent()) return;
+      ensureConfig(mermaid, theme);
+      const { svg } = await mermaid.render(`mermaid-svg-${utils.uid()}`, source);
+      if (!isCurrent()) return;
+      elt.dataset.mermaidSource = source;
+      elt.innerHTML = svg;
+      elt.classList.add('mermaid-diagram');
+      elt.classList.remove('mermaid-error');
+    } catch (error) {
+      if (!isCurrent()) return;
+      elt.dataset.mermaidSource = source;
+      elt.classList.remove('mermaid-diagram');
+      elt.classList.add('mermaid-error');
+      elt.innerHTML = `<div class="mermaid-error__title">Mermaid 渲染失败</div>
+        <pre class="mermaid-error__message">${escapeHtml(error.message || 'Unknown Mermaid error')}</pre>
+        <code>${escapeHtml(source)}</code>`;
+    } finally {
+      if (pendingRenders.get(elt) === job) pendingRenders.delete(elt);
+    }
+  });
+  pendingRenders.set(elt, job);
+  renderQueue = job.promise;
+  return job.promise;
 };
 
 extensionSvc.onGetOptions((options, properties) => {
   options.mermaid = properties.extensions.mermaid.enabled;
 });
 
-extensionSvc.onSectionPreview((elt) => {
+extensionSvc.onSectionPreview((elt, options) => {
+  if (!options.mermaid) return;
   const diagrams = Array.from(elt.querySelectorAll('.prism.language-mermaid'));
   // 返回 Promise.all 以等待所有图表渲染完成
   return Promise.all(
@@ -105,6 +132,6 @@ extensionSvc.onSectionPreview((elt) => {
 });
 
 export const rerenderMermaidDiagrams = elt => Promise.all(
-  Array.from(elt.querySelectorAll('.mermaid-diagram[data-mermaid-source]'))
+  Array.from(elt.querySelectorAll('[data-mermaid-source]'))
     .map(diagramElt => render(diagramElt))
 );

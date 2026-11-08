@@ -77,6 +77,7 @@ class SectionDesc {
   }
 }
 
+const sectionRenderPromises = new WeakMap();
 const pathUrlMap = Object.create(null);
 const pathUrlRefCountMap = Object.create(null);
 const localImageSrcAttr = 'data-ws-src';
@@ -621,7 +622,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       elt.innerHTML = mountedHtml;
       elt.dataset.previewMounted = '1';
       elt.style.minHeight = '';
-      extensionSvc.sectionPreview(elt, this.options, true);
+      sectionRenderPromises.set(elt, extensionSvc.sectionPreview(elt, this.options, true));
       // 批 049 修复：换窗挂载段的工作区图片必须在这里补 src。
       // refreshPreview 首轮只处理「初始窗口内」的段（走 loadingImages 链），
       // 滚动换窗后新挂载的段不走那条路径 —— data-ws-src 摘掉了源、永远没人
@@ -1040,6 +1041,14 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
     return node === this.editorElt ? 0 : null;
   },
 
+  async waitForPreviewRendering() {
+    const previewCtx = this.previewCtx;
+    const fileId = store.state.file.currentId;
+    if (!previewCtx) return false;
+    await Promise.all(previewCtx.sectionDescList.map(desc => sectionRenderPromises.get(desc.previewElt)));
+    return this.previewCtx === previewCtx && store.state.file.currentId === fileId;
+  },
+
   /**
    * Finish the conversion initiated by the section parser
    */
@@ -1147,7 +1156,8 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
             this.previewElt.appendChild(sectionPreviewElt);
           }
           if (inWindow) {
-            await extensionSvc.sectionPreview(sectionPreviewElt, this.options, true);
+            sectionRenderPromises.set(sectionPreviewElt,
+              extensionSvc.sectionPreview(sectionPreviewElt, this.options, true));
           }
           const imgs = inWindow
             ? Array.prototype.slice.call(sectionPreviewElt.getElementsByTagName('img')).map((imgElt) => {
@@ -1232,7 +1242,12 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       text: this.previewElt.textContent,
       sectionDescList,
     };
-    this.emit('previewCtx', this.previewCtx);
+    // Publish the complete diff synchronously before any renderer can yield.
+    const previewCtx = this.previewCtx;
+    await Promise.all(sectionDescList.map(desc => sectionRenderPromises.get(desc.previewElt)));
+    if (this.previewCtx !== previewCtx) return;
+    previewCtx.text = this.previewElt.textContent;
+    this.emit('previewCtx', previewCtx);
     this.makeTextToPreviewDiffs();
 
     // Wait for images to load
@@ -1257,6 +1272,7 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       img.src = it.imgElt.src;
     }));
     await Promise.all(loadedPromises);
+    if (this.previewCtx !== previewCtx) return;
     this.activePreviewImgPathCounts = syncActiveImgPathCounts(
       this.activePreviewImgPathCounts,
       countActiveWorkspaceImages(this.previewElt),

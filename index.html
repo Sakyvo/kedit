@@ -8,9 +8,18 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <style>
+      #startup { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 16px; background: #fff; color: #606060; font: 500 24px system-ui, sans-serif; pointer-events: none; }
+      #startup svg { width: 80px; height: 80px; }
+    </style>
   </head>
-  <body id="app">
-    <script type="module" src="/src/main.js"></script>
-    <!-- built files will be auto injected -->
+  <body>
+    <div id="startup" role="status" aria-label="正在启动 KEDIT">
+      <!-- startup-icon -->
+      <span>KEDIT</span>
+      <noscript>请启用 JavaScript 以使用编辑器。</noscript>
+    </div>
+    <div id="app"></div>
+    <script type="module" src="/src/startup.js"></script>
   </body>
 </html>

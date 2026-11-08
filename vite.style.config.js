@@ -10,7 +10,7 @@ export default defineConfig({
     assetsInlineLimit: 0,
     rollupOptions: {
       input: {
-        style: path.resolve(__dirname, 'src/styles/index.js')
+        style: path.resolve(__dirname, 'src/styles/export.js')
       },
       output: {
         // 配置 CSS 文件的输出路径，不使用哈希值
