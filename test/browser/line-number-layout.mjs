@@ -14,7 +14,7 @@ const module = await readFile('src/services/editor/lineNumbers.js', 'utf8');
 const html = `<!doctype html><style>
 body { margin:0; font:18px/1.67 Arial; }
 .editor-container { width:600px; height:300px; }
-.editor__inner { padding:10px 25px 300px; padding-left:calc(25px + var(--editor-line-number-space, 0px)); }
+.editor__inner { padding:10px 25px 300px; padding-left:max(25px, calc(var(--editor-line-number-space, 4em) + 6px)); }
 .cledit-section * { display:inline; }
 ${css}
 </style><div class="app"><div class="editor-container"><div class="editor"><pre class="editor__inner"></pre></div></div></div>
@@ -38,8 +38,9 @@ window.setText = text => {
  events.get('contentChanged')?.forEach(fn => fn(text));
 };
 setText('one\\n\\nthree\\n');
-window.dispose = mount(editor);
-window.remount = () => { dispose(); window.dispose = mount(editor); };
+window.view = mount(editor);
+window.dispose = () => view.dispose();
+window.remount = () => { dispose(); window.view = mount(editor); };
 </script>`;
 const server = createServer((req, res) => {
   res.setHeader('Content-Type', req.url === '/lineNumbers.js' ? 'application/javascript' : 'text/html');
@@ -73,13 +74,54 @@ try {
     await settle();
     const state = await read();
     if (!baseWidth) baseWidth = state.width;
-    if (count < 1000) assert.equal(state.width, baseWidth);
-    else assert.ok(state.width > baseWidth);
+    assert.equal(state.width, baseWidth, 'gutter width must not grow with the source-line count');
     assert.equal(state.text, 'line\n'.repeat(count));
     assert.ok(state.rows.every(row => Math.abs(row.right - state.rows[0].right) < 0.01));
   }
-  console.log('PASS 1/9/10/99/100/999/1000/10000 width transitions, shrink and right alignment');
-  await page.evaluate(() => setText('a long source line '.repeat(200) + '\n\nlast\n'));
+  console.log('PASS fixed gutter width across 1–10000 lines and right alignment');
+  await page.evaluate(() => setText('wrap words '.repeat(80) + '\nend\n'));
+  await settle();
+  const geometry = () => page.evaluate(() => {
+    const range = document.createRange();
+    range.selectNodeContents(editor.$contentElt.firstChild);
+    return { padding: getComputedStyle(editor.$contentElt).paddingLeft,
+      rects: Array.from(range.getClientRects(), rect => [rect.x, rect.y, rect.width, rect.height]) };
+  });
+  const original = await geometry();
+  await page.evaluate(() => view.setEnabled(false));
+  await settle();
+  assert.deepEqual(await geometry(), original, 'disable preserves text positions and wrap points');
+  assert.equal(await page.$eval('.editor__line-numbers', elt => getComputedStyle(elt).visibility), 'hidden');
+  await page.evaluate(() => view.setEnabled(true));
+  await settle();
+  assert.deepEqual(await geometry(), original, 'enable preserves text positions and wrap points');
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => document.querySelector('.app').classList.toggle('app--dark', dark), dark);
+    const band = await page.$eval('.editor__line-numbers', elt => ({
+      height: elt.getBoundingClientRect().height, width: elt.getBoundingClientRect().width,
+      background: getComputedStyle(elt).backgroundColor, shadow: getComputedStyle(elt).boxShadow,
+    }));
+    assert.equal(band.height, await page.$eval('.editor', elt => elt.clientHeight));
+    assert.equal(band.shadow, 'none');
+    assert.notEqual(band.background, 'rgba(0, 0, 0, 0)');
+  }
+  for (const count of [9999, 10000]) {
+    await page.evaluate(count => { setText('line\n'.repeat(count)); }, count);
+    await settle();
+    await page.evaluate(() => { editor.$scrollElt.scrollTop = editor.$scrollElt.scrollHeight - editor.$scrollElt.clientHeight - 120; });
+    await settle();
+    const edge = await page.evaluate(count => {
+      const layer = document.querySelector('.editor__line-numbers').getBoundingClientRect();
+      const row = Array.from(document.querySelectorAll('.editor__line-number')).find(row => +row.textContent === count);
+      const rect = row.getBoundingClientRect();
+      return { left: rect.left - layer.left, right: layer.right - rect.right, width: layer.width };
+    }, count);
+    assert.equal(edge.width, baseWidth);
+    assert.ok(count === 9999 ? edge.left >= 0 : edge.left < 0, JSON.stringify(edge));
+    assert.equal(edge.right, 2);
+  }
+  console.log('PASS stable toggle geometry, full-height theme background, four digits fit and fifth overflows left');
+  await page.evaluate(() => { setText('a long source line '.repeat(200) + '\n\nlast\n'); editor.$scrollElt.scrollTop = 0; });
   await settle();
   assert.deepEqual((await read()).rows.map(row => row.number), [1]);
   await page.evaluate(() => { editor.$scrollElt.scrollTop = 150; });
@@ -96,6 +138,23 @@ try {
   });
   assert.equal(align.inside, false);
   assert.ok(Math.abs(align.textTop - align.lineTop) < 1, JSON.stringify(align));
+  for (const monospaced of [false, true]) {
+    for (const [soft, hard] of [[-2, 3], [0, 0], [4, 10], [-4, -1]]) {
+      await page.evaluate(({ monospaced, soft, hard }) => {
+        editor.$contentElt.classList.toggle('monospaced', monospaced);
+        editor.$contentElt.style.setProperty('--kedit-soft-wrap-offset', `${soft}px`);
+        editor.$contentElt.style.setProperty('--kedit-hard-break-offset', `${hard}px`);
+      }, { monospaced, soft, hard });
+      const baselines = [];
+      for (const text of ['\n', 'x\n', '中\n', '\n']) {
+        await page.evaluate(text => { editor.$scrollElt.scrollTop = 0; setText(text); }, text);
+        await settle();
+        baselines.push((await read()).rows[0].top);
+      }
+      assert.ok(Math.max(...baselines) - Math.min(...baselines) < 0.5, JSON.stringify({ monospaced, soft, hard, baselines }));
+    }
+  }
+  console.log('PASS empty/Latin/Chinese/delete baseline stability with both fonts and four line-spacing settings');
   await page.evaluate(() => { setText('old\ntext\n'); remount(); setText('new\n'); });
   await settle();
   assert.deepEqual((await read()).rows.map(row => row.number), [1]);

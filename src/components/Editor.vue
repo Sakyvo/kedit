@@ -1,9 +1,11 @@
 <template>
   <div class="editor-container">
     <div ref="editorRoot" class="editor" ondrop="return false;">
-      <pre class="editor__inner markdown-highlighting" :style="{padding: styles.editorPadding, paddingLeft: `calc(${styles.editorPadding.split(' ')[3]} + var(--editor-line-number-space, 0px))`}" :class="{monospaced: computedSettings.editor.monospacedFontOnly}"></pre>
+      <pre class="editor__inner markdown-highlighting" :style="{padding: styles.editorPadding, paddingLeft: `calc(${styles.editorGutterWidth}px + max(${styles.editorPadding.split(' ')[1]}, calc(var(--editor-line-number-space, 4em) + 6px)))`}" :class="{monospaced: computedSettings.editor.monospacedFontOnly}"></pre>
       <div class="gutter" :style="{left: styles.editorGutterLeft + 'px'}">
         <comment-list v-if="styles.editorGutterWidth"></comment-list>
+      </div>
+      <div class="editor__discussion-action" :style="{right: styles.editorPadding.split(' ')[1]}">
         <editor-new-discussion-button v-if="!isCurrentTemp"></editor-new-discussion-button>
       </div>
     </div>
@@ -131,7 +133,8 @@ export default {
   },
   beforeUnmount() {
     if (editorSvc.editorElt?.parentNode === this.$refs.editorRoot) {
-      editorSvc.syncLineNumbers(false);
+      editorSvc.lineNumbers?.dispose();
+      editorSvc.lineNumbers = null;
     }
   },
   mounted() {
@@ -284,6 +287,7 @@ export default {
 @import '../styles/variables.scss';
 
 .editor-container {
+  overflow: hidden;
   position: absolute;
   width: 100%;
   height: 100%;
@@ -302,10 +306,19 @@ export default {
   }
 }
 
+.editor__discussion-action {
+  position: absolute;
+  top: 0;
+  width: 0;
+}
+
 .editor__line-numbers {
   position: absolute;
   top: 0;
   left: 0;
+  bottom: 0;
+  width: calc(4ch + 4px);
+  background: rgba(0, 0, 0, 0.06);
   font-family: $font-family-monospace;
   font-size: $font-size-monospace;
   font-variant-numeric: tabular-nums;
@@ -315,13 +328,14 @@ export default {
 
   .app--dark & {
     color: $editor-color-dark-blockquote;
+    background: rgba(255, 255, 255, 0.06);
   }
 }
 
 .editor__line-number {
   position: absolute;
-  left: 0;
-  right: 1ch;
+  right: 2px;
+  width: max-content;
   text-align: right;
   white-space: nowrap;
 }

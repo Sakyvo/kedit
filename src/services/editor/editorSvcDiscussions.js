@@ -117,8 +117,8 @@ function reversePatches(patches) {
 
 export default {
   createClEditor(editorElt) {
-    if (this.disposeLineNumbers) this.disposeLineNumbers();
-    this.disposeLineNumbers = null;
+    this.lineNumbers?.dispose();
+    this.lineNumbers = null;
     this.clEditor = cledit(editorElt, editorElt.parentNode, true);
     this.syncLineNumbers();
     ({ clEditor } = this);
@@ -150,7 +150,7 @@ export default {
     });
     clEditor.on('focus', () => store.commit('discussion/setNewCommentFocus', false));
   },
-  // 行号列随设置实时开关：关闭即移除层并释放列宽，重新开启重建编号。
+  // Keep the measured gutter space even while its display is disabled.
   syncLineNumbers(
     enabled = isLineNumbersEnabled(store.getters['data/computedSettings']),
   ) {
@@ -158,13 +158,10 @@ export default {
     if (!clEditor || !clEditor.$scrollElt) {
       return;
     }
-    if (enabled) {
-      if (!this.disposeLineNumbers) {
-        this.disposeLineNumbers = mountLineNumbers(clEditor);
-      }
-    } else if (this.disposeLineNumbers) {
-      this.disposeLineNumbers();
-      this.disposeLineNumbers = null;
+    if (!this.lineNumbers) {
+      this.lineNumbers = mountLineNumbers(clEditor, enabled);
+    } else {
+      this.lineNumbers.setEnabled(enabled);
     }
   },
   initClEditorInternal(opts) {

@@ -11,19 +11,16 @@ export function sourceLineStarts(text) {
 export const isLineNumbersEnabled = settings =>
   !settings || settings.lineNumbers !== false;
 
-export function lineNumberDigits(lineCount) {
-  return Math.max(3, String(lineCount).length);
-}
-
-export default function mountLineNumbers(editor) {
+export default function mountLineNumbers(editor, enabled = true) {
   const content = editor.$contentElt;
   const scroller = editor.$scrollElt;
   const layer = document.createElement('div');
   layer.className = 'editor__line-numbers';
   layer.setAttribute('aria-hidden', 'true');
-  scroller.appendChild(layer);
+  scroller.parentNode.appendChild(layer);
+  layer.style.visibility = enabled ? 'visible' : 'hidden';
   let text = editor.getContent();
-  let starts = sourceLineStarts(text);
+  let starts = null;
   let groups = null;
   let frame = null;
   let disposed = false;
@@ -63,7 +60,6 @@ export default function mountLineNumbers(editor) {
   const draw = () => {
     frame = null;
     if (disposed || !content.isConnected) return;
-    layer.style.width = `${lineNumberDigits(starts.length) + 2}ch`;
     const width = layer.getBoundingClientRect().width;
     const space = `${width}px`;
     if (content.style.getPropertyValue('--editor-line-number-space') !== space) {
@@ -71,7 +67,9 @@ export default function mountLineNumbers(editor) {
     }
     const scrollRect = scroller.getBoundingClientRect();
     const contentStyle = getComputedStyle(content);
-    layer.style.left = `${parseFloat(contentStyle.paddingLeft) - width}px`;
+    layer.style.left = `${scroller.offsetLeft + parseFloat(contentStyle.paddingLeft) - width - 6}px`;
+    if (!enabled) return;
+    if (!starts) starts = sourceLineStarts(text);
     if (!groups) groups = indexLines();
     const positions = [];
     groups.forEach(({ section, anchors }) => {
@@ -80,7 +78,11 @@ export default function mountLineNumbers(editor) {
         || sectionRect.top > scrollRect.bottom) return;
       const rectAt = (index) => {
         const { range, br } = anchors[index];
-        return br ? br.getBoundingClientRect() : range.getClientRects()[0];
+        if (!br) return range.getClientRects()[0];
+        const rect = br.getBoundingClientRect();
+        // .lf shifts BR below the text baseline to add hard-break spacing.
+        const shift = parseFloat(getComputedStyle(br.parentElement).verticalAlign) || 0;
+        return { top: rect.top + shift, bottom: rect.bottom + shift, height: rect.height };
       };
       // A single section can contain thousands of lines: seek the viewport first.
       let low = 0;
@@ -97,14 +99,14 @@ export default function mountLineNumbers(editor) {
         if (rect && rect.height && rect.bottom >= scrollRect.top) {
           positions.push({
             number: anchors[index].number,
-            top: rect.top - scrollRect.top + scroller.scrollTop,
+            top: rect.top - scrollRect.top,
             height: rect.height,
           });
         }
       }
     });
     if (!text && !positions.length) {
-      positions.push({ number: 1, top: content.offsetTop + parseFloat(contentStyle.paddingTop), height: parseFloat(contentStyle.lineHeight) });
+      positions.push({ number: 1, top: content.offsetTop + parseFloat(contentStyle.paddingTop) - scroller.scrollTop, height: parseFloat(contentStyle.lineHeight) });
     }
     const visible = new Set();
     positions.forEach(({ number, top, height }) => {
@@ -132,11 +134,11 @@ export default function mountLineNumbers(editor) {
   };
   const invalidate = () => {
     groups = null;
-    schedule();
+    if (enabled) schedule();
   };
   const onContent = (value) => {
     text = value;
-    starts = sourceLineStarts(value);
+    starts = null;
     invalidate();
   };
   const mutationObserver = new MutationObserver(invalidate);
@@ -144,7 +146,8 @@ export default function mountLineNumbers(editor) {
   const resizeObserver = new ResizeObserver(schedule);
   resizeObserver.observe(content);
   resizeObserver.observe(scroller);
-  scroller.addEventListener('scroll', schedule, { passive: true });
+  const onScroll = () => { if (enabled) schedule(); };
+  scroller.addEventListener('scroll', onScroll, { passive: true });
   content.addEventListener('load', schedule, true);
   document.fonts.addEventListener('loadingdone', schedule);
   editor.on('contentChanged', onContent);
@@ -156,7 +159,7 @@ export default function mountLineNumbers(editor) {
     cancelAnimationFrame(frame);
     mutationObserver.disconnect();
     resizeObserver.disconnect();
-    scroller.removeEventListener('scroll', schedule);
+    scroller.removeEventListener('scroll', onScroll);
     content.removeEventListener('load', schedule, true);
     document.fonts.removeEventListener('loadingdone', schedule);
     editor.off('contentChanged', onContent);
@@ -168,5 +171,16 @@ export default function mountLineNumbers(editor) {
   };
   editor.on('destroy', onDestroy);
   schedule();
-  return dispose;
+  return {
+    dispose,
+    setEnabled(value) {
+      enabled = value;
+      layer.style.visibility = enabled ? 'visible' : 'hidden';
+      if (!enabled) {
+        rows.forEach(row => row.remove());
+        rows.clear();
+      }
+      schedule();
+    },
+  };
 }
