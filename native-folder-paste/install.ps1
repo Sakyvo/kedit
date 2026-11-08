@@ -2,7 +2,7 @@ param()
 $ErrorActionPreference = 'Stop'
 $source = $PSScriptRoot
 $homePath = Join-Path $env:LOCALAPPDATA 'KEDIT/FolderPaste'
-$manifest = Get-Content (Join-Path $source 'extension/manifest.json') -Raw | ConvertFrom-Json
+$manifest = Get-Content (Join-Path $source 'extension/manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $keyBytes = [Convert]::FromBase64String($manifest.key)
 $sha = [Security.Cryptography.SHA256]::Create()
 $hash = $sha.ComputeHash($keyBytes)

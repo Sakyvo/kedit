@@ -12,6 +12,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 只写当前用户 `%LOCALAPPDATA%\KEDIT\FolderPaste` 和本工具的 Native Messaging 注册项，不需要管理员权限。**安装脚本不会代替你安装浏览器扩展。**
 
+先确认命令输出 `Installed for the current user`；安装成功后才会创建扩展目录。安装兼容 Windows PowerShell 5.1 和 PowerShell 7，扩展清单按 UTF-8 读取。
+
 1. 打开 `vivaldi://extensions`，启用“开发者模式”。
 2. 点击“加载已解压的扩展程序”，选择安装命令输出的 `extension` 文件夹。
 3. 刷新 `https://kedit.cc.cd/`，复制文件夹后在编辑区粘贴。
@@ -38,6 +40,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```powershell
 pwsh -File build.ps1 -Package
 node --test ../test/node/folderPaste.test.js ../test/node/folderPasteExtension.test.js
+powershell -NoProfile -ExecutionPolicy Bypass -File test/install.test.ps1
+pwsh -NoProfile -File test/install.test.ps1
 ```
 
 人工验收：单目录、含中文/空格目录、多目录、UNC 路径；选区替换与一次撤销/重做；文本/HTML/图片回归；其他网站和资源管理器复制不受影响；停用扩展及卸载主机后的行为。

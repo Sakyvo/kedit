@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $delivery = Join-Path $root '.target/.distribution/app'
-$sandbox = Join-Path $root '.target/test/install'
+$sandbox = Join-Path $root ('.target/test/install ' + [char]0x8d44 + [char]0x6599)
 if (Test-Path $sandbox) { throw 'Test sandbox already exists' }
 $originalLocalAppData = $env:LOCALAPPDATA
 $env:LOCALAPPDATA = $sandbox
@@ -42,7 +42,12 @@ try {
   if ($registry.Value -ne $manifestPath) { throw 'Wrong host registration' }
   $bytes = [IO.File]::ReadAllBytes($manifestPath)
   if ($bytes[0] -ne 123) { throw 'Native manifest must be BOM-free JSON' }
-  $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+  $manifest = Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  $extensionPath = Join-Path $homePath 'extension/manifest.json'
+  $extension = Get-Content $extensionPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  if (!$extension.name.Contains([string][char]0x6587)) { throw 'Extension name lost its UTF-8 Chinese text' }
+  if ((Get-FileHash $extensionPath).Hash -ne (Get-FileHash (Join-Path $delivery 'extension/manifest.json')).Hash) { throw 'Extension manifest was changed during installation' }
+  if ($manifest.path -ne (Join-Path $homePath 'KeditFolderPaste.exe')) { throw 'Installed path lost its Unicode characters' }
   if ($manifest.allowed_origins.Count -ne 1 -or $manifest.allowed_origins[0] -notmatch '^chrome-extension://[a-p]{32}/$') { throw 'Invalid extension allowlist' }
   if (!(Test-Path $manifest.path)) { throw 'Missing installed executable' }
   & (Join-Path $delivery 'install.ps1') # Reinstall is idempotent.
