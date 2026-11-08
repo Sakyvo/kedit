@@ -1,6 +1,6 @@
 import DiffMatchPatch from 'diff-match-patch';
 import cledit from './cledit';
-import mountLineNumbers from './lineNumbers';
+import mountLineNumbers, { isLineNumbersEnabled } from './lineNumbers';
 import utils from '../utils';
 import diffUtils from '../diffUtils';
 import store from '../../store';
@@ -118,8 +118,9 @@ function reversePatches(patches) {
 export default {
   createClEditor(editorElt) {
     if (this.disposeLineNumbers) this.disposeLineNumbers();
+    this.disposeLineNumbers = null;
     this.clEditor = cledit(editorElt, editorElt.parentNode, true);
-    this.disposeLineNumbers = mountLineNumbers(this.clEditor);
+    this.syncLineNumbers();
     ({ clEditor } = this);
     // 矩形选择（ADR 0014）：Alt+拖拽瞬态列模式
     new cledit.ColumnSelection(clEditor);
@@ -148,6 +149,23 @@ export default {
       isChangePatch = false;
     });
     clEditor.on('focus', () => store.commit('discussion/setNewCommentFocus', false));
+  },
+  // 行号列随设置实时开关：关闭即移除层并释放列宽，重新开启重建编号。
+  syncLineNumbers(
+    enabled = isLineNumbersEnabled(store.getters['data/computedSettings']),
+  ) {
+    const { clEditor } = this;
+    if (!clEditor || !clEditor.$scrollElt) {
+      return;
+    }
+    if (enabled) {
+      if (!this.disposeLineNumbers) {
+        this.disposeLineNumbers = mountLineNumbers(clEditor);
+      }
+    } else if (this.disposeLineNumbers) {
+      this.disposeLineNumbers();
+      this.disposeLineNumbers = null;
+    }
   },
   initClEditorInternal(opts) {
     const content = store.getters['content/current'];

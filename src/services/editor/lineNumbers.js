@@ -7,6 +7,10 @@ export function sourceLineStarts(text) {
   return starts;
 }
 
+// 行号总闸（与动态加载同构）：默认开，用户可显式关掉；旧配置缺该键即开启。
+export const isLineNumbersEnabled = settings =>
+  !settings || settings.lineNumbers !== false;
+
 export function lineNumberDigits(lineCount) {
   return Math.max(3, String(lineCount).length);
 }

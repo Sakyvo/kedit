@@ -15,6 +15,7 @@ export default [
         max: 1000000,
         step: 1000,
       },
+      { path: ['lineNumbers'], type: 'toggle', label: '显示行号' },
     ],
   },
   {

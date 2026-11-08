@@ -131,7 +131,7 @@ export default {
   },
   beforeUnmount() {
     if (editorSvc.editorElt?.parentNode === this.$refs.editorRoot) {
-      editorSvc.disposeLineNumbers?.();
+      editorSvc.syncLineNumbers(false);
     }
   },
   mounted() {

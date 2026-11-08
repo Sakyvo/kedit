@@ -176,6 +176,29 @@ try {
   assert.ok(new Set(colors).size === 2, JSON.stringify(colors));
   console.log('PASS desktop/narrow layout, editor/split mode, light/dark and preview isolation');
 
+  // Settings toggle: off removes the gutter and releases the column width.
+  const gutterState = () => page.evaluate(() => ({
+    layers: document.querySelectorAll('.editor__line-numbers').length,
+    rows: document.querySelectorAll('.editor__line-number').length,
+    space: __editorSvc.editorElt.style.getPropertyValue('--editor-line-number-space') || '',
+    text: __editorSvc.clEditor.getContent(),
+  }));
+  const onState = await gutterState();
+  assert.equal(onState.layers, 1);
+  assert.notEqual(onState.space, '');
+  await page.evaluate(() => testStore.dispatch('data/setSettings', ['colorTheme: light', 'lineNumbers: false', ''].join('\n')));
+  await page.waitForFunction(() => !document.querySelector('.editor__line-numbers'));
+  const offState = await gutterState();
+  assert.deepEqual({ layers: offState.layers, rows: offState.rows, space: offState.space }, { layers: 0, rows: 0, space: '' });
+  assert.equal(offState.text, onState.text);
+  await page.evaluate(() => testStore.dispatch('data/setSettings', ['colorTheme: light', 'lineNumbers: true', ''].join('\n')));
+  await page.waitForFunction(() => document.querySelectorAll('.editor__line-number').length > 0);
+  assert.deepEqual(await numbers(), [1, 2, 3]);
+  console.log('PASS settings toggle removes/recreates the gutter and releases column width');
+  await page.evaluate(() => testStore.dispatch('data/setSettings', 'colorTheme: light'));
+  await settle();
+  assert.equal(await page.$$eval('.editor__line-numbers', n => n.length), 1, 'missing key defaults to enabled');
+
   await page.evaluate(() => {
     const id = 'line-number-second-document';
     testStore.commit('content/setItem', { id: `${id}/content`, text: 'NewDocument\n', properties: '\n', discussions: {}, comments: {} });

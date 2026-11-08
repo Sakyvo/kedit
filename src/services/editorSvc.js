@@ -30,6 +30,7 @@ import {
 import { createLayoutRemeasure } from './editor/layoutRemeasure';
 import { applyRememberedCap, fitImgWrapper, fitAllImgWrappers } from './editor/imgLineFit';
 import { isDynamicLoadingEnabled, getDynamicLoadingThreshold } from './editor/dynamicLoading';
+import { isLineNumbersEnabled } from './editor/lineNumbers';
 import { createDocModel } from './editor/segmentedDocModel.js';
 import { windowedDiff } from './editor/windowedDiff.js';
 import { mergeMutationDeltas } from './editor/mutationDeltas.js';
@@ -2054,6 +2055,13 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
           console.info(`[kedit] 动态加载：${enabled ? '开' : '关'}`);
         }
       },
+      { immediate: true },
+    );
+
+    // 行号列总闸：跟随设置实时开关（与动态加载同构）
+    store.watch(
+      () => isLineNumbersEnabled(store.getters['data/computedSettings']),
+      enabled => this.syncLineNumbers(enabled),
       { immediate: true },
     );
 
