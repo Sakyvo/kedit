@@ -34,6 +34,18 @@ Network: 4 Mi bit/s down, 1 Mi bit/s up, 75ms latency, CPU 2x, 1280x800 viewport
 The report retains individual paint/input-readback timings and resource
 encoded/transfer sizes; do not label its warm samples as SW hits.
 
+Measurement `input-state-subscription-v2` timestamps the actual text change in
+a synchronous store subscription after real keyboard input. It also records
+editor-element appearance, input event, host readback and long tasks so host
+round trips are not mistaken for page processing. Do not splice v1 and v2
+samples into a single comparison: rerun both baseline and candidate unchanged.
+
+For one diagnostic cycle, set `STARTUP_PROFILE` to an output path prefix;
+the warm navigation produces `<prefix>-1.json` (CDP CPU profile). This reduces
+the run to one context and marks `profiled: true`; it is **not** a three-sample
+performance acceptance run. Unset it for normal benchmarks. No network/CPU
+settings change. Protocol calls time out after 20 seconds.
+
 `fonts` deliberately blocks fonts to exercise readable fallback. Glyph quality
 and perceived layout shifts still require human acceptance. Functional export
 checks use the existing HTML-export/HTML-copy pipeline, shared by Publish;

@@ -53,13 +53,14 @@ try {
   browser = await puppeteer.launch({
     executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
     headless: true,
+    protocolTimeout: 20000,
     args: ['--disable-background-networking', '--no-first-run', '--disable-default-apps'],
   });
 } catch (error) {
   await new Promise(done => server.close(done));
   throw error;
 }
-const report = { mode, root, browser: await browser.version(), protocol: { downloadMbps: 4, uploadMbps: 1, latencyMs: 75, cpuRate: 2, viewport: '1280x800', document: '# Startup benchmark\n\nOrdinary Markdown without formulas or diagrams.\n' }, samples: [] };
+const report = { mode, root, measurement: 'input-state-subscription-v2', profiled: !!process.env.STARTUP_PROFILE, browser: await browser.version(), protocol: { downloadMbps: 4, uploadMbps: 1, latencyMs: 75, cpuRate: 2, viewport: '1280x800', document: '# Startup benchmark\n\nOrdinary Markdown without formulas or diagrams.\n' }, samples: [] };
 const ready = async page => {
   await page.waitForFunction(() => document.querySelector('.editor__inner')?.isContentEditable, { timeout: 30000, polling: 20 }).catch(async error => {
     console.error('STARTUP', await page.evaluate(() => ({ url: location.href, body: document.body.innerText.slice(0, 1000) })), requests.slice(-10));
@@ -92,18 +93,32 @@ const edit = async (page, text, replace = false) => {
 const measure = async (page, label, path = '/') => {
   await page.goto(`${origin}${path}`, { waitUntil: 'domcontentloaded' });
   await ready(page);
-  const before = await readState(page);
-  const marker = 'z';
-  await edit(page, marker);
-  await page.waitForFunction(previous => {
+  await page.evaluate(() => {
+    const editor = document.querySelector('.editor__inner');
     const store = document.querySelector('[data-v-app]').__vue_app__.config.globalProperties.$store;
-    if (store.getters['content/current'].text === previous) return false;
-    window.editConfirmedAt = performance.now();
-    return true;
-  }, {}, before.text);
+    const before = store.getters['content/current'].text;
+    editor.focus();
+    window.inputProbeStartedAt = performance.now();
+    editor.addEventListener('input', () => { window.inputEventAt = performance.now(); }, { once: true });
+    const unsubscribe = store.subscribe(() => {
+      if (store.getters['content/current'].text === before) return;
+      window.editConfirmedAt = performance.now();
+      window.confirmedEdit = store.getters['content/current'].text;
+      unsubscribe();
+    });
+  });
+  await page.keyboard.type('z', { delay: 15 });
+  await page.waitForFunction(() => window.editConfirmedAt !== undefined && window.confirmedEdit.includes('z'), { timeout: 10000 });
   const sample = await page.evaluate(label => ({
     label,
     editableMs: Math.round(window.editConfirmedAt),
+    diagnostic: {
+      editorElementMs: window.editorElementAt,
+      inputProbeMs: window.inputProbeStartedAt,
+      inputEventMs: window.inputEventAt,
+      hostReadbackMs: performance.now(),
+      longTasks: window.startupLongTasks,
+    },
     fcpMs: performance.getEntriesByName('first-contentful-paint')[0]?.startTime,
     sw: !!navigator.serviceWorker.controller,
     resources: performance.getEntriesByType('resource').map(e => ({ url: new URL(e.name).pathname, start: Math.round(e.startTime), duration: Math.round(e.duration), encoded: e.encodedBodySize, transfer: e.transferSize, initiator: e.initiatorType })),
@@ -113,7 +128,7 @@ const measure = async (page, label, path = '/') => {
 };
 try {
   if (mode === 'benchmark') {
-    for (let run = 1; run <= 3; run += 1) {
+    for (let run = 1; run <= (process.env.STARTUP_PROFILE ? 1 : 3); run += 1) {
       const context = await browser.createBrowserContext();
       const page = await context.newPage();
       await page.setViewport({ width: 1280, height: 800 });
@@ -121,6 +136,16 @@ try {
       await page.evaluateOnNewDocument(() => {
         // Page interception does not cover worker-owned precache requests.
         navigator.serviceWorker.register = () => Promise.reject(new Error('SW disabled for HTTP-cache benchmark'));
+        window.startupLongTasks = [];
+        new PerformanceObserver(list => {
+          window.startupLongTasks.push(...list.getEntries().map(entry => ({ start: entry.startTime, duration: entry.duration })));
+        }).observe({ type: 'longtask', buffered: true });
+        const editorObserver = new MutationObserver(() => {
+          if (!document.querySelector('.editor__inner')?.isContentEditable) return;
+          window.editorElementAt = performance.now();
+          editorObserver.disconnect();
+        });
+        editorObserver.observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['contenteditable'] });
       });
       page.on('requestfailed', req => {
         if (req.url().startsWith(origin) && !req.url().endsWith('/sw.js')) console.error('REQUEST FAILED', req.url(), req.failure());
@@ -131,6 +156,7 @@ try {
       await cdp.send('Network.enable');
       await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 75, downloadThroughput: 4 * 1024 * 1024 / 8, uploadThroughput: 1024 * 1024 / 8, connectionType: 'cellular4g' });
       await page.emulateCPUThrottling(2);
+      if (process.env.STARTUP_PROFILE) console.log('PROFILE: cold visit');
       await measure(page, `first-${run}`);
       await edit(page, report.protocol.document, true);
       // Allow the existing debounced persistence to flush before navigation.
@@ -148,8 +174,21 @@ try {
         return false;
       }, { timeout: 15000, polling: 100 });
       await cdp.send('Network.clearBrowserCache');
+      if (process.env.STARTUP_PROFILE) console.log('PROFILE: persisted restart');
       await measure(page, `restart-${run}`);
+      if (process.env.STARTUP_PROFILE) {
+        console.log('PROFILE: starting CPU sampler');
+        await cdp.send('Profiler.enable');
+        await cdp.send('Profiler.start');
+      }
       await measure(page, `http-warm-${run}`);
+      if (process.env.STARTUP_PROFILE) {
+        console.log('PROFILE: stopping CPU sampler');
+        const { profile } = await cdp.send('Profiler.stop');
+        const profilePath = `${process.env.STARTUP_PROFILE}-${run}.json`;
+        await mkdir(resolve(profilePath, '..'), { recursive: true });
+        await writeFile(profilePath, JSON.stringify(profile));
+      }
       await context.close();
     }
   } else {
