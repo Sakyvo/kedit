@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const puppeteer = require(process.env.PUPPETEER_MODULE || 'puppeteer-core');
 const root = resolve(process.argv[2] || 'dist');
 const mode = process.argv[3] || 'probe';
-const modes = ['probe', 'benchmark', 'shell', 'render', 'failure', 'switch', 'sw', 'update', 'routes', 'fonts', 'slow-init', 'init-error', 'css-failure', 'disabled', 'copy'];
+const modes = ['probe', 'benchmark', 'shell', 'render', 'failure', 'switch', 'sw', 'update', 'routes', 'fonts', 'slow-init', 'init-error', 'css-failure', 'disabled', 'copy', 'preload'];
 assert.ok(modes.includes(mode), `Unknown mode: ${mode}`);
 const reportPath = process.argv[4];
 const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff': 'font/woff', '.woff2': 'font/woff2', '.png': 'image/png' };
@@ -214,6 +214,7 @@ try {
         || (mode === 'failure' && rendererUrl(req.url()))
         || (mode === 'css-failure' && /\/katex[.-].*\.css/.test(req.url()))
         || (mode === 'fonts' && /\.(woff2?|ttf)(\?|$)/.test(req.url()))) req.abort();
+      else if (mode === 'preload' && /\/static\/index-[^/]+\.js$/.test(req.url())) held.push(req);
       else if (holdRenderers && rendererUrl(req.url())) held.push(req);
       else req.continue();
     });
@@ -254,6 +255,21 @@ try {
       }
       assert.deepEqual(errors, []);
       console.log(`PASS: ${mode}`);
+    } else if (mode === 'preload') {
+      const navigation = page.goto(origin, { waitUntil: 'domcontentloaded' });
+      navigation.catch(() => {});
+      await page.waitForSelector('#startup svg');
+      await page.waitForFunction(() => performance.getEntriesByType('resource').some(entry => /\/main[.-].*\.js$/.test(entry.name)), { timeout: 5000 });
+      assert.equal(await page.$('.layout'), null, 'Preloading must not execute the app');
+      for (const req of held) await req.continue();
+      await navigation;
+      await ready(page);
+      await edit(page, 'preload-edit');
+      const mainRequests = requests.filter(url => /\/main[.-].*\.js$/.test(url));
+      assert.equal(mainRequests.length, 1, 'Bootstrap reuses the preload');
+      assert.equal(requests.some(rendererUrl), false);
+      assert.deepEqual(errors, []);
+      console.log('PASS: preload discovered before bootstrap, reused for real editing');
     } else if (mode === 'shell') {
       for (const path of ['/', '/app', '/app/']) {
         await page.goto(`${origin}${path}`, { waitUntil: 'domcontentloaded' });

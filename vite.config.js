@@ -122,6 +122,23 @@ export default defineConfig({
         return html.replace('<!-- startup-icon -->', icon);
       },
     },
+    {
+      name: 'preload-editor',
+      transformIndexHtml: {
+        order: 'post',
+        handler(html, { bundle }) {
+          if (!bundle) return html;
+          const main = Object.values(bundle).find(chunk => chunk.type === 'chunk'
+            && chunk.moduleIds.some(id => id.replaceAll('\\', '/').endsWith('/src/main.js')));
+          if (!main) throw new Error('Missing editor entry chunk');
+          return { html, tags: [{
+            tag: 'link',
+            attrs: { rel: 'modulepreload', crossorigin: '', href: `/${main.fileName}` },
+            injectTo: 'head',
+          }] };
+        },
+      },
+    },
     vue(),
     // visualizer(), // temp off: build OOM when system free RAM is low
     viteCompression({
