@@ -174,7 +174,21 @@ export default defineConfig({
       registerType: 'prompt',
       useCredentials: true,
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,gif,json,webmanifest,woff,woff2,ttf}'],
+        globPatterns: [
+          'static/index-*.js',
+          'static/js/main.*.js',
+          'static/js/templateWorker-*.js',
+          'static/main.*.css',
+          'static/fonts/kedit-latin-*.woff2',
+          'static/fonts/RobotoMono-*.woff',
+          'app/index.html',
+          'manifest.webmanifest',
+          'static/favicon.ico',
+          'static/favicon-32x32.png',
+          'static/apple-touch-icon-180x180.png',
+          'static/android-chrome-192x192.png',
+          'static/android-chrome-512x512.png',
+        ],
         globIgnores: [
           '**/.*',
           '**/*.map',
@@ -186,6 +200,13 @@ export default defineConfig({
           'static/apple-touch-*.png',
           'static/mstile-*.png',
           'static/yandex-browser-*.png',
+          'static/js/abc_*.js',
+          'static/js/mermaid*.js',
+          'static/js/katex*.js',
+          'static/katex*.css',
+          'static/landing/**',
+          'logo.*.png',
+          'static/favicon.png',
         ],
         navigateFallback: '/app',
         navigateFallbackDenylist: [/^\/oauth2\/callback/],
@@ -202,6 +223,17 @@ export default defineConfig({
           /^utm_/,
           /^fbclid$/,
         ],
+        runtimeCaching: [{
+          urlPattern: ({ url, request }) => request.method === 'GET'
+            && url.origin === self.location.origin
+            && url.pathname.startsWith('/static/')
+            && !url.pathname.includes('/themes/'),
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'kedit-static-runtime',
+            expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
+          },
+        }],
         ...appShellEntries(),
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024 // 设置为 3 MiB
       },
