@@ -121,7 +121,12 @@ export default {
     window.viewFileByPath = this.viewFileByPath;
     try {
       await syncSvc.init();
-      await networkSvc.init();
+      // Network listeners/config are useful after local state is ready, but are
+      // not a prerequisite for opening the Author's local Document.
+      networkSvc.init().catch((err) => {
+        console.error(err); // eslint-disable-line no-console
+        store.dispatch('notification/error', err);
+      });
       // store 编辑主题
       const editTheme = localStorage.getItem('theme/currEditTheme');
       store.dispatch('theme/setEditTheme', editTheme || 'default');

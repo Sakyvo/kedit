@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const puppeteer = require(process.env.PUPPETEER_MODULE || 'puppeteer-core');
 const root = resolve(process.argv[2] || 'dist');
 const mode = process.argv[3] || 'probe';
-const modes = ['probe', 'benchmark', 'shell', 'render', 'failure', 'switch', 'sw', 'update', 'routes', 'fonts', 'slow-init', 'init-error', 'css-failure', 'disabled', 'copy', 'preload'];
+const modes = ['probe', 'benchmark', 'shell', 'render', 'failure', 'switch', 'sw', 'update', 'routes', 'fonts', 'slow-init', 'init-error', 'css-failure', 'disabled', 'copy', 'preload', 'network-error'];
 assert.ok(modes.includes(mode), `Unknown mode: ${mode}`);
 const reportPath = process.argv[4];
 const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff': 'font/woff', '.woff2': 'font/woff2', '.png': 'image/png' };
@@ -218,6 +218,15 @@ try {
       else if (holdRenderers && rendererUrl(req.url())) held.push(req);
       else req.continue();
     });
+    if (mode === 'network-error') {
+      await page.evaluateOnNewDocument(() => {
+        let first = true;
+        Object.defineProperty(navigator, 'onLine', { get() {
+          if (first) { first = false; throw new Error('Network initialization failed'); }
+          return true;
+        } });
+      });
+    }
     if (mode === 'slow-init' || mode === 'init-error') {
       await page.evaluateOnNewDocument(fail => {
         const open = indexedDB.open.bind(indexedDB);
@@ -255,6 +264,14 @@ try {
       }
       assert.deepEqual(errors, []);
       console.log(`PASS: ${mode}`);
+    } else if (mode === 'network-error') {
+      await page.goto(origin, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('.notification__content');
+      assert.ok(await page.$eval('.notification__content', el => el.textContent.includes('Network initialization failed')));
+      await ready(page);
+      await edit(page, 'network-failure-still-editable');
+      assert.deepEqual(errors, []);
+      console.log('PASS: network init failure reports the error without blocking local editing');
     } else if (mode === 'preload') {
       const navigation = page.goto(origin, { waitUntil: 'domcontentloaded' });
       navigation.catch(() => {});

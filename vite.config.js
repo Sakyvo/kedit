@@ -147,31 +147,30 @@ export default defineConfig({
       ext: '.gz',
     }),
     vitePluginFaviconsInject('src/assets/favicon.png', {
-      appName: 'StackEdit中文版', // 应用名称
-      appDescription: '笔记利器，在线Markdown编辑器。', // 应用描述
+      appName: 'KEDIT',
+      appShortName: 'KEDIT',
+      appDescription: '笔记利器，在线Markdown编辑器。',
+      start_url: '/',
+      scope: '/',
+      display: 'standalone',
+      orientation: 'any',
+      background: '#ffffff',
+      theme_color: '#ffffff',
+      manifestRelativePaths: false,
+      cacheBustingQueryParam: null,
+      icons: {
+        favicons: ['favicon.ico', 'favicon-32x32.png'],
+        appleIcon: ['apple-touch-icon-180x180.png'],
+        android: ['android-chrome-192x192.png', 'android-chrome-512x512.png'],
+        appleStartup: false,
+        windows: false,
+        yandex: false,
+      },
     }),
     stackeditStaticBundle(),
     VitePWA({
-      manifest: {
-        name: 'KEDIT', // 应用名称
-        short_name: 'KEDIT',
-        description: '笔记利器，在线Markdown编辑器。', // 应用描述
-        display: 'standalone', // 显示模式
-        orientation: 'any', // 屏幕方向
-        start_url: '/', // 应用启动 URL
-        scope: '/',
-        background_color: '#ffffff', // 背景颜色
-        theme_color: '#ffffff',
-        crossorigin: 'use-credentials', // 跨域策略
-        icons: [
-          {
-            src: '/static/favicon.png', // 图标路径
-            sizes: '96x96 128x128 192x192 256x256 384x384 512x512', // 图标尺寸
-            type: 'image/png', // 图标类型
-            purpose: 'any maskable' // 图标用途
-          }
-        ]
-      },
+      // The favicon generator owns the single manifest and its sized icons.
+      manifest: false,
       registerType: 'prompt',
       useCredentials: true,
       workbox: {
