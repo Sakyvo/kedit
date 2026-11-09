@@ -16,6 +16,7 @@ test('service-worker precache contains only the startup shell, not optional rend
   assert.equal(has('logo.'), false);
   assert.equal(has('apple-touch-startup'), false);
   assert.equal(has('favicon.png'), false);
+  assert.ok(has('static/manifest.webmanifest'), 'Install metadata is part of the shell');
   assert.ok(has('index-') || has('startup'));
   assert.ok(has('main.'));
 });

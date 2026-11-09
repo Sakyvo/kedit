@@ -182,12 +182,7 @@ export default defineConfig({
           'static/fonts/kedit-latin-*.woff2',
           'static/fonts/RobotoMono-*.woff',
           'app/index.html',
-          'manifest.webmanifest',
-          'static/favicon.ico',
-          'static/favicon-32x32.png',
-          'static/apple-touch-icon-180x180.png',
-          'static/android-chrome-192x192.png',
-          'static/android-chrome-512x512.png',
+          'static/manifest.webmanifest',
         ],
         globIgnores: [
           '**/.*',
