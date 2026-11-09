@@ -63,7 +63,8 @@ function backgroundFixture() {
 }
 
 test('service worker restricts caller, protocol and payload', () => {
-  for (const patch of [{ origin: 'https://evil.test' }, { frameId: 1 }, { id: 'other' }, { tab: null }, { url: 'https://kedit.cc.cd.evil.test/' }]) {
+  for (const patch of [{ origin: 'https://evil.test' }, { frameId: 1 }, { id: 'other' }, { tab: null },
+    { url: 'https://kedit.cc.cd.evil.test/' }, { url: 'https://evil.test/', tab: { url: 'https://evil.test/' } }]) {
     const f = backgroundFixture();
     assert.equal(f.listener(f.request, { ...f.sender, ...patch }, () => {}), false);
     assert.equal(f.calls.length, 0);
@@ -77,6 +78,17 @@ test('service worker restricts caller, protocol and payload', () => {
   assert.equal(f.listener(f.request, f.sender, value => { reply = value; }), true);
   assert.equal(f.calls[0].host, 'cc.cd.kedit.folder_paste');
   assert.equal(reply.status, 'ok');
+  // Vivaldi (and other Chromium forks) may omit sender.origin entirely.
+  const noOrigin = backgroundFixture();
+  const { origin: _origin, ...withoutOrigin } = noOrigin.sender;
+  assert.equal(noOrigin.listener(noOrigin.request, withoutOrigin, () => {}), true);
+  assert.equal(noOrigin.calls.length, 1);
+  // sender.url missing: fall back to the tab URL of a KEDIT tab.
+  const noUrl = backgroundFixture();
+  const { url: _url, ...withoutUrl } = noUrl.sender;
+  assert.equal(noUrl.listener(noUrl.request, { ...withoutUrl, tab: { url: 'https://kedit.cc.cd/' } }, () => {}), true);
+  const noUrlEvil = backgroundFixture();
+  assert.equal(noUrlEvil.listener(noUrlEvil.request, { ...withoutUrl, tab: { url: 'https://evil.test/' } }, () => {}), false);
   f.runtime.lastError = { message: 'missing host' };
   f.listener(f.request, f.sender, value => { reply = value; });
   assert.equal(reply.status, 'unavailable');

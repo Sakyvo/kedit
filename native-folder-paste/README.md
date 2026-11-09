@@ -18,7 +18,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 2. 点击“加载已解压的扩展程序”，选择安装命令输出的 `extension` 文件夹。
 3. 刷新 `https://kedit.cc.cd/`，复制文件夹后在编辑区粘贴。
 
-扩展 ID 由内置公钥固定；Vivaldi Windows 使用 Chrome 的 NativeMessagingHosts 注册位置。生产扩展只匹配 KEDIT 正式域名，其他网页、搜索框、预览区不会读取路径。
+扩展 ID 由内置公钥固定。Windows 上不同 Chromium 分支读取不同的注册表根，安装脚本会同时写入 Chrome / Chromium / Edge / Brave / Vivaldi 五个 `NativeMessagingHosts` 根，因此换浏览器也无需重装。生产扩展只匹配 KEDIT 正式域名，其他网页、搜索框、预览区不会读取路径。
 
 ## 行为与边界
 
@@ -31,7 +31,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 ## 卸载
 
-先在 `vivaldi://extensions` 移除扩展，再运行安装目录的 `uninstall.ps1`。只删除本工具拥有的注册和已知文件。
+先在 `vivaldi://extensions` 移除扩展，再运行安装目录的 `uninstall.ps1`。只删除本工具拥有、且指向当前安装的注册项和已知文件；指向其他安装的注册项会保留并给出警告。
 
 ## 开发与验证
 

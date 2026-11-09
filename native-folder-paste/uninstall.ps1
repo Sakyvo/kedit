@@ -1,11 +1,26 @@
 $ErrorActionPreference = 'Stop'
 $homePath = Join-Path $env:LOCALAPPDATA 'KEDIT/FolderPaste'
 $nativeManifest = Join-Path $homePath 'cc.cd.kedit.folder_paste.json'
-$keyPath = 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\cc.cd.kedit.folder_paste'
-$current = Get-Item $keyPath -ErrorAction SilentlyContinue
-if ($current) {
-  if ($current.GetValue('') -ne $nativeManifest) { throw 'Registration belongs to a different installation; nothing removed.' }
+$hostName = 'cc.cd.kedit.folder_paste'
+$vendorRoots = @(
+  'Software\Google\Chrome\NativeMessagingHosts',
+  'Software\Chromium\NativeMessagingHosts',
+  'Software\Microsoft\Edge\NativeMessagingHosts',
+  'Software\BraveSoftware\Brave-Browser\NativeMessagingHosts',
+  'Software\Vivaldi\NativeMessagingHosts'
+)
+$removed = 0
+foreach ($root in $vendorRoots) {
+  $keyPath = "HKCU:\$root\$hostName"
+  $current = Get-Item $keyPath -ErrorAction SilentlyContinue
+  if (!$current) { continue }
+  # Only delete registrations that point at this installation.
+  if ($current.GetValue('') -ne $nativeManifest) {
+    Write-Warning "Skipped $keyPath (owned by another installation)."
+    continue
+  }
   Remove-Item $keyPath
+  $removed++
 }
 # Delete only this product's known files, not arbitrary files in the directory.
 @('KeditFolderPaste.exe', 'cc.cd.kedit.folder_paste.json', 'uninstall.ps1',
@@ -16,4 +31,4 @@ if ($current) {
 foreach ($dir in @((Join-Path $homePath 'extension'), $homePath)) {
   if ((Test-Path $dir) -and !(Get-ChildItem -LiteralPath $dir -Force)) { Remove-Item -LiteralPath $dir }
 }
-Write-Host 'Host removed. Remove KEDIT Folder Paste in vivaldi://extensions as well.'
+Write-Host "Host removed from $removed registration(s). Remove KEDIT Folder Paste in vivaldi://extensions as well."
