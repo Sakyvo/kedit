@@ -121,6 +121,49 @@ mounted on the scroll element need an explicit `left:0;top:0` origin —
 auto-positioned absolute containers land at their static flow position
 (below the content) and every child coordinate silently shifts.
 
+### Editor Inline Image Card Order
+
+An inline image card (`.img-wrapper`) shows two halves: the rendered `<img>`
+and its raw `![alt](uri)` source text. `配置 → 性能 → 图片显示` picks their
+vertical order (`editor.inlineImageOrder`, `image-above` default /
+`text-above`).
+
+- The order is decided **in the style layer only**: the wrapper stacks its two
+  children in a flex column and `text-above` merely flips
+  `flex-direction: column-reverse`. The DOM order stays image-first forever
+  (ADR 0016). cledit rebuilds every card on each re-highlight, so making DOM
+  order follow the setting would force a full re-highlight per toggle; the CSS
+  flip is instant, rebuild-free and flicker-free.
+- Do not let this order leak into geometry: the `<img>` is decoration, not
+  editor text, so caret/selection positions are untouched, and
+  `measureMarkerPrefixRoom` / `measureInlineRoom` measure outside the wrapper
+  (`range.setEndBefore(wrapper)`) — ADR 0006's marker-pinning and shrink rules
+  stay exactly as they are.
+- Editor-only. Preview, export and Publish render the image alone; there is no
+  source text to order.
+
+### Modal Spacing and Sticky Bars
+
+Every modal's whitespace comes from one place: `Modal.vue`'s `.modal__inner-2`,
+`.modal__button-bar` and `.form-entry`. Baseline (2026-07 compact):
+`.modal__inner-2 { margin: 16px 10px 32px; padding: 20px 20px 14px }`,
+`.modal__button-bar { margin: 0.5rem -20px -14px; padding: 10px 20px 10px;
+bottom: -14px }`, `.form-entry { margin: 0.5em 0 }`.
+
+- **Coupling iron rule**: the sticky header's cover must equal the top padding
+  — `.modal__inner-2 .tabs`, `.modal__title` use `box-shadow: 0 -Npx` with
+  N = `padding-top`, and `.tabs` uses `margin: 0 -Npx; padding: 0 Npx` with the
+  same N; `.modal__button-bar`'s negative margin + `bottom` must equal the
+  matching paddings. Change the inner padding and you MUST change all three
+  spots together, or scrolled content bleeds through above the tabs / the
+  button bar drifts off the panel edge.
+- Settings modal only (`.modal__inner-1--settings` prefix): fields go
+  single-row — label `1fr` (may wrap) + control fixed 170px on the right,
+  `textfield` height 1.9rem / font 0.95em, section title `8px 0 2px` at 14px,
+  header-button rows with 20px icons and a 120px shortcut field. Textarea
+  fields opt out of the fixed width (`wide` on `FormEntry`). Never scope these
+  to a shared class — other modals keep label-above/full-width fields.
+
 ### Overlay Z-Index Ladder
 
 Fixed stacking order for app-level overlays (established 2026-07; keep new

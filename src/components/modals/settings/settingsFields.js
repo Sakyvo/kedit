@@ -16,6 +16,15 @@ export default [
         step: 1000,
       },
       { path: ['lineNumbers'], type: 'toggle', label: '显示行号' },
+      {
+        path: ['editor', 'inlineImageOrder'],
+        type: 'select',
+        label: '图片显示',
+        options: [
+          { value: 'image-above', label: '图片在上' },
+          { value: 'text-above', label: '文本在上' },
+        ],
+      },
     ],
   },
   {

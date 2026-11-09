@@ -33,7 +33,8 @@ test('the line-number setting follows Sync instead of being device-local', () =>
 
 test('the toggle sits in the performance group right after the dynamic-loading pair', () => {
   const group = settingsFields.find(g => g.title === '性能');
-  assert.deepEqual(group.fields.map(f => f.path.join('.')), [
+  // 只断言本卡关心的前三位；后续新增字段不影响此断言
+  assert.deepEqual(group.fields.slice(0, 3).map(f => f.path.join('.')), [
     'dynamicLoading', 'dynamicLoadingThreshold', 'lineNumbers',
   ]);
   const field = group.fields[2];

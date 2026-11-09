@@ -31,6 +31,7 @@ import { createLayoutRemeasure } from './editor/layoutRemeasure';
 import { applyRememberedCap, fitImgWrapper, fitAllImgWrappers } from './editor/imgLineFit';
 import { isDynamicLoadingEnabled, getDynamicLoadingThreshold } from './editor/dynamicLoading';
 import { isLineNumbersEnabled } from './editor/lineNumbers';
+import { isTextAboveImages } from './editor/inlineImageOrder';
 import { createDocModel } from './editor/segmentedDocModel.js';
 import { windowedDiff } from './editor/windowedDiff.js';
 import { mergeMutationDeltas } from './editor/mutationDeltas.js';
@@ -2079,6 +2080,21 @@ const editorSvc = Object.assign(mitt() , editorSvcDiscussions, editorSvcUtils, {
       () => isLineNumbersEnabled(store.getters['data/computedSettings']),
       enabled => this.syncLineNumbers(enabled),
       { immediate: true },
+    );
+
+    // 图片显示（卡片顺序）总闸：翻序只改样式层（ADR 0016），DOM 不动；
+    // 但卡片高度变了，需在下一帧重 fit + 重测，否则行号/滚动同步读旧几何。
+    store.watch(
+      () => isTextAboveImages(store.getters['data/computedSettings']),
+      (textAbove, wasTextAbove) => {
+        if (textAbove === wasTextAbove) {
+          return;
+        }
+        window.requestAnimationFrame(() => {
+          fitAllImgWrappers(this.editorElt);
+          this.measureSectionDimensions(true);
+        });
+      },
     );
 
     this.emit('inited');

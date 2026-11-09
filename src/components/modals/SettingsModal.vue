@@ -129,6 +129,40 @@ export default {
   max-width: 560px;
 }
 
+// 配置窗专属层（紧凑化）：字段改「标签 + 右侧定宽控件」单行。
+// 全部前缀在 .modal__inner-1--settings 下 —— 其他模态保持标签在上/字段满宽。
+// textarea（新文件默认内容/属性）走 form-entry--wide，仍整块满宽。
+.modal__inner-1--settings {
+  .form-entry:not(.form-entry--inline):not(.form-entry--wide) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 170px;
+    align-items: center;
+    column-gap: 10px;
+    margin: 0.25em 0;
+  }
+
+  .form-entry__label {
+    margin: 0;
+  }
+
+  .form-entry:not(.form-entry--wide) .form-entry__field {
+    width: 170px;
+  }
+
+  // 单行控件高度；textarea 走自身 min-height，不参与定尺
+  .textfield:not(textarea) {
+    height: 1.9rem;
+    font-size: 0.95em;
+    padding: 0 0.4rem;
+  }
+
+  .form-entry__error {
+    font-size: 11px;
+    line-height: 1.2;
+    margin-top: 2px;
+  }
+}
+
 // 默认预览 tab 的只读 yaml：可选中复制阅读，光标用 text（I 型）暗示可选文本
 .form-entry__field--code-editor > .code-editor[disabled] {
   cursor: text;

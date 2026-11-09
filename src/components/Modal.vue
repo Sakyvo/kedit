@@ -305,9 +305,9 @@ export default {
 }
 
 .modal__inner-2 {
-  margin: 40px 10px 100px;
+  margin: 16px 10px 32px;
   background-color: #f8f8f8;
-  padding: 50px 50px 40px;
+  padding: 20px 20px 14px;
   border-radius: $border-radius-base;
   position: relative;
   // 长内容模态：顶栏吸顶、底部按钮栏吸底，不允许内容海出屏幕（配置窗 3310px
@@ -346,7 +346,7 @@ export default {
   font-weight: bold;
   font-size: 1.5rem;
   line-height: 1.4;
-  margin-top: 2.5rem;
+  margin-top: 1rem;
 }
 
 .modal__sub-title {
@@ -378,15 +378,15 @@ export default {
 }
 
 .modal__button-bar {
-  margin: 2rem -50px -40px;
-  padding: 12px 50px 40px;
+  margin: 0.5rem -20px -14px;
+  padding: 10px 20px 10px;
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
   align-items: center;
   position: sticky;
-  // 与其 negative margin 配对：吸到容器边框（scrollport 底 - 填充 40px 仍是背景）
-  bottom: -40px;
+  // 与其 negative margin 配对：吸到容器边框（scrollport 底 - 填充 14px 仍是背景）
+  bottom: -14px;
   background-color: #f8f8f8;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   z-index: 1;
@@ -415,29 +415,30 @@ export default {
 
 // 头部（标题 / 标签页）吸顶，不受内容滚动影响。注意标题/tabs 可能被包裹在
 // .modal__content 里，不能用子选择器。sticky 受包含块约束，最多钉到
-// .modal__content 顶边（容器 padding-top 下方 50px）；滚动内容会从上方
+// .modal__content 顶边（容器 padding-top 下方 20px）；滚动内容会从上方
 // padding 带透出，故用负向上盖板（box-shadow）铺满该带，两侧同样延展。
+// 铁律：盖板高度必须恒等于 .modal__inner-2 的 padding-top，改内距必须同步改这里。
 .modal__inner-2 .modal__title,
 .modal__inner-2 .tabs {
   position: sticky;
   top: 0;
   background-color: #f8f8f8;
   z-index: 1;
-  box-shadow: 0 -50px 0 0 #f8f8f8;
+  box-shadow: 0 -20px 0 0 #f8f8f8;
 
   .app--dark & {
     background-color: #383c4a;
-    box-shadow: 0 -50px 0 0 #383c4a;
+    box-shadow: 0 -20px 0 0 #383c4a;
   }
 }
 
 .modal__inner-2 .tabs {
-  margin: 0 -50px;
-  padding: 0 50px;
+  margin: 0 -20px;
+  padding: 0 20px;
 }
 
 .form-entry {
-  margin: 1em 0;
+  margin: 0.5em 0;
 }
 
 .form-entry__label {
@@ -460,7 +461,7 @@ export default {
 
 // 单行 toggle 变体：☑ 左 + 解释右，无灰框（仅 settings 可视化 tab 使用）
 .form-entry--inline {
-  margin: 0.6em 0;
+  margin: 0.3em 0;
 
   .form-entry__inline-label {
     display: flex;

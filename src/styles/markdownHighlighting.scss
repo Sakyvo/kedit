@@ -142,7 +142,11 @@
   }
 
   .img-wrapper {
-    display: inline-block;
+    // 卡片两块（渲染图 + 原始 ![alt](uri)）纵向堆叠；顺序只由样式层决定，
+    // DOM 顺序恒为 img 先（ADR 0016）。text-above 仅翻 flex-direction。
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
     // Keep the card's first visual line next to its own-line marker: baseline
     // alignment would drop the marker to the wrapper's last line box (readable
     // bug on narrow screens where the source URL wraps several lines).
@@ -380,6 +384,11 @@
       background-color: rgba(0, 0, 0, 0.3);
     }
   }
+}
+
+// 图片显示 = 文本在上：只翻卡片内部纵向顺序，DOM 顺序不变（ADR 0016）。
+.markdown-highlighting.img-text-above .img-wrapper {
+  flex-direction: column-reverse;
 }
 
 .markdown-highlighting--inline {

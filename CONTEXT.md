@@ -52,6 +52,11 @@ _Avoid_: 换行符 (names the character, not the typographic break), 回车
 The source-line number shown to the left of a **Document**'s Markdown editing area, starting at 1 and counting empty lines. **手动换行** starts a new numbered line; **自动换行** does not — only the first visual row of a source line carries its number.
 _Avoid_: 行显示 (ambiguous), 视觉行号 (counts wrapped rows rather than source lines)
 
+**图片显示（Image order）**:
+The order of the two halves inside an editor **inline image card**: the rendered image and its raw `![alt](uri)` source text. `图片在上` (default) puts the image first, `文本在上` puts the source text first. Editor-only — the preview, export and **Publish** render the image alone and carry no source text, so they have no order. Set by `editor.inlineImageOrder` (`image-above` / `text-above`), synced like `lineNumbers`.
+_Config note_: the flip lives in the style layer only; the card's DOM order stays image-first (ADR 0016).
+_Avoid_: 内嵌图片 (that is the on/off switch `editor.inlineImages`, not the order), 图片布局 (width/alignment is ADR 0006's business)
+
 **矩形选择（Column selection）**:
 A column-mode editor state entered by Alt+drag, referencing Notepad4's rectangular-selection mechanics but **not** its visuals: real text is highlighted through CSS Custom Highlight (`::highlight(cl-column)`) and reads exactly like KEDIT's own selection — `::selection`, the highlight, and the short-line fill blocks all draw from one pair of `--selection-bg` / `--selection-fg` variables. Short lines get a row-height fill from their line end to the rectangle's right edge; no whole-block rectangle is ever drawn. Where there is no text — trailing whitespace area, empty paragraphs — nothing is drawn and Alt+drag does not start at all (the browser keeps normal behaviour). Live per-row reselection via band-scan geometry (Range.getClientRects, rAF-throttled; Utils.findContainer is O(document) and banned from hot paths), boundaries from mouse x, sticky column caret after the first keystroke, per-row delete, column-aware paste. Geometry lives in DOM-offset space; edits map DOM↔model offsets and land as full-text transforms — the cledit single-caret architecture is preserved (ADR 0014).
 _Avoid_: 块选择 (vague), 选框/装饰块 (v1–v4 artifacts, rejected), 照搬 Notepad4 配色

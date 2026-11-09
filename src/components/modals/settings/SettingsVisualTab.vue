@@ -67,7 +67,7 @@
         </div>
       </template>
       <template v-else>
-      <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label" :info="infoOf(field)" :inline="field.type === 'toggle'" :has-select="field.type === 'select'">
+      <form-entry v-for="field in section.fields" :key="fieldKey(field)" :label="field.label" :info="infoOf(field)" :inline="field.type === 'toggle'" :has-select="field.type === 'select'" :wide="field.type === 'textarea'">
         <template v-slot:field>
           <input
             v-if="field.type === 'toggle'"
@@ -378,8 +378,8 @@ export default {
 @import '../../../styles/variables.scss';
 
 .settings-visual__section-title {
-  margin: 12px 0 4px;
-  font-size: 15px;
+  margin: 8px 0 2px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -404,7 +404,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 3px 4px;
+  padding: 1px 4px;
 
   &--hidden {
     opacity: 0.45;
@@ -464,8 +464,8 @@ export default {
   }
 
   svg {
-    width: 26px;
-    height: 26px;
+    width: 20px;
+    height: 20px;
     flex: 0 0 auto;
   }
 }
@@ -483,10 +483,10 @@ export default {
 }
 
 .settings-visual__shortcut {
-  width: 150px;
+  width: 120px;
   text-align: center;
   cursor: pointer;
-  flex: 0 0 150px;
+  flex: 0 0 120px;
   margin-left: auto;
 
   &--capturing {

@@ -24,6 +24,8 @@ editor:
   listAutoNumber: true
   # Display images in the editor
   inlineImages: true
+  # 内嵌图片卡片内容顺序：image-above（图片在上，默认）/ text-above（文本在上）
+  inlineImageOrder: image-above
   # Use monospaced font only
   monospacedFontOnly: false
   # 是否显示右上角图标

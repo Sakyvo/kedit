@@ -1,7 +1,7 @@
 <template>
   <div class="editor-container">
     <div ref="editorRoot" class="editor" ondrop="return false;">
-      <pre class="editor__inner markdown-highlighting" :style="{padding: styles.editorPadding, paddingLeft: `calc(${styles.editorGutterWidth}px + max(${styles.editorPadding.split(' ')[1]}, calc(var(--editor-line-number-space, 4em) + 6px)))`}" :class="{monospaced: computedSettings.editor.monospacedFontOnly}"></pre>
+      <pre class="editor__inner markdown-highlighting" :style="{padding: styles.editorPadding, paddingLeft: `calc(${styles.editorGutterWidth}px + max(${styles.editorPadding.split(' ')[1]}, calc(var(--editor-line-number-space, 4em) + 6px)))`}" :class="{monospaced: computedSettings.editor.monospacedFontOnly, 'img-text-above': computedSettings.editor.inlineImageOrder === 'text-above'}"></pre>
       <div class="gutter" :style="{left: styles.editorGutterLeft + 'px'}">
         <comment-list v-if="styles.editorGutterWidth"></comment-list>
       </div>

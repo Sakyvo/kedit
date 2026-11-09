@@ -28,6 +28,9 @@ export default {
   position: absolute;
   top: 8px;
   right: 8px;
+  // 紧凑化后内距只有 20px，吸顶 tabs 的盒盖会盖住这块区域；按钮必须盖在它上面，
+  // 否则滚动后右上角关不掉。
+  z-index: 2;
   color: rgba(0, 0, 0, 0.5);
   width: 32px;
   height: 32px;
