@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const puppeteer = require(process.env.PUPPETEER_MODULE || 'puppeteer-core');
 const root = resolve(process.argv[2] || 'dist');
 const mode = process.argv[3] || 'probe';
-const modes = ['probe', 'benchmark', 'shell', 'render', 'failure', 'switch', 'sw', 'update', 'routes', 'fonts', 'slow-init', 'init-error', 'css-failure', 'disabled', 'copy', 'preload', 'network-error'];
+const modes = ['probe', 'benchmark', 'shell', 'render', 'failure', 'switch', 'sw', 'update', 'routes', 'fonts', 'slow-init', 'init-error', 'css-failure', 'disabled', 'copy', 'preload', 'network-error', 'cache-first-page'];
 assert.ok(modes.includes(mode), `Unknown mode: ${mode}`);
 const reportPath = process.argv[4];
 const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff': 'font/woff', '.woff2': 'font/woff2', '.png': 'image/png' };
@@ -200,7 +200,7 @@ try {
         window.swRegistration = { time: performance.now(), layout: !!document.querySelector('.layout'), shell: !!document.getElementById('startup') };
         return allowServiceWorker ? register(...args) : Promise.reject(new Error('SW disabled for isolated functional test'));
       };
-    }, ['sw', 'update'].includes(mode));
+    }, ['sw', 'update', 'cache-first-page'].includes(mode));
     await page.setViewport({ width: 1280, height: 800 });
     const errors = [];
     page.on('pageerror', e => { errors.push(e.message); console.error('PAGE ERROR', e.message); });
@@ -215,9 +215,20 @@ try {
         || (mode === 'css-failure' && /\/katex[.-].*\.css/.test(req.url()))
         || (mode === 'fonts' && /\.(woff2?|ttf)(\?|$)/.test(req.url()))) req.abort();
       else if (mode === 'preload' && /\/static\/index-[^/]+\.js$/.test(req.url())) held.push(req);
-      else if (holdRenderers && rendererUrl(req.url())) held.push(req);
+      else if (mode === 'preload' && /\/static\/index-[^/]+\.js$/.test(req.url())) held.push(req);
       else req.continue();
     });
+    if (mode === 'cache-first-page') {
+      // Defer registration so renderers below are genuinely fetched uncontrolled.
+      await page.evaluateOnNewDocument(() => {
+        const real = navigator.serviceWorker.register.bind(navigator.serviceWorker);
+        navigator.serviceWorker.register = (...args) => {
+          window.pendingSwArgs = args;
+          return new Promise(() => {});
+        };
+        window.releaseServiceWorker = () => (window.pendingSwArgs ? real(...window.pendingSwArgs) : Promise.resolve());
+      });
+    }
     if (mode === 'network-error') {
       await page.evaluateOnNewDocument(() => {
         let first = true;
@@ -272,6 +283,56 @@ try {
       await edit(page, 'network-failure-still-editable');
       assert.deepEqual(errors, []);
       console.log('PASS: network init failure reports the error without blocking local editing');
+    } else if (mode === 'cache-first-page') {
+      // First page is not controlled yet: renderers fetched here must still be cached.
+      await page.goto(origin, { waitUntil: 'domcontentloaded' });
+      await ready(page);
+      await page.evaluate(() => {
+        window.testStore = document.querySelector('[data-v-app]').__vue_app__.config.globalProperties.$store;
+        testStore.dispatch('data/patchLayoutSettings', { welcomeTourFinished: true, showEditor: true, showSidePreview: true });
+      });
+      const text = '# First page cache\n\nInline $a^2$.\n\n```mermaid\ngraph TD\nP[One] --> Q[Two]\n```\n';
+      await page.evaluate(text => {
+        testStore.commit('content/setItem', { id: 'first-page/content', text, properties: '\n', discussions: {}, comments: {} });
+        testStore.commit('file/setItem', { id: 'first-page', name: 'First page', parentId: null });
+        testStore.commit('file/setCurrentId', 'first-page');
+      }, text);
+      await page.waitForSelector('.preview .mermaid-diagram svg', { timeout: 30000 });
+      await page.waitForSelector('.preview .katex', { timeout: 30000 });
+      const controlled = await page.evaluate(() => !!navigator.serviceWorker.controller);
+      assert.equal(controlled, false, 'First visit starts uncontrolled');
+      const usedBeforeControl = [...new Set(requests.filter(rendererUrl))];
+      assert.ok(usedBeforeControl.length >= 2, 'Renderers were fetched on the uncontrolled page');
+      // Release the worker only now, so the renderers above were truly uncontrolled fetches.
+      const heldSw = held.splice(0);
+      assert.ok(heldSw.length >= 0);
+      await page.evaluate(() => window.releaseServiceWorker());
+      await page.waitForFunction(() => !!navigator.serviceWorker.controller, { timeout: 120000, polling: 250 });
+      const cdp = await page.createCDPSession();
+      await cdp.send('Network.clearBrowserCache');
+      await page.setOfflineMode(true);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await ready(page);
+      await page.evaluate(text => {
+        window.testStore = document.querySelector('[data-v-app]').__vue_app__.config.globalProperties.$store;
+        testStore.dispatch('data/patchLayoutSettings', { welcomeTourFinished: true, showEditor: true, showSidePreview: true });
+        testStore.commit('content/setItem', { id: 'first-page/content', text, properties: '\n', discussions: {}, comments: {} });
+        testStore.commit('file/setItem', { id: 'first-page', name: 'First page', parentId: null });
+        testStore.commit('file/setCurrentId', 'first-page');
+      }, text);
+      const cacheNames = await page.evaluate(() => caches.keys());
+      assert.ok(cacheNames.includes('kedit-static-runtime'), `Runtime cache exists: ${cacheNames}`);
+      const cachedRenderers = await page.evaluate(async () => {
+        const cache = await caches.open('kedit-static-runtime');
+        return (await cache.keys()).map(request => new URL(request.url).pathname);
+      });
+      assert.ok(cachedRenderers.some(url => /\/mermaid[.-]/.test(url)), `Mermaid cached before control: ${cachedRenderers}`);
+      assert.ok(cachedRenderers.some(url => /\/katex[.-]/.test(url)), `KaTeX cached before control: ${cachedRenderers}`);
+      await page.waitForSelector('.preview .mermaid-diagram svg', { timeout: 30000 });
+      await page.waitForSelector('.preview .katex', { timeout: 30000 });
+      await page.setOfflineMode(false);
+      assert.deepEqual(errors, []);
+      console.log('PASS: renderers used before SW control are available offline');
     } else if (mode === 'preload') {
       const navigation = page.goto(origin, { waitUntil: 'domcontentloaded' });
       navigation.catch(() => {});

@@ -1,12 +1,16 @@
 import markdownItMath from './libs/markdownItMath';
 import extensionSvc from '../services/extensionSvc';
+import pwaCacheSvc from '../services/pwaCacheSvc';
 
 let katexPromise;
 const pendingRenders = new WeakMap();
 const loadKatex = () => {
   if (!katexPromise) {
     katexPromise = Promise.all([import('katex'), import('katex/dist/katex.css')])
-      .then(([module]) => module.default)
+      .then(([module]) => {
+        pwaCacheSvc.cacheFetchedStaticAssets();
+        return module.default;
+      })
       .catch((error) => {
         katexPromise = null;
         throw error;

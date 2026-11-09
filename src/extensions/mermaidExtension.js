@@ -1,5 +1,6 @@
 import extensionSvc from '../services/extensionSvc';
 import utils from '../services/utils';
+import pwaCacheSvc from '../services/pwaCacheSvc';
 
 const baseConfig = {
   startOnLoad: false,
@@ -47,7 +48,10 @@ const pendingRenders = new WeakMap();
 
 const loadMermaid = () => {
   if (!mermaidPromise) {
-    mermaidPromise = import('mermaid').then(module => module.default).catch((error) => {
+    mermaidPromise = import('mermaid').then((module) => {
+      pwaCacheSvc.cacheFetchedStaticAssets();
+      return module.default;
+    }).catch((error) => {
       mermaidPromise = null;
       throw error;
     });

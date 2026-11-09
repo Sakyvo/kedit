@@ -231,9 +231,12 @@ export default defineConfig({
           handler: 'CacheFirst',
           options: {
             cacheName: 'kedit-static-runtime',
+            // Never keep error pages or HTML fallbacks as if they were chunks.
+            cacheableResponse: { statuses: [200] },
             expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
           },
         }],
+        clientsClaim: true,
         ...appShellEntries(),
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024 // 设置为 3 MiB
       },

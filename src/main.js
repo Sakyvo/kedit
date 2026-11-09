@@ -6,6 +6,7 @@ import icons from './icons';
 import App from './components/App.vue';
 import store from './store';
 import localDbSvc from './services/localDbSvc';
+import pwaCacheSvc from './services/pwaCacheSvc';
 import timeSvc from './services/timeSvc';
 
 if (!indexedDB) {
@@ -20,6 +21,12 @@ const registerServiceWorker = () => {
         localStorage.updated = true;
       }
       updateServiceWorker();
+    },
+    async onRegisteredSW(swUrl, registration) {
+      // The first page loads before the worker controls it; hand over what it
+      // already fetched so those chunks are still available offline.
+      if (!registration) return;
+      pwaCacheSvc.cacheFetchedStaticAssets();
     },
   });
 };

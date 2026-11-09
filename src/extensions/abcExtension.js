@@ -1,11 +1,15 @@
 import extensionSvc from '../services/extensionSvc';
+import pwaCacheSvc from '../services/pwaCacheSvc';
 
 let renderAbcPromise;
 
 const loadRenderAbc = () => {
   if (!renderAbcPromise) {
     renderAbcPromise = import('abcjs/src/api/abc_tunebook_svg')
-      .then(module => module.default);
+      .then(module => {
+        pwaCacheSvc.cacheFetchedStaticAssets();
+        return module.default;
+      });
   }
   return renderAbcPromise;
 };
