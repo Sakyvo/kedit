@@ -1,7 +1,8 @@
-param()
+param([string]$ExtensionTarget)
 $ErrorActionPreference = 'Stop'
 $source = $PSScriptRoot
 $homePath = Join-Path $env:LOCALAPPDATA 'KEDIT/FolderPaste'
+if (!$ExtensionTarget) { $ExtensionTarget = Join-Path ([Environment]::GetFolderPath('Desktop')) 'KEDIT-FolderPaste-extension' }
 $manifest = Get-Content (Join-Path $source 'extension/manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $keyBytes = [Convert]::FromBase64String($manifest.key)
 $sha = [Security.Cryptography.SHA256]::Create()
@@ -34,6 +35,8 @@ New-Item -ItemType Directory -Force $homePath | Out-Null
 Copy-Item $exe, (Join-Path $source 'uninstall.ps1') -Destination $homePath -Force
 New-Item -ItemType Directory -Force (Join-Path $homePath 'extension') | Out-Null
 Copy-Item (Join-Path $source 'extension/*') -Destination (Join-Path $homePath 'extension') -Force
+New-Item -ItemType Directory -Force $ExtensionTarget | Out-Null
+Copy-Item (Join-Path $source 'extension/*') -Destination $ExtensionTarget -Force
 $registration = @{
   name = $hostName
   description = 'KEDIT read-only folder path paste'
@@ -48,7 +51,7 @@ foreach ($keyPath in $keyPaths) {
 }
 Write-Host "Installed for the current user (no admin required)."
 Write-Host "Registered under $($keyPaths.Count) browser roots (Chrome/Chromium/Edge/Brave/Vivaldi)."
-Write-Host "Open vivaldi://extensions, enable Developer mode, Load unpacked:"
-Write-Host (Join-Path $homePath 'extension')
+Write-Host 'Open vivaldi://extensions, enable Developer mode, Load unpacked:'
+Write-Host $ExtensionTarget
 Write-Host "Expected extension ID: $extensionId"
 Write-Host 'Reload https://kedit.cc.cd/ after loading the extension.'

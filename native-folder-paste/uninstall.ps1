@@ -1,5 +1,7 @@
+param([string]$ExtensionTarget)
 $ErrorActionPreference = 'Stop'
 $homePath = Join-Path $env:LOCALAPPDATA 'KEDIT/FolderPaste'
+if (!$ExtensionTarget) { $ExtensionTarget = Join-Path ([Environment]::GetFolderPath('Desktop')) 'KEDIT-FolderPaste-extension' }
 $nativeManifest = Join-Path $homePath 'cc.cd.kedit.folder_paste.json'
 $hostName = 'cc.cd.kedit.folder_paste'
 $vendorRoots = @(
@@ -28,7 +30,12 @@ foreach ($root in $vendorRoots) {
   $path = Join-Path $homePath $_
   if (Test-Path $path) { Remove-Item -LiteralPath $path }
 }
-foreach ($dir in @((Join-Path $homePath 'extension'), $homePath)) {
+# The Desktop copy is only ever written by install.ps1 from this product.
+@('manifest.json', 'content.js', 'background.js') | ForEach-Object {
+  $path = Join-Path $ExtensionTarget $_
+  if (Test-Path $path) { Remove-Item -LiteralPath $path }
+}
+foreach ($dir in @((Join-Path $homePath 'extension'), $homePath, $ExtensionTarget)) {
   if ((Test-Path $dir) -and !(Get-ChildItem -LiteralPath $dir -Force)) { Remove-Item -LiteralPath $dir }
 }
 Write-Host "Host removed from $removed registration(s). Remove KEDIT Folder Paste in vivaldi://extensions as well."

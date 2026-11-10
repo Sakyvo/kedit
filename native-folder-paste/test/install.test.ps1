@@ -44,7 +44,8 @@ function Remove-Item {
   else { Microsoft.PowerShell.Management\Remove-Item -Path $Path -Recurse:$Recurse -Force:$Force }
 }
 try {
-  & (Join-Path $delivery 'install.ps1')
+  $desktopCopy = Join-Path $sandbox 'Desktop/KEDIT-FolderPaste-extension'
+  & (Join-Path $delivery 'install.ps1') -ExtensionTarget $desktopCopy
   $homePath = Join-Path $sandbox 'KEDIT/FolderPaste'
   $manifestPath = Join-Path $homePath 'cc.cd.kedit.folder_paste.json'
   $keyPaths = $vendorRoots | ForEach-Object { "HKCU:\$_\$hostName" }
@@ -62,16 +63,23 @@ try {
   if ($manifest.path -ne (Join-Path $homePath 'KeditFolderPaste.exe')) { throw 'Installed path lost its Unicode characters' }
   if ($manifest.allowed_origins.Count -ne 1 -or $manifest.allowed_origins[0] -notmatch '^chrome-extension://[a-p]{32}/$') { throw 'Invalid extension allowlist' }
   if (!(Test-Path $manifest.path)) { throw 'Missing installed executable' }
-  & (Join-Path $delivery 'install.ps1') # Reinstall is idempotent.
+  foreach ($file in 'manifest.json', 'content.js', 'background.js') {
+    $a = Join-Path $desktopCopy $file
+    if (!(Test-Path $a)) { throw "Missing Desktop copy: $file" }
+    if ((Get-FileHash $a).Hash -ne (Get-FileHash (Join-Path $delivery "extension/$file")).Hash) { throw "Desktop copy differs: $file" }
+  }
+  if ((Get-Content (Join-Path $desktopCopy 'content.js') -Raw) -notmatch 'kedit-folder-paste-begin') { throw 'Desktop copy lost the handshake' }
+  & (Join-Path $delivery 'install.ps1') -ExtensionTarget $desktopCopy # Reinstall is idempotent.
   $registry.Keys[$keyPaths[0]] = 'C:\other\manifest.json'
   $rejected = $false
-  try { & (Join-Path $delivery 'install.ps1') } catch { $rejected = $true }
+  try { & (Join-Path $delivery 'install.ps1') -ExtensionTarget $desktopCopy } catch { $rejected = $true }
   if (!$rejected) { throw 'Foreign registration was not rejected' }
   if ($registry.Keys[$keyPaths[0]] -ne 'C:\other\manifest.json') { throw 'Foreign registration overwritten' }
   $registry.Keys[$keyPaths[0]] = $manifestPath
-  & (Join-Path $homePath 'uninstall.ps1')
+  & (Join-Path $homePath 'uninstall.ps1') -ExtensionTarget $desktopCopy
   if ($registry.Keys.Count -ne 0) { throw 'Uninstall left registrations behind' }
   if (Test-Path $homePath) { throw 'Uninstall left owned files behind' }
+  if (Test-Path (Join-Path $desktopCopy 'manifest.json')) { throw 'Uninstall left the Desktop copy behind' }
   Write-Host 'PASS: all vendor roots install, reinstall, foreign guard, full uninstall (registry mocked; clipboard untouched)'
 } finally {
   $env:LOCALAPPDATA = $originalLocalAppData

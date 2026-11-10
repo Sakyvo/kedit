@@ -5,31 +5,44 @@ import { readFileSync } from 'node:fs';
 
 const source = name => readFileSync(new URL(`../../native-folder-paste/extension/${name}`, import.meta.url), 'utf8');
 
-function contentFixture({ trusted = true, text = '', html = '', type = '', accepted = true, active = true } = {}) {
+function contentFixture({ trusted = true, text = '', html = '', type = '', accepted = true, active = true, status = 'ok' } = {}) {
   let paste;
   const requests = [];
   const events = [];
-  const editor = { dispatchEvent: e => {
+  const editor = { focus: () => {}, dispatchEvent: e => {
     events.push(e);
     if (e.type === 'kedit-folder-paste-begin' && accepted) e.defaultPrevented = true;
   } };
   const window = { addEventListener: (name, fn) => { assert.equal(name, 'paste'); paste = fn; } };
   window.top = window;
+  const inserted = [];
+  const documentElement = { dataset: {} };
   vm.runInNewContext(source('content.js'), {
-    window, document: { activeElement: active ? editor : null },
+    window,
+    document: {
+      activeElement: active ? editor : null,
+      documentElement,
+      execCommand: (command, _ui, value) => { inserted.push({ command, value }); return true; },
+    },
     crypto: { randomUUID: () => 'request-1' },
     CustomEvent: class { constructor(name, options) { this.type = name; Object.assign(this, options); } },
     chrome: { runtime: { sendMessage: async request => {
       requests.push(request);
-      return { version: 1, requestId: request.requestId, status: 'ok', paths: ['C:\\one'] };
+      return { version: 1, requestId: request.requestId, status,
+        paths: status === 'ok' ? ['C:\\one'] : null };
     } } },
   });
   let prevented = 0;
   const run = () => paste({ isTrusted: trusted, target: { closest: () => editor },
-    clipboardData: { getData: format => format === 'text/plain' ? text : html, items: [{ type }], files: [] },
+    clipboardData: {
+      getData: format => (format === 'text/plain' ? text : html),
+      items: type ? [{ type, kind: 'file' }] : [],
+      files: [],
+      types: type ? ['Files'] : [],
+    },
     preventDefault: () => { prevented++; }, stopImmediatePropagation() {},
   });
-  return { run, requests, events, prevented: () => prevented };
+  return { run, requests, events, inserted, documentElement, prevented: () => prevented };
 }
 
 test('extension requests paths only on trusted, accepted, active empty/file paste', async () => {
@@ -38,8 +51,33 @@ test('extension requests paths only on trusted, accepted, active empty/file past
   assert.equal(f.requests[0].action, 'readFolders');
   assert.equal(f.prevented(), 1);
   assert.deepEqual(JSON.parse(f.events[1].detail).paths, ['C:\\one']);
+  assert.equal(f.inserted.length, 0, 'page handled the reply');
+  assert.equal(f.documentElement.dataset.keditFolderPaste, '1');
 });
-for (const options of [{ trusted: false }, { text: 'hi' }, { html: '<b>hi</b>' }, { type: 'image/png' }, { accepted: false }, { active: false }]) {
+
+test('stale page bundle still gets paths via the extension fallback', async () => {
+  const f = contentFixture({ accepted: false }); await f.run();
+  assert.equal(f.requests.length, 1);
+  assert.equal(f.prevented(), 1);
+  assert.deepEqual(f.inserted, [{ command: 'insertText', value: 'C:\\one' }]);
+  assert.equal(f.events.length, 1, 'no end event without a page handler');
+});
+
+test('fallback never inserts when the clipboard is not a folder', async () => {
+  for (const status of ['not-folders', 'empty', 'unavailable', 'busy']) {
+    const f = contentFixture({ accepted: false, status }); await f.run();
+    assert.equal(f.inserted.length, 0, status);
+    assert.equal(f.prevented(), 1);
+  }
+});
+
+test('stale page bundle leaves ordinary text paste to the browser', async () => {
+  const f = contentFixture({ accepted: false, text: 'hi' }); await f.run();
+  assert.equal(f.requests.length, 0);
+  assert.equal(f.prevented(), 0);
+});
+
+for (const options of [{ trusted: false }, { text: 'hi' }, { html: '<b>hi</b>' }, { type: 'image/png' }, { active: false }]) {
   test(`existing paste is untouched: ${JSON.stringify(options)}`, async () => {
     const f = contentFixture(options); await f.run();
     assert.equal(f.requests.length, 0);

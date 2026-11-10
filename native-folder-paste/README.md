@@ -15,10 +15,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 先确认命令输出 `Installed for the current user`；安装成功后才会创建扩展目录。安装兼容 Windows PowerShell 5.1 和 PowerShell 7，扩展清单按 UTF-8 读取。
 
 1. 打开 `vivaldi://extensions`，启用“开发者模式”。
-2. 点击“加载已解压的扩展程序”，选择安装命令输出的 `extension` 文件夹。
+2. 点击“加载已解压的扩展程序”，选择桌面上的 `KEDIT-FolderPaste-extension` 文件夹（安装脚本会把扩展同时复制到该目录，并在输出中打印路径）。
 3. 刷新 `https://kedit.cc.cd/`，复制文件夹后在编辑区粘贴。
 
+扩展若已加载过，改用新版本前请在 `vivaldi://extensions` 点一次 **重新加载**，并重新打开 KEDIT 页面（内容脚本只在页面加载时注入）。
+
 扩展 ID 由内置公钥固定。Windows 上不同 Chromium 分支读取不同的注册表根，安装脚本会同时写入 Chrome / Chromium / Edge / Brave / Vivaldi 五个 `NativeMessagingHosts` 根，因此换浏览器也无需重装。生产扩展只匹配 KEDIT 正式域名，其他网页、搜索框、预览区不会读取路径。
+
+页面端支持是可选加速项：即使浏览器缓存了旧版页面（扩展握手无人应答），扩展也会自行插入路径，不会退回“什么都没粘贴”。
 
 ## 行为与边界
 
@@ -28,6 +32,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 - 本机程序按需启动，读取 CF_HDROP 和目录属性；不遍历目录、不读文件内容、不改写剪贴板、不监听端口、不开机常驻。不记录路径日志。路径进入文档后按 KEDIT 原有 Sync/Publish 行为处理。
 - 网络共享不可达、剪贴板占用、主机未注册或路径过大时提示失败，不插入部分结果。上限 256 个目录、合计 128 Ki 字符，单路径 32767 字符。
 - `CF_HDROP` 在粘贴后由主机读取；若浏览器未暴露名称，则无法比对粘贴事件与主机启动之间那一瞬间的剪贴板变化。请勿在粘贴尚未完成时立刻复制其他内容。
+
+## 排查
+
+- 在 KEDIT 页面按 F12，控制台输入 `document.documentElement.dataset.keditFolderPaste`：返回 `"1"` 说明扩展的内容脚本已注入；`undefined` 说明扩展未加载或页面加载于安装之前（请重新加载扩展并刷新页面）。
+- 粘贴后既没有路径也没有提示：多为扩展未重载；请在 `vivaldi://extensions` 点“重新加载”后重试。
+- 提示“未能读取文件夹路径”：说明内容脚本已运行但未修好本机主机，请重新运行 `install.ps1`（会注册全部五个浏览器根）。
 
 ## 卸载
 
