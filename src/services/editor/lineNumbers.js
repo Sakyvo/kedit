@@ -46,7 +46,8 @@ export default function mountLineNumbers(editor, enabled = true) {
             range.setEnd(node, relative + 1);
             // Chromium's newline text is hidden; its BR carries the row geometry.
             const br = node.parentElement.closest('.hd-lf')?.parentElement.querySelector('br');
-            anchors.push({ number: line + 1, range, br });
+            const lineBreak = node.parentElement.closest('.lf');
+            anchors.push({ number: line + 1, range, br, lineBreak });
           }
           line += 1;
         }
@@ -77,11 +78,11 @@ export default function mountLineNumbers(editor, enabled = true) {
       if (!sectionRect.height || sectionRect.bottom < scrollRect.top
         || sectionRect.top > scrollRect.bottom) return;
       const rectAt = (index) => {
-        const { range, br } = anchors[index];
-        if (!br) return range.getClientRects()[0];
-        const rect = br.getBoundingClientRect();
-        // .lf shifts BR below the text baseline to add hard-break spacing.
-        const shift = parseFloat(getComputedStyle(br.parentElement).verticalAlign) || 0;
+        const { range, br, lineBreak } = anchors[index];
+        const rect = br ? br.getBoundingClientRect() : range.getClientRects()[0];
+        if (!rect || !lineBreak) return rect;
+        // Composition can replace BR with text inside the same shifted .lf.
+        const shift = parseFloat(getComputedStyle(lineBreak).verticalAlign) || 0;
         return { top: rect.top + shift, bottom: rect.bottom + shift, height: rect.height };
       };
       // A single section can contain thousands of lines: seek the viewport first.
