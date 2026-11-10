@@ -431,7 +431,8 @@ try {
           return registration?.active?.state === 'activated';
         }, { timeout: 120000 });
         const registration = await page.evaluate(() => window.swRegistration);
-        console.log('Service worker installation complete', { registration, requests: requests.length });
+        const activatedAt = await page.evaluate(() => Math.round(performance.now()));
+        console.log('Service worker installation complete', { registration, activatedAt, requests: requests.length });
         if (mode === 'sw') {
           assert.ok(registration.layout && !registration.shell, 'Precache starts after Layout takes over');
         }
