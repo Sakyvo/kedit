@@ -332,6 +332,49 @@ try {
   await settle();
   assert.deepEqual(await textGeometry(), reloaded);
   console.log('PASS persisted OFF survives reload; enabling after reload retains text geometry');
+  await page.setViewport({ width: 390, height: 800, hasTouch: true });
+  await page.waitForFunction(() => window.__editorSvc?.clEditor);
+  await page.evaluate(() => {
+    window.testStore = document.querySelector('[data-v-app]').__vue_app__.config.globalProperties.$store;
+    testStore.dispatch('data/patchLayoutSettings', { showSidePreview: false });
+    testStore.dispatch('data/setSettings', 'lineNumbers: true\n');
+  });
+  await page.waitForFunction(() => document.querySelector('.editor__line-number'));
+  await setText(Array.from({ length: 300 }, (_, i) => `Row${i + 1}`).join('\n') + '\n');
+  await page.evaluate(() => {
+    const content = __editorSvc.editorElt;
+    const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+    const anchors = new Map();
+    let node;
+    while ((node = walker.nextNode())) {
+      const match = /^Row(\d+)/.exec(node.textContent);
+      if (!match) continue;
+      const range = document.createRange(); range.setStart(node, 0); range.setEnd(node, 1);
+      anchors.set(+match[1], range);
+    }
+    window.scrollSamples = [];
+    window.sampleScroll = () => {
+      const scroller = content.parentNode;
+      const viewport = scroller.getBoundingClientRect();
+      const deltas = Array.from(document.querySelectorAll('.editor__line-number')).flatMap(row => {
+        const rect = row.getBoundingClientRect();
+        if (rect.bottom < viewport.top || rect.top > viewport.bottom) return [];
+        return [Math.abs(rect.top - anchors.get(+row.textContent).getBoundingClientRect().top)];
+      });
+      scrollSamples.push({ top: scroller.scrollTop, count: deltas.length, delta: Math.max(0, ...deltas) });
+      window.scrollFrame = requestAnimationFrame(sampleScroll);
+    };
+    sampleScroll();
+  });
+  const client = await page.createCDPSession();
+  for (const distance of [-480, 220, -700]) {
+    await client.send('Input.synthesizeScrollGesture', { x: 180, y: 400, yDistance: distance, speed: 750, gestureSourceType: 'mouse' });
+  }
+  await settle();
+  const samples = await page.evaluate(() => { cancelAnimationFrame(scrollFrame); return scrollSamples; });
+  assert.ok(new Set(samples.map(sample => sample.top)).size > 10, 'native wheel gesture must actually scroll');
+  assert.ok(samples.every(sample => sample.count > 0 && sample.delta < 0.5), JSON.stringify(samples));
+  console.log('PASS native wheel forward/reverse scroll sampled during movement', JSON.stringify({ frames: samples.length, positions: new Set(samples.map(sample => sample.top)).size, maxDelta: Math.max(...samples.map(sample => sample.delta)) }));
   assert.deepEqual(errors, [], 'page runtime errors');
 } finally {
   if (browser) await browser.close();

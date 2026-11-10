@@ -68,6 +68,21 @@ try {
   }));
   assert.deepEqual((await read()).rows.map(row => row.number), [1, 2, 3]);
   console.log('PASS source lines and empty line rendered');
+  await page.evaluate(() => setText('line\n'.repeat(100)));
+  await settle();
+  const nativeScroll = await page.evaluate(() => {
+    const row = Array.from(document.querySelectorAll('.editor__line-number')).find(row => row.textContent === '4');
+    const range = document.createRange();
+    const node = editor.$contentElt.firstChild.childNodes[6];
+    range.setStart(node, 0); range.setEnd(node, 1);
+    const before = row.getBoundingClientRect().top - range.getBoundingClientRect().top;
+    // Same JS turn: no scroll event or rAF can repair a viewport-fixed gutter.
+    editor.$scrollElt.scrollTop = 73;
+    const after = row.getBoundingClientRect().top - range.getBoundingClientRect().top;
+    return { before, after };
+  });
+  assert.equal(nativeScroll.after, nativeScroll.before, 'numbers must move with text before JS scroll callbacks');
+  console.log('PASS native scroll displacement without waiting for JavaScript');
   let baseWidth;
   for (const count of [1, 9, 10, 99, 100, 999, 1000, 10000, 999, 1]) {
     await page.evaluate(count => { editor.$scrollElt.scrollTop = 0; setText('line\n'.repeat(count)); }, count);
@@ -79,6 +94,25 @@ try {
     assert.ok(state.rows.every(row => Math.abs(row.right - state.rows[0].right) < 0.01));
   }
   console.log('PASS fixed gutter width across 1–10000 lines and right alignment');
+  await page.evaluate(() => { setText('line\n'.repeat(10000)); editor.$scrollElt.scrollTop = 0; });
+  await settle();
+  for (const top of [120, 270, 180, 6000, 300000, 0]) {
+    const movement = await page.evaluate(top => {
+      const row = document.querySelector('.editor__line-number');
+      const range = document.createRange();
+      range.selectNodeContents(editor.$contentElt.firstChild.firstChild);
+      const delta = () => row.getBoundingClientRect().top - range.getBoundingClientRect().top;
+      const before = delta();
+      editor.$scrollElt.scrollTop = top;
+      return Math.abs(delta() - before);
+    }, top);
+    assert.ok(movement < 0.01);
+    await settle();
+    const state = await read();
+    assert.ok(state.rows.length > 0 && state.rows.length < 100, 'bounded viewport rows, not full-document nodes');
+    assert.ok(state.rows.some(row => row.bottom > 0 && row.top < 300), 'new viewport has visible numbers');
+  }
+  console.log('PASS forward/reverse/jump scrolling with bounded rows and no deferred displacement');
   await page.evaluate(() => setText('wrap words '.repeat(80) + '\nend\n'));
   await settle();
   const geometry = () => page.evaluate(() => {
@@ -123,7 +157,8 @@ try {
   console.log('PASS stable toggle geometry, full-height theme background, four digits fit and fifth overflows left');
   await page.evaluate(() => { setText('a long source line '.repeat(200) + '\n\nlast\n'); editor.$scrollElt.scrollTop = 0; });
   await settle();
-  assert.deepEqual((await read()).rows.map(row => row.number), [1]);
+  const viewport = await page.$eval('.editor', elt => ({ top: elt.getBoundingClientRect().top, bottom: elt.getBoundingClientRect().bottom }));
+  assert.deepEqual((await read()).rows.filter(row => row.bottom > viewport.top && row.top < viewport.bottom).map(row => row.number), [1]);
   await page.evaluate(() => { editor.$scrollElt.scrollTop = 150; });
   await settle();
   const scroll = await read();
@@ -161,7 +196,7 @@ try {
   assert.equal(await page.$$eval('.editor__line-numbers', nodes => nodes.length), 1);
   await page.evaluate(() => { setText('queued\nwork\n'); dispose(); });
   await settle();
-  assert.equal(await page.$$eval('.editor__line-numbers', nodes => nodes.length), 0);
+  assert.equal(await page.$$eval('.editor__line-numbers, .editor__line-number-rows', nodes => nodes.length), 0);
   console.log('PASS wrapping, scrolling, text isolation and pending-update cleanup');
   await page.evaluate(() => {
     remount();
@@ -171,7 +206,7 @@ try {
   });
   await settle();
   assert.equal(await page.evaluate(() => otherCleanupRan), true);
-  assert.equal(await page.$$eval('.editor__line-numbers', nodes => nodes.length), 0);
+  assert.equal(await page.$$eval('.editor__line-numbers, .editor__line-number-rows', nodes => nodes.length), 0);
   console.log('PASS destroy releases the gutter without skipping other editor cleanup');
 } finally {
   if (browser) await browser.close();

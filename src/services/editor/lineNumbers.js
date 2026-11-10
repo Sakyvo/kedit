@@ -18,7 +18,11 @@ export default function mountLineNumbers(editor, enabled = true) {
   layer.className = 'editor__line-numbers';
   layer.setAttribute('aria-hidden', 'true');
   scroller.parentNode.appendChild(layer);
-  layer.style.visibility = enabled ? 'visible' : 'hidden';
+  const rowLayer = document.createElement('div');
+  rowLayer.className = 'editor__line-number-rows';
+  rowLayer.setAttribute('aria-hidden', 'true');
+  scroller.appendChild(rowLayer);
+  layer.style.visibility = rowLayer.style.visibility = enabled ? 'visible' : 'hidden';
   let text = editor.getContent();
   let starts = null;
   let groups = null;
@@ -68,15 +72,20 @@ export default function mountLineNumbers(editor, enabled = true) {
     }
     const scrollRect = scroller.getBoundingClientRect();
     const contentStyle = getComputedStyle(content);
-    layer.style.left = `${scroller.offsetLeft + parseFloat(contentStyle.paddingLeft) - width - 6}px`;
+    const left = parseFloat(contentStyle.paddingLeft) - width - 6;
+    layer.style.left = `${scroller.offsetLeft + left}px`;
+    rowLayer.style.left = `${left}px`;
     if (!enabled) return;
+    // Keep a viewport of rows ready on either side for compositor-driven flings.
+    const bandTop = scrollRect.top - scroller.clientHeight;
+    const bandBottom = scrollRect.bottom + scroller.clientHeight;
     if (!starts) starts = sourceLineStarts(text);
     if (!groups) groups = indexLines();
     const positions = [];
     groups.forEach(({ section, anchors }) => {
       const sectionRect = section.getBoundingClientRect();
-      if (!sectionRect.height || sectionRect.bottom < scrollRect.top
-        || sectionRect.top > scrollRect.bottom) return;
+      if (!sectionRect.height || sectionRect.bottom < bandTop
+        || sectionRect.top > bandBottom) return;
       const rectAt = (index) => {
         const { range, br, lineBreak } = anchors[index];
         const rect = br ? br.getBoundingClientRect() : range.getClientRects()[0];
@@ -91,23 +100,23 @@ export default function mountLineNumbers(editor, enabled = true) {
       while (low < high) {
         const middle = Math.floor((low + high) / 2);
         const rect = rectAt(middle);
-        if (rect && rect.bottom < scrollRect.top) low = middle + 1;
+        if (rect && rect.bottom < bandTop) low = middle + 1;
         else high = middle;
       }
       for (let index = low; index < anchors.length; index += 1) {
         const rect = rectAt(index);
-        if (rect && rect.top > scrollRect.bottom) break;
-        if (rect && rect.height && rect.bottom >= scrollRect.top) {
+        if (rect && rect.top > bandBottom) break;
+        if (rect && rect.height && rect.bottom >= bandTop) {
           positions.push({
             number: anchors[index].number,
-            top: rect.top - scrollRect.top,
+            top: rect.top - scrollRect.top + scroller.scrollTop,
             height: rect.height,
           });
         }
       }
     });
     if (!text && !positions.length) {
-      positions.push({ number: 1, top: content.offsetTop + parseFloat(contentStyle.paddingTop) - scroller.scrollTop, height: parseFloat(contentStyle.lineHeight) });
+      positions.push({ number: 1, top: content.offsetTop + parseFloat(contentStyle.paddingTop), height: parseFloat(contentStyle.lineHeight) });
     }
     const visible = new Set();
     positions.forEach(({ number, top, height }) => {
@@ -118,7 +127,7 @@ export default function mountLineNumbers(editor, enabled = true) {
         row.className = 'editor__line-number';
         row.textContent = number;
         rows.set(number, row);
-        layer.appendChild(row);
+        rowLayer.appendChild(row);
       }
       row.style.top = `${top}px`;
       row.style.lineHeight = `${height}px`;
@@ -169,6 +178,7 @@ export default function mountLineNumbers(editor, enabled = true) {
     if (!destroying) editor.off('destroy', onDestroy);
     content.style.removeProperty('--editor-line-number-space');
     layer.remove();
+    rowLayer.remove();
   };
   editor.on('destroy', onDestroy);
   schedule();
@@ -176,7 +186,7 @@ export default function mountLineNumbers(editor, enabled = true) {
     dispose,
     setEnabled(value) {
       enabled = value;
-      layer.style.visibility = enabled ? 'visible' : 'hidden';
+      layer.style.visibility = rowLayer.style.visibility = enabled ? 'visible' : 'hidden';
       if (!enabled) {
         rows.forEach(row => row.remove());
         rows.clear();

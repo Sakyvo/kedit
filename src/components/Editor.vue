@@ -312,13 +312,12 @@ export default {
   width: 0;
 }
 
-.editor__line-numbers {
+.editor__line-numbers,
+.editor__line-number-rows {
   position: absolute;
   top: 0;
   left: 0;
-  bottom: 0;
   width: calc(4ch + 4px);
-  background: rgba(0, 0, 0, 0.06);
   font-family: $font-family-monospace;
   font-size: $font-size-monospace;
   font-variant-numeric: tabular-nums;
@@ -328,6 +327,14 @@ export default {
 
   .app--dark & {
     color: $editor-color-dark-blockquote;
+  }
+}
+
+.editor__line-numbers {
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.06);
+
+  .app--dark & {
     background: rgba(255, 255, 255, 0.06);
   }
 }
