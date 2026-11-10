@@ -456,6 +456,24 @@ try {
   assert.ok(new Set(samples.map(sample => sample.top)).size > 10, 'native wheel gesture must actually scroll');
   assert.ok(samples.every(sample => sample.count > 0 && sample.delta < 0.5), JSON.stringify(samples));
   console.log('PASS native wheel forward/reverse scroll sampled during movement', JSON.stringify({ frames: samples.length, positions: new Set(samples.map(sample => sample.top)).size, maxDelta: Math.max(...samples.map(sample => sample.delta)) }));
+  const headingText = '# Start\n\n' + 'line\n'.repeat(100) + '\n# Destination\n\nFinish\n';
+  await setText(headingText);
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('.cl-toc-section')).some(elt => elt.textContent.includes('Destination')));
+  await page.evaluate(() => Array.from(document.querySelectorAll('.cl-toc-section')).find(elt => elt.textContent.includes('Destination')).click());
+  await page.waitForFunction(() => __editorSvc.editorElt.parentNode.scrollTop > 1000);
+  await settle();
+  const headingLine = headingText.slice(0, headingText.indexOf('# Destination')).split('\n').length;
+  assert.ok((await numbers()).includes(headingLine), 'TOC destination gets its source number');
+  const savedPosition = await page.evaluate(() => __editorSvc.getScrollPosition());
+  await page.evaluate(() => { __editorSvc.editorElt.parentNode.scrollTop = 0; });
+  await settle();
+  await page.evaluate(scrollPosition => {
+    testStore.dispatch('contentState/patchCurrent', { scrollPosition });
+    __editorSvc.restoreScrollPosition();
+  }, savedPosition);
+  await settle();
+  assert.ok((await numbers()).includes(headingLine), 'restored viewport refreshes source numbers');
+  console.log('PASS TOC jump and scroll-position restoration update the native gutter');
   assert.deepEqual(errors, [], 'page runtime errors');
 } finally {
   if (browser) await browser.close();
