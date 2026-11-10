@@ -1,5 +1,5 @@
 <template>
-  <a class="new-discussion-button" href="javascript:void(0)" v-if="coordinates" :style="{top: coordinates.top + 'px'}" v-title="'开始批注'" @mousedown.stop.prevent @click="createNewDiscussion(selection)">
+  <a class="new-discussion-button" href="javascript:void(0)" v-if="coordinates" :style="compact ? null : {top: coordinates.top + 'px'}" v-title="'开始批注'" @mousedown.stop.prevent @click="createNewDiscussion(selection)">
     <icon-message></icon-message>
   </a>
 </template>
@@ -10,6 +10,7 @@ import editorSvc from '../../services/editorSvc';
 import store from '../../store';
 
 export default {
+  props: { compact: Boolean },
   data: () => ({
     selection: null,
     coordinates: null,
@@ -44,12 +45,23 @@ export default {
   },
   mounted() {
     this.$nextTick(() => {
-      editorSvc.clEditor.selectionMgr.on('selectionChanged', () => this.checkSelection());
-      editorSvc.clEditor.selectionMgr.on('cursorCoordinatesChanged', () => this.checkSelection());
-      editorSvc.clEditor.on('focus', () => this.checkSelection());
-      editorSvc.clEditor.on('blur', () => this.checkSelection());
+      if (this.disposed) return;
+      this.editor = editorSvc.clEditor;
+      this.editor.selectionMgr.on('selectionChanged', this.checkSelection);
+      this.editor.selectionMgr.on('cursorCoordinatesChanged', this.checkSelection);
+      this.editor.on('focus', this.checkSelection);
+      this.editor.on('blur', this.checkSelection);
       this.checkSelection();
     });
+  },
+  beforeUnmount() {
+    this.disposed = true;
+    clearTimeout(this.timeout);
+    if (!this.editor) return;
+    this.editor.selectionMgr.off('selectionChanged', this.checkSelection);
+    this.editor.selectionMgr.off('cursorCoordinatesChanged', this.checkSelection);
+    this.editor.off('focus', this.checkSelection);
+    this.editor.off('blur', this.checkSelection);
   },
 };
 </script>

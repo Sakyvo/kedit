@@ -332,6 +332,87 @@ try {
   await settle();
   assert.deepEqual(await textGeometry(), reloaded);
   console.log('PASS persisted OFF survives reload; enabling after reload retains text geometry');
+  for (const width of [390, 600, 601, 800]) {
+    await page.setViewport({ width, height: 800 });
+    await page.evaluate(() => testStore.dispatch('data/patchLayoutSettings', { showSidePreview: false }));
+    await setText('Width fixture\n');
+    const compact = await page.evaluate(() => {
+      const content = __editorSvc.editorElt;
+      const css = getComputedStyle(content);
+      const band = document.querySelector('.editor__line-numbers');
+      return { bar: document.querySelector('.layout__panel--button-bar').getBoundingClientRect().width,
+        padding: parseFloat(css.paddingRight), bodyFont: parseFloat(css.fontSize),
+        numberFont: parseFloat(getComputedStyle(band).fontSize),
+        textWidth: content.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight),
+        buttons: Array.from(document.querySelectorAll('.button-bar__button'), button => ({ width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height })) };
+    });
+    console.log('COMPACT', width, JSON.stringify(compact));
+    if (width === 390) {
+      assert.ok(compact.textWidth > 316, 'reclaims at least 20px from the measured 296.3594px baseline');
+      assert.equal(compact.bodyFont, 16);
+    }
+    assert.equal(compact.bar, width <= 600 ? 22 : 26);
+    assert.equal(compact.padding, width <= 600 ? 12 : 25);
+    assert.equal(compact.numberFont, width <= 600 ? 12 : compact.bodyFont * 0.85);
+    assert.equal(compact.buttons.length, 6);
+    assert.ok(compact.buttons.every(button => button.height === 26 && button.width === compact.bar));
+  }
+  console.log('PASS 600/601 breakpoint, compact dimensions, unchanged body font and vertical hit areas');
+  await page.setViewport({ width: 390, height: 800 });
+  await setText('Select this text for a discussion\n' + 'more text\n'.repeat(80));
+  await page.evaluate(() => { __editorSvc.clEditor.focus(); __editorSvc.clEditor.setSelection(0, 6); });
+  await page.waitForSelector('.new-discussion-button');
+  await settle();
+  const narrowAction = await page.evaluate(() => {
+    const button = Array.from(document.querySelectorAll('.new-discussion-button')).find(elt => elt.getBoundingClientRect().width > 0);
+    const rect = button.getBoundingClientRect();
+    const editor = __editorSvc.editorElt.parentNode.getBoundingClientRect();
+    const thumb = document.querySelector('.custom-scrollbar__thumb').getBoundingClientRect();
+    const overlaps = other => rect.left < other.right && rect.right > other.left && rect.top < other.bottom && rect.bottom > other.top;
+    return { clickable: button.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)),
+      insideViewport: rect.right <= innerWidth, outsideText: rect.left >= editor.right,
+      clearOfThumb: !overlaps(thumb), clearOfControls: Array.from(document.querySelectorAll('.button-bar__button')).every(elt => !overlaps(elt.getBoundingClientRect())) };
+  });
+  assert.deepEqual(narrowAction, { clickable: true, insideViewport: true, outsideText: true, clearOfThumb: true, clearOfControls: true });
+  console.log('PASS compact discussion action remains accessible without covering text, scrollbar or controls');
+  await page.click('.button-bar__discussion');
+  await page.waitForSelector('.modal');
+  assert.match(await page.$eval('.modal', elt => elt.textContent), /登录|登入/);
+  await page.click('.modal__close-button');
+  await page.waitForFunction(() => !document.querySelector('.modal'));
+  for (const [control, key] of [['navigation-bar', 'showNavigationBar'], ['side-preview', 'showSidePreview'], ['focus-mode', 'focusMode'], ['scroll-sync', 'scrollSync'], ['status-bar', 'showStatusBar'], ['editor', 'showEditor']]) {
+    const previous = await page.evaluate(key => testStore.getters['data/layoutSettings'][key], key);
+    await page.click(`.button-bar__button--${control}-toggler`);
+    await page.waitForFunction(({ key, previous }) => testStore.getters['data/layoutSettings'][key] !== previous, {}, { key, previous });
+    await page.evaluate(({ key, previous }) => testStore.dispatch('data/patchLayoutSettings', { [key]: previous }), { key, previous });
+    await settle();
+  }
+  console.log('PASS all compact controls and discussion sign-in path remain operable');
+  for (const factor of [0.85, 1.25]) {
+    await page.evaluate(factor => testStore.dispatch('data/setSettings', `fontSizeFactor: ${factor}\n`), factor);
+    await setText('line\n'.repeat(10000));
+    await page.evaluate(() => { __editorSvc.editorElt.parentNode.scrollTop = __editorSvc.editorElt.parentNode.scrollHeight; });
+    await settle();
+    const digits = await page.evaluate(() => {
+      const band = document.querySelector('.editor__line-numbers');
+      const bounds = band.getBoundingClientRect();
+      const rows = Array.from(document.querySelectorAll('.editor__line-number'));
+      return { font: parseFloat(getComputedStyle(band).fontSize),
+        four: rows.find(row => row.textContent === '9999').getBoundingClientRect().left - bounds.left,
+        five: rows.find(row => row.textContent === '10000').getBoundingClientRect().left - bounds.left };
+    });
+    assert.equal(digits.font, factor === 0.85 ? 12 : 15);
+    assert.ok(digits.four >= 0 && digits.five < 0, JSON.stringify(digits));
+    const beforeToggle = await textGeometry();
+    await page.evaluate(factor => testStore.dispatch('data/setSettings', `fontSizeFactor: ${factor}\nlineNumbers: false\n`), factor);
+    await settle();
+    assert.deepEqual(await textGeometry(), beforeToggle);
+    await page.evaluate(factor => testStore.dispatch('data/setSettings', `fontSizeFactor: ${factor}\nlineNumbers: true\n`), factor);
+    await settle();
+    assert.deepEqual(await textGeometry(), beforeToggle);
+  }
+  await page.evaluate(() => testStore.dispatch('data/setSettings', ''));
+  console.log('PASS compact font floor/scaling, four/five digits and stable toggle at adjusted sizes');
   await page.setViewport({ width: 390, height: 800, hasTouch: true });
   await page.waitForFunction(() => window.__editorSvc?.clEditor);
   await page.evaluate(() => {

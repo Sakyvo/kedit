@@ -57,6 +57,9 @@ function computeStyles(state, getters, layoutSettings = getters['data/layoutSett
     styles.innerHeight -= constants.statusBarHeight;
   }
 
+  const compactEditor = state.layout.bodyWidth <= 600;
+  styles.compactEditor = compactEditor;
+  styles.buttonBarWidth = compactEditor ? 22 : constants.buttonBarWidth;
   styles.innerWidth = state.layout.bodyWidth;
   if (styles.innerWidth < constants.editorMinWidth
     + constants.gutterWidth + constants.buttonBarWidth
@@ -125,13 +128,16 @@ function computeStyles(state, getters, layoutSettings = getters['data/layoutSett
   styles.editorWidth = styles.showSidePreview ?
     panelWidth :
     doublePanelWidth;
+  // Recover the narrower control strip without changing preview/font sizing.
+  styles.editorWidth += constants.buttonBarWidth - styles.buttonBarWidth;
+  const editorMinPadding = compactEditor ? 12 : minPadding;
   const editorRightPadding = Math
-    .max(Math.floor((styles.editorWidth - styles.textWidth) / 2), minPadding);
+    .max(Math.floor((styles.editorWidth - styles.textWidth) / 2), editorMinPadding);
   styles.editorGutterWidth = showGutter && layoutSettings.showEditor
     ? constants.gutterWidth
     : 0;
   const editorLeftPadding = editorRightPadding + styles.editorGutterWidth;
-  styles.editorGutterLeft = editorLeftPadding - minPadding;
+  styles.editorGutterLeft = editorLeftPadding - editorMinPadding;
   styles.editorPadding = `${editorTopPadding}px ${editorRightPadding}px ${bottomPadding}px ${editorLeftPadding}px`;
 
   styles.titleMaxWidth = styles.innerWidth -

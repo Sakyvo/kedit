@@ -6,7 +6,7 @@
         <comment-list v-if="styles.editorGutterWidth"></comment-list>
       </div>
       <div class="editor__discussion-action" :style="{right: styles.editorPadding.split(' ')[1]}">
-        <editor-new-discussion-button v-if="!isCurrentTemp"></editor-new-discussion-button>
+        <editor-new-discussion-button v-if="!isCurrentTemp && !styles.compactEditor"></editor-new-discussion-button>
       </div>
     </div>
     <custom-scrollbar v-if="scrollerElt" :target="scrollerElt"></custom-scrollbar>
@@ -336,6 +336,13 @@ export default {
 
   .app--dark & {
     background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+@media (max-width: 600px) {
+  .editor__line-numbers,
+  .editor__line-number-rows {
+    font-size: max(12px, 0.75em);
   }
 }
 

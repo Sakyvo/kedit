@@ -20,7 +20,7 @@
               <current-discussion v-if="styles.editorGutterWidth"></current-discussion>
             </div>
           </div>
-          <div class="layout__panel layout__panel--button-bar" v-show="styles.showEditor" :style="{width: constants.buttonBarWidth + 'px'}">
+          <div class="layout__panel layout__panel--button-bar" v-show="styles.showEditor" :style="{width: styles.buttonBarWidth + 'px'}">
             <button-bar></button-bar>
           </div>
           <div class="layout__panel layout__panel--preview" v-show="styles.showPreview" :style="{width: (styles.previewWidth + styles.previewGutterWidth) + 'px', fontSize: styles.fontSize + 'px'}">

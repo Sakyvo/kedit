@@ -10,6 +10,7 @@
       <button class="button-bar__button button-bar__button--editor-toggler button" @click="toggleEditor(false)" v-title="'阅读模式'">
         <icon-eye></icon-eye>
       </button>
+      <editor-new-discussion-button v-if="styles.compactEditor && !isCurrentTemp" compact class="button-bar__discussion"></editor-new-discussion-button>
     </div>
     <div class="button-bar__inner button-bar__inner--bottom">
       <button class="button-bar__button button-bar__button--focus-mode-toggler button" :class="{ 'button-bar__button--on': layoutSettings.focusMode }" @click="toggleFocusMode()" v-title="'切换对焦模式'">
@@ -27,9 +28,13 @@
 
 <script>
 import { mapState, mapGetters, mapActions } from 'vuex';
+import EditorNewDiscussionButton from './gutters/EditorNewDiscussionButton';
 
 export default {
+  components: { EditorNewDiscussionButton },
   computed: {
+    ...mapGetters('layout', ['styles']),
+    ...mapGetters('file', ['isCurrentTemp']),
     ...mapState([
       'light',
     ]),
@@ -59,6 +64,7 @@ export default {
 
 .button-bar__inner {
   position: absolute;
+  width: 100%;
 }
 
 .button-bar__inner--bottom {
@@ -68,7 +74,7 @@ export default {
 .button-bar__button {
   color: rgba(0, 0, 0, 0.2);
   display: block;
-  width: 26px;
+  width: 100%;
   height: 26px;
   padding: 2px;
   margin: 3px 0;
@@ -87,6 +93,15 @@ export default {
       background-color: $navbar-hover-background;
     }
   }
+}
+
+.button-bar__discussion {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 26px;
+  padding: 2px;
+  margin: 3px 0;
 }
 
 .button-bar__button--on {
