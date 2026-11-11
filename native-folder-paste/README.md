@@ -18,7 +18,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 2. 点击“加载已解压的扩展程序”，选择桌面上的 `KEDIT-FolderPaste-extension` 文件夹（安装脚本会把扩展同时复制到该目录，并在输出中打印路径）。
 3. 刷新 `https://kedit.cc.cd/`，复制文件夹后在编辑区粘贴。
 
-扩展若已加载过，改用新版本前请在 `vivaldi://extensions` 点一次 **重新加载**，并重新打开 KEDIT 页面（内容脚本只在页面加载时注入）。
+扩展若已加载过，改用新版本前请先关闭所有 KEDIT 页面（最后一个页面关闭会结束常驻的本机主机），再在 `vivaldi://extensions` 点一次 **重新加载**，然后重新打开 KEDIT（内容脚本只在页面加载时注入）。不要为此强制结束正在使用的浏览器，也不要强杀仍被占用的主机进程。
 
 扩展 ID 由内置公钥固定。Windows 上不同 Chromium 分支读取不同的注册表根，安装脚本会同时写入 Chrome / Chromium / Edge / Brave / Vivaldi 五个 `NativeMessagingHosts` 根，因此换浏览器也无需重装。生产扩展只匹配 KEDIT 正式域名，其他网页、搜索框、预览区不会读取路径。
 
