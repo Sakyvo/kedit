@@ -1,6 +1,10 @@
 const BEGIN = 'kedit-folder-paste-begin';
 const END = 'kedit-folder-paste-end';
 const TIMEOUT = 4000;
+// Distinguishable failures: an install problem must not read the same as a
+// clipboard that moved while the read was in flight.
+const INSTALL_HINT = '未能读取文件夹路径，请确认已安装 KEDIT 本机辅助程序，然后重新复制文件夹';
+const BUSY_HINT = '剪贴板正被其他程序占用或内容已改变，请重新复制文件夹后再粘贴';
 
 export function folderPathsText(paths) {
   if (!Array.isArray(paths) || !paths.length || paths.length > 256) return null;
@@ -61,7 +65,8 @@ export function installFolderPaste(editor, { getDocumentId, watchDocument, notif
     if (reply.status === 'empty' || reply.status === 'not-folders') return;
     const text = reply.status === 'ok' ? folderPathsText(reply.paths) : null;
     if (!text) {
-      notify('未能读取文件夹路径，请确认已安装 KEDIT 本机辅助程序，然后重新复制文件夹');
+      const busy = reply.status === 'busy' || reply.status === 'changed' || reply.status === 'invalid';
+      notify(busy ? BUSY_HINT : INSTALL_HINT);
       return;
     }
     editor.undoMgr.setCurrentMode('single');

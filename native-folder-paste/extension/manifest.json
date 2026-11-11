@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "KEDIT 文件夹路径粘贴",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "仅在 KEDIT 粘贴时读取 Windows 文件夹完整路径，不修改剪贴板。",
   "permissions": [
     "nativeMessaging"

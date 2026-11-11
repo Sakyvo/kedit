@@ -111,6 +111,61 @@ internal static class Program {
         return bytes;
     }
 
+    // A clean EOF between frames ends the session normally; a partial header is
+    // a truncated frame and therefore a protocol error.
+    static bool TryReadLength(Stream input, out int length) {
+        length = 0;
+        byte[] header = new byte[4];
+        int read = 0;
+        while (read < 4) {
+            int chunk = input.Read(header, read, 4 - read);
+            if (chunk == 0) {
+                if (read == 0) return false;
+                throw new EndOfStreamException();
+            }
+            read += chunk;
+        }
+        length = BitConverter.ToInt32(header, 0);
+        return true;
+    }
+
+    static byte[] Frame(string json) {
+        byte[] bytes = Utf8.GetBytes(json);
+        byte[] header = BitConverter.GetBytes(bytes.Length);
+        var framed = new byte[4 + bytes.Length];
+        Buffer.BlockCopy(header, 0, framed, 0, 4);
+        Buffer.BlockCopy(bytes, 0, framed, 4, bytes.Length);
+        return framed;
+    }
+
+    static string ReadFrame(Stream input) {
+        int length = BitConverter.ToInt32(ReadExactly(input, 4), 0);
+        return Utf8.GetString(ReadExactly(input, length));
+    }
+
+    // One long-lived session: announce readiness, then answer frames until the
+    // browser closes the port (EOF). No clipboard access happens before a real
+    // request arrives.
+    static int Serve(Stream input, Stream output) {
+        Send(output, new { version = 1, type = "ready" });
+        while (true) {
+            int length;
+            if (!TryReadLength(input, out length)) return 0;
+            if (length <= 0 || length > 1048576) return 3;
+            Request request;
+            try { request = Json.Deserialize<Request>(Utf8.GetString(ReadExactly(input, length))); }
+            catch { return 1; }
+            if (!ValidRequest(request)) {
+                Send(output, Reply(null, "invalid"));
+                continue;
+            }
+            // The deadline bounds one read, not the idle session.
+            using (var deadline = new Timer(_ => Environment.Exit(4), null, 3000, Timeout.Infinite)) {
+                Send(output, ReadFolders(request));
+            }
+        }
+    }
+
     static void Send(Stream output, object reply) {
         byte[] bytes = Utf8.GetBytes(Json.Serialize(reply));
         byte[] length = BitConverter.GetBytes(bytes.Length);
@@ -146,6 +201,24 @@ internal static class Program {
             int length = BitConverter.ToInt32(ReadExactly(stream, 4), 0);
             if (!Utf8.GetString(ReadExactly(stream, length)).Contains("资料")) throw new Exception("UTF-8 framing failed");
         }
+        // The session loop: readiness first, one reply per frame, EOF ends it.
+        // Both requests are rejected before any clipboard access, so the
+        // self-test never opens the Author's clipboard.
+        using (var input = new MemoryStream())
+        using (var output = new MemoryStream()) {
+            byte[] first = Frame(@"{""version"":1,""action"":""write"",""requestId"":""a"",""names"":[]}");
+            byte[] second = Frame(@"{""version"":1,""action"":""write"",""requestId"":""b"",""names"":[]}");
+            input.Write(first, 0, first.Length);
+            input.Write(second, 0, second.Length);
+            input.Position = 0;
+            if (Serve(input, output) != 0) throw new Exception("Session did not end on EOF");
+            output.Position = 0;
+            if (!ReadFrame(output).Contains(@"""type"":""ready""")) throw new Exception("Ready handshake failed");
+            for (int i = 0; i < 2; i++) {
+                if (!ReadFrame(output).Contains(@"""status"":""invalid""")) throw new Exception("Frame not answered");
+            }
+            if (output.Position != output.Length) throw new Exception("Unexpected trailing output");
+        }
     }
 
     [STAThread]
@@ -155,16 +228,8 @@ internal static class Program {
             if (args.Length == 0 || !Regex.IsMatch(args[0], @"\Achrome-extension://[a-p]{32}/\z")) return 2;
             using (Stream input = Console.OpenStandardInput())
             using (Stream output = Console.OpenStandardOutput()) {
-                int length = BitConverter.ToInt32(ReadExactly(input, 4), 0);
-                if (length <= 0 || length > 1048576) return 3;
-                Request request = Json.Deserialize<Request>(Utf8.GetString(ReadExactly(input, length)));
-                if (!ValidRequest(request)) { Send(output, Reply(null, "invalid")); return 0; }
-                // Bound host lifetime, including offline UNC metadata calls.
-                using (var deadline = new Timer(_ => Environment.Exit(4), null, 3000, Timeout.Infinite)) {
-                    Send(output, ReadFolders(request));
-                }
+                return Serve(input, output);
             }
-            return 0;
         } catch { return 1; }
     }
 }

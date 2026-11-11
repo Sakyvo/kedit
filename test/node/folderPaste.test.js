@@ -119,6 +119,18 @@ test('timeout/failure/invalid paths inform author without modifying document', (
   assert.equal(f.notifications.length, 1);
 });
 
+test('an install problem reads differently from a clipboard race', () => {
+  const missing = fixture(); missing.begin(); missing.reply({ status: 'unavailable' });
+  const raced = ['busy', 'changed', 'invalid'].map(status => {
+    const f = fixture(); f.begin(); f.reply({ status });
+    return f.notifications[0];
+  });
+  assert.match(missing.notifications[0], /本机辅助程序/);
+  for (const message of raced) assert.match(message, /重新复制/);
+  assert.notEqual(missing.notifications[0], raced[0]);
+  assert.equal(new Set(raced).size, 1, 'one wording for every clipboard race');
+});
+
 test('empty clipboard and non-folder selection leave the document untouched', () => {
   for (const status of ['empty', 'not-folders']) {
     const f = fixture(); f.begin(); f.reply({ status });

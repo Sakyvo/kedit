@@ -9,6 +9,7 @@ Windows/Vivaldi 专用的 KEDIT 文件夹路径粘贴辅助程序；只读剪贴
 
 ## 按需读取索引
 - 构建 / 测试 / 打包 / 交付前，读 `.docs/spec/build-output.md`。
+- 修改连接生命周期、预热或粘贴事务前，读 `.docs/spec/folder-paste-lifecycle.md`。
 
 ## 优先级
 用户明确指令 > 本文件 > 父项目 AGENTS.md > 路由文档。
