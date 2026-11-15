@@ -45,6 +45,7 @@ function Remove-Item {
 }
 try {
   $loadCopy = Join-Path $sandbox 'loads/KEDIT-FolderPaste-extension'
+  $legacyCopy = Join-Path $sandbox 'legacy/KEDIT-FolderPaste-extension'
   $sourceExtension = Join-Path $root 'extension'
   & (Join-Path $delivery 'install.ps1') -ExtensionSource $sourceExtension -ExtensionTarget $loadCopy
   $homePath = Join-Path $sandbox 'KEDIT/FolderPaste'
@@ -84,10 +85,22 @@ try {
   if (!$rejected) { throw 'Foreign registration was not rejected' }
   if ($registry.Keys[$keyPaths[0]] -ne 'C:\other\manifest.json') { throw 'Foreign registration overwritten' }
   $registry.Keys[$keyPaths[0]] = $manifestPath
-  & (Join-Path $homePath 'uninstall.ps1') -ExtensionTarget $loadCopy
+  # A missing extension source must fail loudly, not install half a product.
+  $emptySource = Join-Path $sandbox 'empty-source'
+  New-Item -ItemType Directory -Force $emptySource | Out-Null
+  $missingRejected = $false
+  try { & (Join-Path $delivery 'install.ps1') -ExtensionSource $emptySource -ExtensionTarget $loadCopy } catch { $missingRejected = $true }
+  if (!$missingRejected) { throw 'Missing extension source was not rejected' }
+  # The legacy Desktop copy is simulated so the test never touches the real one.
+  New-Item -ItemType Directory -Force $legacyCopy | Out-Null
+  foreach ($file in 'manifest.json', 'content.js', 'background.js') {
+    Copy-Item (Join-Path $sourceExtension $file) -Destination $legacyCopy -Force
+  }
+  & (Join-Path $homePath 'uninstall.ps1') -ExtensionTarget $loadCopy -LegacyTarget $legacyCopy
   if ($registry.Keys.Count -ne 0) { throw 'Uninstall left registrations behind' }
   if (Test-Path $homePath) { throw 'Uninstall left owned files behind' }
   if (Test-Path (Join-Path $loadCopy 'manifest.json')) { throw 'Uninstall left the load copy behind' }
+  if (Test-Path (Join-Path $legacyCopy 'manifest.json')) { throw 'Uninstall left the legacy Desktop copy behind' }
   Write-Host 'PASS: vendor roots, external extension source, reinstall, foreign guard, full uninstall (registry mocked; clipboard untouched)'
 } finally {
   $env:LOCALAPPDATA = $originalLocalAppData

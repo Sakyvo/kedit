@@ -1,4 +1,4 @@
-param([string]$ExtensionTarget)
+param([string]$ExtensionTarget, [string]$LegacyTarget)
 $ErrorActionPreference = 'Stop'
 $homePath = Join-Path $env:LOCALAPPDATA 'KEDIT/FolderPaste'
 $nativeManifest = Join-Path $homePath 'cc.cd.kedit.folder_paste.json'
@@ -35,7 +35,8 @@ foreach ($root in $vendorRoots) {
   if ($ExtensionTarget -and (Test-Path $path)) { Remove-Item -LiteralPath $path }
 }
 # The pre-relocation Desktop copy is no longer written; remove it once.
-$legacy = Join-Path ([Environment]::GetFolderPath('Desktop')) 'KEDIT-FolderPaste-extension'
+if (!$LegacyTarget) { $LegacyTarget = Join-Path ([Environment]::GetFolderPath('Desktop')) 'KEDIT-FolderPaste-extension' }
+$legacy = $LegacyTarget
 @('manifest.json', 'content.js', 'background.js') | ForEach-Object {
   $path = Join-Path $legacy $_
   if (Test-Path $path) { Remove-Item -LiteralPath $path }
