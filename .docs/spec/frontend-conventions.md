@@ -57,6 +57,39 @@ recursive component with:
 - Use existing theme hooks such as `.app--dark &` when adding dark-mode
   variants.
 - Avoid new styling systems or dependencies.
+- 预览与编辑区排版同源：断词/换行类声明（`overflow-wrap` / `white-space` /
+  `word-break`）两侧成对；预览与导出 HTML 的容器根（`.cl-preview-section`,
+  `.stackedit__html`）用 `overflow-wrap: anywhere`，对应编辑区 `.editor__inner`
+  的 `word-break: break-word`。改一侧必须同步另一侧。
+- 分割线外观归 KEDIT：预览与导出容器内 `hr` 的三档外观（颜色 + 粗细 + 盒模型）
+  由 KEDIT 独占并 `!important` 声明；`static/themes/*.js` 不得再写 `hr` / `.hr`
+  外观规则（用户自定义主题同理无效，见 ADR 0017）。
+
+### Startup Loading
+
+- 启动画面不依赖主 JS、外部图片或字体；保持到 Layout 可显示，
+  不因 Vue 挂载提前移除，不设置人为最短停留时间。
+- 非基础编辑必需的重型渲染器按内容需要加载；失败不得阻塞编辑。
+  调整加载时机须回归预览、导出及 SW 预缓存行为。
+- 启动性能区分无缓存冷访问与缓存回访；记录测试条件，
+  同时比较首屏必需资源总量、首次可见和文档可编辑时间。
+
+### First Paint and Precache Boundaries
+
+- 保留不依赖外部资源的 HTML 启动画面；预加载只提前发现基础编辑所需的
+  生产资源，不执行应用或提前开放编辑。URL 从当次构建依赖关系取得，
+  不硬编码 hash，不把可选渲染器重新塞入首屏预加载链。
+- 首装 precache 只包含可启动、可基础编辑的外壳及其必要依赖；
+  Mermaid、KaTeX、ABC 等可选渲染资源按使用缓存，覆盖各自 chunk、CSS、字体依赖。
+  首次未使用的功能不承诺离线可用；成功缓存后的功能须验证离线重开。
+- 非基础编辑所需的 About Logo、成套设备启动图不进入首装 precache。
+  删除资源或规则前核对所有调用者；精简 HTML 图标声明须保留桌面/iOS 图标
+  和一个有效 PWA manifest，不能把声明数量当成实际下载数量。
+- 运行时缓存限定为 KEDIT 自有静态资源；不得兜底缓存 OAuth、API、Sync、
+  Document 或 Private image。缓存安装/更新失败不得破坏可用版本或未保存编辑。
+- 改加载/缓存策略须同时记录首次进入编辑与 SW 安装完成的时序，区分
+  HTTP 缓存、SW CacheStorage 和部署版本。不能由 max-age、CDN HIT/MISS、
+  文件体积或 precache 清单推断 Author 设备的缓存命中、安装失败或网络根因。
 
 ### Accessibility
 
@@ -108,6 +141,39 @@ browser default line-height.
 Contexts with different bases (prose `1.67em` vs code blocks `1.33em`) need
 their own override of every derived property (`line-height`, `vertical-align`,
 spacer height) — one variable does not flatten them.
+
+### Editor Line Numbers
+
+- Number Markdown source lines from 1, including empty lines; show 1 for an
+  empty Document. Soft-wrapped continuations have no number or wrap marker.
+- Reserve a compact, fixed gutter for four monospaced digits plus minimal
+  padding. Right-align numbers without leading zeroes. Five or more digits
+  overflow left without widening the gutter or changing the text layout.
+- Use a subtle theme-aware gutter background across the visible editor
+  height, including blank space below the Document.
+- Disabling line numbers hides both numbers and the gutter background but
+  preserves layout space. Toggling must not move the text's left edge,
+  change its interactive width, or alter soft-wrap positions.
+- Show numbers only beside the Markdown editing area, aligned with each
+  source line's first visual row through scrolling and layout changes.
+- Keep line-number alignment stable when an empty source line gains text
+  or becomes empty again; do not compensate with a blanket pixel offset.
+- Preserve configured line-height offsets during IME composition. Composition
+  start, update, commit, and cancel must not move adjacent empty source lines;
+  do not temporarily flatten line heights. Consecutive empty lines are the
+  target boundary; an intervening content line is a control case.
+- Line-number digits must share the editor text's native scrolling displacement;
+  do not use per-scroll JavaScript repositioning as the synchronization
+  mechanism. Keep the gutter background covering the visible editor height.
+- At viewport widths <=600 CSS px, use a 22px button bar, a 12px minimum
+  editor right padding, and line-number text at 0.75em with a 12px floor.
+  Keep four-digit capacity, unchanged body font size, all controls, and
+  unchanged vertical button hit areas. Keep wider layouts unchanged.
+- Default to enabled. Expose “显示行号” in 配置 → 性能, below the dynamic-loading
+  controls. Apply it on 确认 through the existing settings flow; sync the top-level
+  `lineNumbers` key by default.
+- Keep numbers outside editable/copied content. Do not add line selection,
+  current-line highlighting, sidebar entries, or shortcuts.
 
 ### Editor Hot-Path Geometry (cledit)
 

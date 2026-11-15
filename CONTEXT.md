@@ -48,6 +48,10 @@ _Avoid_: 折行 (fine in prose, not a term), 换行 (alone — does not say whic
 A line break the Author typed, i.e. a `\n` in the source text. The editor renders each one as its own `.lf` span and the preview as `<br>` plus a zero-width block spacer, which is what makes it visually distinguishable from an **自动换行**. (Inside a fenced code block the preview shows the newline literally — a code block has no soft wrap to be distinguished from, so no spacer is involved.) Author-tunable via the `hardBreakOffset` setting; the gap the Author actually sees is the difference between the two offsets.
 _Avoid_: 换行符 (names the character, not the typographic break), 回车
 
+**分割线档位（Divider tier）**:
+A divider's grade, decided by how many marker characters its source line carries (spaces do not count, `-` / `*` / `_` are equivalent): 3–5 is the plain divider (1px, neutral), 6–8 the blue one (2px), 9 or more the red one (2px). The editor's marker run and the preview's rule share the colour and the weight — the preview cannot separate the tiers any other way. The grade is hard semantics: no theme in `static/themes/` may change a divider's colour or weight (ADR 0017).
+_Avoid_: 粗分割线/细分割线 (names weight only, drops the colour grade), 红色分割线 (that is just what the third tier looks like)
+
 **行号（Line number）**:
 The source-line number shown to the left of a **Document**'s Markdown editing area, starting at 1 and counting empty lines. **手动换行** starts a new numbered line; **自动换行** does not — only the first visual row of a source line carries its number.
 _Avoid_: 行显示 (ambiguous), 视觉行号 (counts wrapped rows rather than source lines)

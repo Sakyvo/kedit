@@ -32,6 +32,7 @@
 - 私有图片私有落盘（IndexedDB + git blob）；base64 仅为 Publish/复制的瞬态投影，绝不存入文档。
 - 联动：新增随工作区同步的 data 条目，必须按 `.docs/spec/state-management.md` 的四触点接线（empty/getter/syncDataItem/git 白名单），且禁止把本地 item id 写入跨设备数据（用 git 路径）。
 - 联动：新增浮层必须取用 `.docs/spec/frontend-conventions.md` 的 z-index 阶梯值，不得裸写。
+- 联动：改预览或编辑区的排版/分割线外观必须两侧同步；分割线档位外观归 KEDIT 独占、不随主题（ADR 0017）。
 
 ## 按需读取索引
 
