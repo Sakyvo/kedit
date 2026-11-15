@@ -90,15 +90,22 @@ internal static class Program {
             if (opened) CloseClipboard();
         }
         // Never hold the clipboard lock during filesystem metadata queries.
-        foreach (string path in paths) {
-            uint attributes = GetFileAttributesW(path);
-            if (attributes == UInt32.MaxValue) return Reply(request.requestId, "unavailable");
-            if ((attributes & 16) == 0) return Reply(request.requestId, "not-folders");
-        }
+        string rejection = Rejection(paths);
+        if (rejection != null) return Reply(request.requestId, rejection);
         paths = paths.Select(DisplayPath).ToArray();
         if (!ValidPaths(paths)) return Reply(request.requestId, "invalid");
         if (!NamesMatch(paths, request.names) || sequence != GetClipboardSequenceNumber()) return Reply(request.requestId, "changed");
         return Reply(request.requestId, "ok", paths);
+    }
+
+    // A copied entry may be a directory or any file (zip, exe, shortcut, no
+    // extension). Only existence matters: a path that cannot be read fails the
+    // whole paste rather than being silently dropped.
+    static string Rejection(string[] paths) {
+        foreach (string path in paths) {
+            if (GetFileAttributesW(path) == UInt32.MaxValue) return "unavailable";
+        }
+        return null;
     }
 
     static byte[] ReadExactly(Stream input, int count) {
@@ -174,6 +181,18 @@ internal static class Program {
         output.Flush();
     }
 
+    // A synthetic CF_HDROP block: the parser and classifier can then run against
+    // the real shell parser without opening the Author's clipboard.
+    static IntPtr DropFor(string[] paths) {
+        byte[] payload = Encoding.Unicode.GetBytes(String.Join("\0", paths) + "\0\0");
+        IntPtr drop = Marshal.AllocHGlobal(20 + payload.Length);
+        for (int i = 0; i < 20; i++) Marshal.WriteByte(drop, i, 0);
+        Marshal.WriteInt32(drop, 0, 20);
+        Marshal.WriteInt32(drop, 16, 1);
+        Marshal.Copy(payload, 0, IntPtr.Add(drop, 20), payload.Length);
+        return drop;
+    }
+
     static void SelfTest() {
         if (!ValidPaths(new[] { @"C:\资料\a b", @"\\server\share\目录" })
             || ValidPaths(new[] { "relative" }) || ValidPaths(new[] { "\"C:\\folder\"" })
@@ -186,15 +205,48 @@ internal static class Program {
             throw new Exception("Self-test failed");
         // Exercise the real shell parser without changing the user's clipboard.
         var expected = new[] { @"C:\资料\a b", @"\\server\share\目录" };
-        byte[] payload = Encoding.Unicode.GetBytes(String.Join("\0", expected) + "\0\0");
-        IntPtr drop = Marshal.AllocHGlobal(20 + payload.Length);
+        IntPtr drop = DropFor(expected);
         try {
-            for (int i = 0; i < 20; i++) Marshal.WriteByte(drop, i, 0);
-            Marshal.WriteInt32(drop, 0, 20);
-            Marshal.WriteInt32(drop, 16, 1);
-            Marshal.Copy(payload, 0, IntPtr.Add(drop, 20), payload.Length);
             if (!DropPaths(drop).SequenceEqual(expected)) throw new Exception("CF_HDROP parser failed");
         } finally { Marshal.FreeHGlobal(drop); }
+        // A copied entry may be a directory or any file; existence alone decides.
+        string sandbox = Path.Combine(Path.GetTempPath(), "kedit-path-paste-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(sandbox);
+        string archive = Path.Combine(sandbox, "backup.zip");
+        string binary = Path.Combine(sandbox, "setup.exe");
+        File.WriteAllBytes(archive, new byte[] { 0x50, 0x4b });
+        File.WriteAllBytes(binary, new byte[] { 0x4d, 0x5a });
+        try {
+            foreach (var entries in new[] {
+                new[] { archive },
+                new[] { archive, binary },
+                new[] { sandbox, archive },
+                new[] { sandbox },
+            }) {
+                IntPtr mixed = DropFor(entries);
+                try {
+                    string[] parsed = DropPaths(mixed);
+                    if (!parsed.SequenceEqual(entries)) throw new Exception("Entry parse failed");
+                    if (Rejection(parsed) != null) throw new Exception("File or directory rejected");
+                    if (!ValidPaths(parsed)) throw new Exception("Entry path validation failed");
+                } finally { Marshal.FreeHGlobal(mixed); }
+            }
+            if (Rejection(new[] { Path.Combine(sandbox, "missing.zip") }) != "unavailable")
+                throw new Exception("Missing entry was accepted");
+            // One entry past the documented cap must fail rather than truncate.
+            var overflow = new string[257];
+            for (int i = 0; i < overflow.Length; i++) overflow[i] = archive;
+            IntPtr tooMany = DropFor(overflow);
+            try {
+                bool rejected = false;
+                try { DropPaths(tooMany); } catch (InvalidDataException) { rejected = true; }
+                if (!rejected) throw new Exception("Entry cap was not enforced");
+            } finally { Marshal.FreeHGlobal(tooMany); }
+        } finally {
+            try { File.Delete(archive); } catch { }
+            try { File.Delete(binary); } catch { }
+            try { Directory.Delete(sandbox); } catch { }
+        }
         using (var stream = new MemoryStream()) {
             Send(stream, Reply("test", "ok", new[] { @"C:\资料" }));
             stream.Position = 0;

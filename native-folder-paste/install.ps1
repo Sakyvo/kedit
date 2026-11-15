@@ -1,9 +1,18 @@
-param([string]$ExtensionTarget)
+param([string]$ExtensionSource, [string]$ExtensionTarget)
 $ErrorActionPreference = 'Stop'
 $source = $PSScriptRoot
 $homePath = Join-Path $env:LOCALAPPDATA 'KEDIT/FolderPaste'
-if (!$ExtensionTarget) { $ExtensionTarget = Join-Path ([Environment]::GetFolderPath('Desktop')) 'KEDIT-FolderPaste-extension' }
-$manifest = Get-Content (Join-Path $source 'extension/manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+# The extension is generated to the repository root, outside the delivery app.
+# Fall back to a sibling `extension/` so the archive stays self-contained.
+$repoExtension = Join-Path (Join-Path $source '../../../..') 'KEDIT-FolderPaste-extension'
+if (!$ExtensionSource) {
+  if (Test-Path (Join-Path $source 'extension/manifest.json')) { $ExtensionSource = Join-Path $source 'extension' }
+  elseif (Test-Path (Join-Path $repoExtension 'manifest.json')) { $ExtensionSource = $repoExtension }
+  else { throw 'Extension files not found; pass -ExtensionSource.' }
+}
+if (!(Test-Path (Join-Path $ExtensionSource 'manifest.json'))) { throw "No extension manifest under $ExtensionSource" }
+if (!$ExtensionTarget -and (Test-Path (Join-Path $repoExtension 'manifest.json'))) { $ExtensionTarget = $repoExtension }
+$manifest = Get-Content (Join-Path $ExtensionSource 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $keyBytes = [Convert]::FromBase64String($manifest.key)
 $sha = [Security.Cryptography.SHA256]::Create()
 $hash = $sha.ComputeHash($keyBytes)
@@ -34,9 +43,11 @@ foreach ($keyPath in $keyPaths) {
 New-Item -ItemType Directory -Force $homePath | Out-Null
 Copy-Item $exe, (Join-Path $source 'uninstall.ps1') -Destination $homePath -Force
 New-Item -ItemType Directory -Force (Join-Path $homePath 'extension') | Out-Null
-Copy-Item (Join-Path $source 'extension/*') -Destination (Join-Path $homePath 'extension') -Force
-New-Item -ItemType Directory -Force $ExtensionTarget | Out-Null
-Copy-Item (Join-Path $source 'extension/*') -Destination $ExtensionTarget -Force
+Copy-Item (Join-Path $ExtensionSource '*') -Destination (Join-Path $homePath 'extension') -Force
+if ($ExtensionTarget -and $ExtensionTarget -ne $ExtensionSource) {
+  New-Item -ItemType Directory -Force $ExtensionTarget | Out-Null
+  Copy-Item (Join-Path $ExtensionSource '*') -Destination $ExtensionTarget -Force
+}
 $registration = @{
   name = $hostName
   description = 'KEDIT read-only folder path paste'
@@ -51,7 +62,9 @@ foreach ($keyPath in $keyPaths) {
 }
 Write-Host "Installed for the current user (no admin required)."
 Write-Host "Registered under $($keyPaths.Count) browser roots (Chrome/Chromium/Edge/Brave/Vivaldi)."
+Write-Host "Extension source: $ExtensionSource"
+if ($ExtensionTarget -and $ExtensionTarget -ne $ExtensionSource) { Write-Host "Extension copy: $ExtensionTarget" }
 Write-Host 'Open vivaldi://extensions, enable Developer mode, Load unpacked:'
-Write-Host $ExtensionTarget
+Write-Host $(if ($ExtensionTarget) { $ExtensionTarget } else { $ExtensionSource })
 Write-Host "Expected extension ID: $extensionId"
 Write-Host 'Reload https://kedit.cc.cd/ after loading the extension.'

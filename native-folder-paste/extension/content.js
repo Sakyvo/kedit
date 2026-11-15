@@ -94,9 +94,15 @@
     if (!clip) return;
     const items = Array.from(clip.items || []);
     const files = Array.from(clip.files || []);
-    // Images keep KEDIT's existing upload pipeline.
-    if (items.some(item => item.type.startsWith('image/'))
-      || files.some(file => file.type.startsWith('image/'))) return;
+    const fileEntries = items.filter(item => item.kind === 'file');
+    const nonImage = fileEntries.some(item => !item.type.startsWith('image/'))
+      || files.some(file => !file.type.startsWith('image/'));
+    // A purely image clipboard keeps KEDIT's upload pipeline. As soon as any
+    // non-image entry is selected too, the whole selection becomes paths, so a
+    // mixed paste never inserts only part of what the author copied.
+    const hasImage = fileEntries.some(item => item.type.startsWith('image/'))
+      || files.some(file => file.type.startsWith('image/'));
+    if (hasImage && !nonImage) return;
     const text = clip.getData('text/plain');
     const html = clip.getData('text/html');
     const types = Array.from(clip.types || []);
@@ -136,7 +142,7 @@
     try {
       reply = await chrome.runtime.sendMessage({
         version: 1, action: 'readFolders', requestId,
-        names: files.map(file => file.name),
+        names: (files.length ? files : fileEntries).map(entry => entry.name || ''),
       });
     } catch {
       reply = { version: 1, requestId, status: 'unavailable' };

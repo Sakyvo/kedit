@@ -1,6 +1,6 @@
-# Windows 文件夹 → KEDIT 无引号路径粘贴
+# Windows 文件/文件夹 → KEDIT 无引号路径粘贴
 
-Windows 10 + Vivaldi；在资源管理器选中文件夹 **Ctrl+C**，回到 KEDIT 编辑区 **Ctrl+V**，插入完整路径，例如 `D:\资料\项目`。不是“复制为路径”，也不需要油猴。
+Windows 10 + Vivaldi；在资源管理器选中**文件夹或任意文件**（zip、exe、快捷方式、无扩展名等）**Ctrl+C**，回到 KEDIT 编辑区 **Ctrl+V**，插入完整路径，例如 `D:\资料\项目` 或 `C:\Users\ASUS\Desktop\Bettbox_backup_2026-11-05.zip`。不是“复制为路径”，也不需要油猴。
 
 ## 安装（只需一次）
 
@@ -12,11 +12,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 只写当前用户 `%LOCALAPPDATA%\KEDIT\FolderPaste` 和本工具的 Native Messaging 注册项，不需要管理员权限。**安装脚本不会代替你安装浏览器扩展。**
 
-先确认命令输出 `Installed for the current user`；安装成功后才会创建扩展目录。安装兼容 Windows PowerShell 5.1 和 PowerShell 7，扩展清单按 UTF-8 读取。
+先确认命令输出 `Installed for the current user`。扩展清单默认从仓库根 `KEDIT-FolderPaste-extension/` 读取（zip 内自带 `extension/`，解压后可直接安装）；两者都没有时需显式传 `-ExtensionSource`。安装兼容 Windows PowerShell 5.1 和 PowerShell 7，扩展清单按 UTF-8 读取。
 
 1. 打开 `vivaldi://extensions`，启用“开发者模式”。
-2. 点击“加载已解压的扩展程序”，选择桌面上的 `KEDIT-FolderPaste-extension` 文件夹（安装脚本会把扩展同时复制到该目录，并在输出中打印路径）。
-3. 刷新 `https://kedit.cc.cd/`，复制文件夹后在编辑区粘贴。
+2. 点击“加载已解压的扩展程序”，选择仓库根生成的 `K:\Projects\website\kedit\KEDIT-FolderPaste-extension` 文件夹（构建产出该目录；安装脚本会打印实际路径）。
+3. 刷新 `https://kedit.cc.cd/`，复制文件或文件夹后在编辑区粘贴。
 
 扩展若已加载过，改用新版本前请先关闭所有 KEDIT 页面（最后一个页面关闭会结束常驻的本机主机），再在 `vivaldi://extensions` 点一次 **重新加载**，然后重新打开 KEDIT（内容脚本只在页面加载时注入）。不要为此强制结束正在使用的浏览器，也不要强杀仍被占用的主机进程。
 
@@ -26,8 +26,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 ## 行为与边界
 
-- 单文件夹一条路径；多文件夹按 Windows CF_HDROP 顺序每行一条。保留中文、空格和反斜杠，不加引号、不加 Markdown 转义。
-- 仅支持真实文件系统目录；混合选择文件和文件夹不转换。图片、网页 HTML、普通文本保持原粘贴行为。列选择模式会提示退出，不悄悄更改列粘贴语义。
+- 每个条目一条路径；多条目按 Windows CF_HDROP 顺序每行一条。目录与文件一视同仁，保留中文、空格和反斜杠，不加引号、不加 Markdown 转义。
+- 只取路径与存在性：不解析快捷方式目标、不读文件内容、不枚举目录。路径已不存在时明确失败，不插入部分结果。
+- 纯图片保持原上传行为；一旦混入非图片文件或目录，整体插入全部路径，不会只粘一部分。网页 HTML、普通文本保持原粘贴行为。列选择模式会提示退出，不悄悄更改列粘贴语义。
 - 当前选区替换为路径，支持普通撤销/重做。等待期间打字、移动光标、切换文档或失焦会丢弃结果，防止插错位置。
 - 本机程序按需启动，读取 CF_HDROP 和目录属性；不遍历目录、不读文件内容、不改写剪贴板、不监听端口、不开机常驻。不记录路径日志。路径进入文档后按 KEDIT 原有 Sync/Publish 行为处理。
 - 网络共享不可达、剪贴板占用、主机未注册或路径过大时提示失败，不插入部分结果。上限 256 个目录、合计 128 Ki 字符，单路径 32767 字符。
@@ -37,7 +38,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 - 在 KEDIT 页面按 F12，控制台输入 `document.documentElement.dataset.keditFolderPaste`：返回 `"1"` 说明扩展的内容脚本已注入；`undefined` 说明扩展未加载或页面加载于安装之前（请重新加载扩展并刷新页面）。
 - 粘贴后既没有路径也没有提示：多为扩展未重载；请在 `vivaldi://extensions` 点“重新加载”后重试。
-- 提示“未能读取文件夹路径”：说明内容脚本已运行但未修好本机主机，请重新运行 `install.ps1`（会注册全部五个浏览器根）。
+- 提示“未能读取路径”：说明内容脚本已运行但未修好本机主机，请重新运行 `install.ps1`（会注册全部五个浏览器根）。
 
 ## 卸载
 

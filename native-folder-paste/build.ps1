@@ -36,10 +36,22 @@ $payload = Join-Path $release 'package'
 if (Test-Path $payload) { Remove-Item $payload -Recurse -Force }
 New-Item -ItemType Directory -Force $payload | Out-Null
 Copy-Item $exe -Destination $payload
-Copy-Item (Join-Path $root 'extension') -Destination $payload -Recurse
 Copy-Item (Join-Path $root 'install.ps1'), (Join-Path $root 'uninstall.ps1'), (Join-Path $root 'README.md') -Destination $payload
+# The extension is generated at the repository root so the Author can load it
+# from a stable path; the delivery payload deliberately carries no copy.
+$extensionOut = Join-Path (Split-Path $root -Parent) 'KEDIT-FolderPaste-extension'
+if (Test-Path $extensionOut) { Remove-Item $extensionOut -Recurse -Force }
+New-Item -ItemType Directory -Force $extensionOut | Out-Null
+Copy-Item (Join-Path $root 'extension/*') -Destination $extensionOut -Force
+if (!(Test-Path (Join-Path $extensionOut 'manifest.json'))) { throw 'Extension generation failed' }
+# The archive must stay self-contained, so the zip stages the extension too.
+$zipStage = Join-Path $release 'zipstage'
+if (Test-Path $zipStage) { Remove-Item $zipStage -Recurse -Force }
+New-Item -ItemType Directory -Force $zipStage | Out-Null
+Copy-Item (Join-Path $payload '*') -Destination $zipStage
+Copy-Item (Join-Path $root 'extension') -Destination $zipStage -Recurse
 $zipPayload = Join-Path $release 'kedit-folder-paste.zip'
-Compress-Archive -Path (Join-Path $payload '*') -DestinationPath $zipPayload -Force
+Compress-Archive -Path (Join-Path $zipStage '*') -DestinationPath $zipPayload -Force
 $inputs = @('build.ps1', 'install.ps1', 'uninstall.ps1', 'README.md') + @(
   Get-ChildItem (Join-Path $root 'host'), (Join-Path $root 'extension') -File | ForEach-Object { [IO.Path]::GetRelativePath($root, $_.FullName).Replace('\', '/') }
 )
@@ -64,6 +76,9 @@ try {
   $files = @(Get-ChildItem $app -File -Recurse | ForEach-Object {
     @{ path = [IO.Path]::GetRelativePath($app, $_.FullName).Replace('\', '/'); bytes = $_.Length; sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash }
   })
+  $extensionFiles = @(Get-ChildItem $extensionOut -File -Recurse | ForEach-Object {
+    @{ path = $_.Name; bytes = $_.Length; sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash }
+  })
   $receipt = @{
     product = $layout.product; generatedAt = [DateTime]::UtcNow.ToString('o')
     sourceCommit = (git -C $root rev-parse HEAD); inputFingerprint = $fingerprint; inputs = $inputList
@@ -71,6 +86,7 @@ try {
     command = 'pwsh -File build.ps1 -Package'
     verification = @{ command = 'KeditFolderPaste.exe --self-test'; passed = $true; timestamp = [DateTime]::UtcNow.ToString('o') }
     app = @{ status = 'pending-manual-acceptance'; entry = 'app/KeditFolderPaste.exe'; files = $files; pending = @('Vivaldi extension/native registration', 'Explorer Ctrl+C -> KEDIT Ctrl+V; undo/redo and clipboard regression') }
+    extension = @{ status = 'pending-manual-acceptance'; path = '../KEDIT-FolderPaste-extension'; files = $extensionFiles }
     zip = @{ status = 'pending-manual-acceptance'; path = 'zip/kedit-folder-paste.zip'; bytes = (Get-Item $zip).Length; sha256 = (Get-FileHash $zip -Algorithm SHA256).Hash }
   }
   $receipt | ConvertTo-Json -Depth 10 | Set-Content -Encoding utf8 $receiptPath
@@ -82,7 +98,9 @@ try {
   throw
 } finally {
   if (Test-Path $zipBackup) { Remove-Item $zipBackup }
+  if (Test-Path $zipStage) { Remove-Item $zipStage -Recurse -Force }
 }
 if (Test-Path $rollback) { Remove-Item $rollback -Recurse -Force }
 Write-Host "Delivery: $app"
+Write-Host "Extension: $extensionOut"
 Write-Host "Archive: $zip"

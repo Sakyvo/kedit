@@ -6,3 +6,6 @@ diststyle/
 .agents/
 .claude/
 .codex/
+
+# KEDIT Folder Paste: extension generated at the repository root (Author-approved exception)
+KEDIT-FolderPaste-extension/

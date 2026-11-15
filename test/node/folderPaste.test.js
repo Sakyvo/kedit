@@ -131,8 +131,8 @@ test('an install problem reads differently from a clipboard race', () => {
   assert.equal(new Set(raced).size, 1, 'one wording for every clipboard race');
 });
 
-test('empty clipboard and non-folder selection leave the document untouched', () => {
-  for (const status of ['empty', 'not-folders']) {
+test('empty clipboard and a superseded status leave the document untouched', () => {
+  for (const status of ['empty']) {
     const f = fixture(); f.begin(); f.reply({ status });
     assert.equal(f.edits.length, 0);
     assert.equal(f.notifications.length, 0);

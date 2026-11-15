@@ -37,10 +37,11 @@ function fakeClock() {
   return clock;
 }
 
-function contentFixture({ trusted = true, text = '', html = '', type = '', accepted = true,
-  active = true, status = 'ok', top = true, reply = null, paths = ['C:\\one'],
+function contentFixture({ trusted = true, text = '', html = '', type = '', fileTypes = null,
+  accepted = true, active = true, status = 'ok', top = true, reply = null, paths = ['C:\\one'],
   hold = null, editsDuringWait = null, deactivateDuringWait = false } = {}) {
   const clock = fakeClock();
+  const kinds = fileTypes || (type ? [type] : []);
   let paste;
   const requests = [];
   const events = [];
@@ -120,9 +121,9 @@ function contentFixture({ trusted = true, text = '', html = '', type = '', accep
   const run = () => paste({ isTrusted: trusted, target: { closest: () => editor },
     clipboardData: {
       getData: format => (format === 'text/plain' ? text : html),
-      items: type ? [{ type, kind: 'file' }] : [],
-      files: [],
-      types: type ? ['Files'] : [],
+      items: kinds.map(kind => ({ type: kind, kind: 'file' })),
+      files: kinds.map((kind, index) => ({ type: kind, name: `entry-${index}` })),
+      types: kinds.length ? ['Files'] : [],
     },
     preventDefault: () => { prevented++; }, stopImmediatePropagation() {},
   });
@@ -202,6 +203,31 @@ test('stale page bundle leaves ordinary text paste to the browser', async () => 
   const f = contentFixture({ accepted: false, text: 'hi' }); await f.run();
   assert.equal(f.requests.length, 0);
   assert.equal(f.prevented(), 0);
+});
+
+test('a pure image clipboard keeps the upload pipeline', async () => {
+  const f = contentFixture({ fileTypes: ['image/png', 'image/jpeg'] }); await f.run();
+  assert.equal(f.requests.length, 0);
+  assert.equal(f.prevented(), 0);
+});
+
+test('a clipboard mixing images and files inserts every path', async () => {
+  const f = contentFixture({ fileTypes: ['image/png', 'application/zip'] }); await f.run();
+  assert.equal(f.requests.length, 1, 'a mixed selection must reach the host');
+  assert.equal(f.prevented(), 1);
+  assert.deepEqual(JSON.parse(f.events[1].detail).paths, ['C:\\one']);
+  assert.equal(f.inserted.length, 0, 'the page applied the reply');
+});
+
+test('a file-only clipboard inserts its path', async () => {
+  const f = contentFixture({ fileTypes: ['application/zip'] }); await f.run();
+  assert.equal(f.requests.length, 1);
+  assert.deepEqual(JSON.parse(f.events[1].detail).paths, ['C:\\one']);
+});
+
+test('the clipboard entry names travel to the host for matching', async () => {
+  const f = contentFixture({ fileTypes: ['application/zip', 'application/x-msdownload'] }); await f.run();
+  assert.deepEqual(Array.from(f.requests[0].names), ['entry-0', 'entry-1']);
 });
 
 for (const options of [{ trusted: false }, { text: 'hi' }, { html: '<b>hi</b>' }, { type: 'image/png' }, { active: false }]) {

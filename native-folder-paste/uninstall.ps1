@@ -1,7 +1,6 @@
 param([string]$ExtensionTarget)
 $ErrorActionPreference = 'Stop'
 $homePath = Join-Path $env:LOCALAPPDATA 'KEDIT/FolderPaste'
-if (!$ExtensionTarget) { $ExtensionTarget = Join-Path ([Environment]::GetFolderPath('Desktop')) 'KEDIT-FolderPaste-extension' }
 $nativeManifest = Join-Path $homePath 'cc.cd.kedit.folder_paste.json'
 $hostName = 'cc.cd.kedit.folder_paste'
 $vendorRoots = @(
@@ -30,12 +29,21 @@ foreach ($root in $vendorRoots) {
   $path = Join-Path $homePath $_
   if (Test-Path $path) { Remove-Item -LiteralPath $path }
 }
-# The Desktop copy is only ever written by install.ps1 from this product.
+# Copies written by install.ps1: the AppData runtime plus any explicit load copy.
 @('manifest.json', 'content.js', 'background.js') | ForEach-Object {
   $path = Join-Path $ExtensionTarget $_
+  if ($ExtensionTarget -and (Test-Path $path)) { Remove-Item -LiteralPath $path }
+}
+# The pre-relocation Desktop copy is no longer written; remove it once.
+$legacy = Join-Path ([Environment]::GetFolderPath('Desktop')) 'KEDIT-FolderPaste-extension'
+@('manifest.json', 'content.js', 'background.js') | ForEach-Object {
+  $path = Join-Path $legacy $_
   if (Test-Path $path) { Remove-Item -LiteralPath $path }
 }
-foreach ($dir in @((Join-Path $homePath 'extension'), $homePath, $ExtensionTarget)) {
+foreach ($dir in @((Join-Path $homePath 'extension'), $homePath, $legacy)) {
   if ((Test-Path $dir) -and !(Get-ChildItem -LiteralPath $dir -Force)) { Remove-Item -LiteralPath $dir }
+}
+if ($ExtensionTarget -and (Test-Path $ExtensionTarget) -and !(Get-ChildItem -LiteralPath $ExtensionTarget -Force)) {
+  Remove-Item -LiteralPath $ExtensionTarget
 }
 Write-Host "Host removed from $removed registration(s). Remove KEDIT Folder Paste in vivaldi://extensions as well."
