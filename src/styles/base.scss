@@ -128,6 +128,16 @@ h6 {
   }
 }
 
+/* 长串断行（预览与导出侧；编辑区对应 Editor.vue 的 .editor__inner 的
+   word-break: break-word）。API 密钥、URL、无空格长英文没有软换行机会，缺这
+   一条就会冲出色块横向溢出。overflow-wrap 可继承，code/li/td 一并生效；代码块
+   自带 white-space: pre 与横向滚动，不受影响。改一侧必须同步另一侧
+   （frontend-conventions：预览与编辑区排版同源）。 */
+.cl-preview-section,
+.stackedit__html {
+  overflow-wrap: anywhere;
+}
+
 /* 软/硬换行区分（预览侧；编辑区对应 Editor.vue 的 .lf 规则）：两个偏移量来自
    设置（ADR 0015）。软换行（浏览器自动折行）基准为 1.67em + 软偏移；硬换行
    （breaks:true，单个 \n → softbreak）后面跟一个零宽块级垫片，高度取两者之差
@@ -268,10 +278,37 @@ hr {
   margin: 2em 0;
 }
 
-/* `------` divider (see markdownExtension.js). Dark in both themes, so an
-   exported HTML body without .app--dark still reads correctly. */
-.kedit-hr-strong {
-  border-top: 2px solid #333;
+/* 分割线三档（ADR 0017）：档位外观归 KEDIT——预览主题与用户自定义主题都改不动
+   它。整条线（边框、背景、高度、内外边距）一并钉死，因为颜色与粗细是同一套档位
+   语义，只钉颜色等于把一半留给主题（`allblue` / `caoyuangreen` / `ningyezi`
+   正是 `height: 1px; padding: 0; border: none` 那类写法）。作用域限定在预览与
+   导出容器内，App 自身菜单/侧栏/弹窗的 hr 仍走上面的全局 hr 规则。 */
+.cl-preview-section,
+.stackedit__html {
+  hr {
+    border: 0 !important;
+    border-top: 1px solid $hr-color !important;
+    margin: 2em 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    height: 0 !important;
+  }
+
+  hr.kedit-hr-strong {
+    border-top: 2px solid $strong-hr-color-light !important;
+
+    .app--dark & {
+      border-top-color: $strong-hr-color-dark !important;
+    }
+  }
+
+  hr.kedit-hr-strong--red {
+    border-top: 2px solid $alert-hr-color-light !important;
+
+    .app--dark & {
+      border-top-color: $alert-hr-color-dark !important;
+    }
+  }
 }
 
 pre > code {

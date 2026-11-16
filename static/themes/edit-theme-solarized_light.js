@@ -25,7 +25,6 @@ function init_edit_theme_solarized_light() {
 }\n\
 /* 源信息、md标记符号等非关键信息的颜色 */\n\
 .edit-theme--solarized_light .editor__inner .cl,\n\
-.edit-theme--solarized_light .editor__inner .hr,\n\
 .edit-theme--solarized_light .editor__inner .link,\n\
 .edit-theme--solarized_light .editor__inner .linkref, \n\
 .edit-theme--solarized_light .editor__inner .linkdef .url {\n\

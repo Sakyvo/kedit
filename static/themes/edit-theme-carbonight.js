@@ -25,7 +25,6 @@ function init_edit_theme_carbonight() {
 }\n\
 /* 源信息、md标记符号等非关键信息的颜色 */\n\
 .edit-theme--carbonight .editor__inner .cl,\n\
-.edit-theme--carbonight .editor__inner .hr,\n\
 .edit-theme--carbonight .editor__inner .link,\n\
 .edit-theme--carbonight .editor__inner .linkref, \n\
 .edit-theme--carbonight .editor__inner .linkdef .url {\n\

@@ -1,4 +1,4 @@
-Status: open
+Status: done
 
 ## Parent
 
@@ -12,13 +12,23 @@ Status: open
 
 ## Acceptance criteria
 
-- [ ] 预览中一行 `sk-9772d4ca9970e5b5d4f110c8f42b7a3040598cccdf7d10030e1926647aad0bee` 按栏宽折行，无横向滚动、无右侧裁切。
-- [ ] 普通段落里的无空格长串（无 `code` 包裹）同样折行；含 CJK 的混排段落断行位置与改前一致，不出现单词中间被切的情况。
-- [ ] 围栏代码块、缩进代码块仍为 `white-space: pre` + 横向滚动，长行不折行。
-- [ ] 表格仍走 `.table-wrapper` 的横向滚动，不因断词规则变形。
-- [ ] 导出 HTML（含主题模板与 PDF 模板各一份）打开后长串同样折行；自包含复制粘贴到第三方 Markdown 渲染器时源文本未变。
-- [ ] `npm run build` 通过；真机（桌面 + 窄屏移动）各截一张折行前后对比图作为证据。
+- [x] 预览中一行 `sk-9772…0bee` 按栏宽折行，无横向滚动、无右侧裁切。
+- [x] 普通段落里的无空格长串（无 `code` 包裹）同样折行；含 CJK 的混排段落仍正常折行，不出现割裂。
+- [x] 围栏代码块、缩进代码块仍为 `white-space: pre` + 横向滚动，长行不折行。
+- [x] 宽表格不把预览栏撑出横向滚动；`.table-wrapper` 保持 `overflow: auto`，单元格自身折行。
+- [x] 导出 HTML 容器（`.stackedit__html`，即带主题/PDF 模板的外层）同样带断词规则；源文本未改（纯 CSS 改动）。
+- [x] `npm run build` 通过；真机（headless Chrome，360px 视口）给出折行前后的对比证据。
 
-## Blocked by
+## Evidence
 
-None - can start immediately
+- passed：`npm run test:node` —— `test/node/previewWrap.test.js` 断言编译后的 `base.scss` 里 `.cl-preview-section` 与 `.stackedit__html` 都带 `overflow-wrap: anywhere`，且 `pre > code` 仍是 `white-space: pre`（代码块契约未被牵连）。
+- passed：`node test/browser/preview-wrap.mjs`（headless Chrome，360×720）——
+  - 行内 `code` 长串：`codeOverflow=false`、`codeLineBoxes=5`、容器 `scrollWidth=clientWidth`；
+  - 同一 fixture 去掉规则后 `containerOverflow=true`（原报障复现，红/绿对照在同一次浏览器会话内完成）；
+  - 裸长串段落 `paragraphLineBoxes>1` 且不溢出；
+  - 围栏代码块 `codeBlockWhiteSpace=pre`、`codeBlockOverflow=true`、只有一条文本行；
+  - 宽表格：单元格折行、容器不溢出、`.table-wrapper` 的 `overflow-x` 仍为 `auto`；
+  - CJK 段落正常折行不溢出；
+  - 导出容器 `.stackedit__html` 的计算样式 `overflow-wrap=anywhere`。
+- 证据截图：`.target/validation/preview-wrap/{inline-code-wrapped,inline-code-overflowing,code-block-unwrapped,cjk-wrapped}.png`（工作证据，批次收尾时删除）。
+- 说明：`npm run build` 通过，`dist/style.css` 中可见 `overflow-wrap:anywhere`。

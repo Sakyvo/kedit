@@ -1,8 +1,11 @@
-// A divider written with this many markers or more (`------`) is a *strong*
-// divider: the editor tints the marker run and the preview draws a heavier
-// rule. `- - - - - -` counts as 6 markers (markdown-it counts markers, not
-// characters). Keep in sync with the preview renderer in ../extensions/.
-export const STRONG_HR_MIN_MARKERS = 6;
+// 分割线档位（Divider tier，ADR 0017）的阈值与类名只有一处定义：`dividerSvc`。
+// 编辑区语法、预览渲染与工具栏插入都引用它，不得各写一份数字。
+import { DIVIDER_TIERS } from './dividerSvc.js';
+
+export { DIVIDER_TIERS, DIVIDER_TIER_IDS } from './dividerSvc.js';
+
+const blueDividerTier = DIVIDER_TIERS.find(tier => tier.id === 'blue');
+const redDividerTier = DIVIDER_TIERS.find(tier => tier.id === 'red');
 
 const charInsideUrl = '(&|[-A-Z0-9+@#/%?=~_|[\\]()!:,.;])';
 const charEndingUrl = '(&|[-A-Z0-9+@#/%=~_|[\\])])';
@@ -157,8 +160,13 @@ export default {
     grammars.main.hr = {
       pattern: /^ {0,3}([*\-_] *){3,}$/gm,
       inside: {
-        'hr hr-strong': {
-          pattern: new RegExp(`(?:[*\\-_][ \\t]*){${STRONG_HR_MIN_MARKERS},}$`),
+        [blueDividerTier.editorToken]: {
+          pattern: new RegExp(`(?:[*\\-_][ \\t]*){${blueDividerTier.minMarkers},}$`),
+          inside: {
+            [redDividerTier.markerClass]: {
+              pattern: new RegExp(`(?:[*\\-_][ \\t]*){${redDividerTier.minMarkers},}$`),
+            },
+          },
         },
       },
     };

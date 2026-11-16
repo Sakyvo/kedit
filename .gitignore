@@ -1,6 +1,7 @@
 .ace-tool/
 .npm-cache/
 node_modules/
+.target/
 dist/
 diststyle/
 .agents/

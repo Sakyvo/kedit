@@ -145,16 +145,6 @@ style.innerHTML = "/*凝夜紫 ningyezi\n \
   color: #916dd5;\n \
 }\n \
 \n \
-/* 分隔线\n \
-  * 粗细、样式和颜色\n \
-  */\n \
-.preview-theme--ningyezi hr {\n \
-  height: 1px;\n \
-  padding: 0;\n \
-  border: none;\n \
-  border-top: 2px solid #d9b8fa;\n \
-}\n \
-\n \
 /* 图片\n \
   * 宽度 width:80%;\n \
   * 居中 margin:0 auto;\n \

@@ -195,14 +195,6 @@ style.innerHTML = "/* 雁栖湖 yanqihu\n \
 .preview-theme--yanqihu del {\n \
 }\n \
 \n \
-/* 分隔线\n \
-* 粗细、样式和颜色\n \
-* border-top: 1px solid #3e3e3e;\n \
-*/\n \
-.preview-theme--yanqihu hr {\n \
- border-top: 1px solid rgb(37,132,181);\n \
-}\n \
-\n \
 /* 图片\n \
 * 宽度 width: 80%;\n \
 * 居中 margin: 0 auto;\n \

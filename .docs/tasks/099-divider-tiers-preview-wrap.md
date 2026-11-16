@@ -18,7 +18,7 @@ Author 逐轮确认（Q1 接受推荐；Q2 给出档位表；第 3 轮起"其他
 3. **两面同色同粗**：蓝 `#2e86c8` / 深 `#6fb5e6`，红 `#c0392b` / 深 `#e5735f`，预览线也做 `.app--dark` 配对，`#333` 退役。拒绝：预览线固定单色（深色主题下发闷）、只编辑区配对。
 4. **防火墙锁整条线**：预览/导出容器内 `hr` 的 `border`、`border-top`、`background`、`height`、`padding`、`margin` 全声明 + `!important`（`markdownHighlighting.scss` 的 `.em` 已有先例）；第一档原色也一并硬锁。拒绝：只锁颜色（主题仍能改粗细，内置 `allblue`/`caoyuangreen`/`ningyezi` 正是 `height: 1px; padding: 0; border: none`）、堆选择器特异性（主题是运行时注入的用户 CSS，平手归主题）。
 5. **命名**：保留既有对外类名 `.kedit-hr-strong`（6~8 加重档）+ 子变体 `.kedit-hr-strong--red`（9+）；`STRONG_HR_MIN_MARKERS` 换成档位表 `HR_TIERS`（3 / 6 / 9）。
-6. **工具栏 `doHorizontalRule` 插 `"---\n"`**（原色档），不再插 `"----------\n"`——否则一点按钮就落一条红线。
+6. **分割线命令插 `"---\n"`**（原色档），不再插 `"----------\n"`——否则一次调用就落一条红线。KEDIT 的 15 个工具栏按钮里没有 hr，`uiManager.doClick('hr')` 这条命令是唯一入口。
 7. **内置主题清理**：选用整条线归 KEDIT 后，`static/themes/` 里 8 个预览主题的 `hr` 规则与 15 个编辑主题的 `.hr` 项全部失效，删除之（编辑主题里 `.hr` 与 `.link` / `.linkref` 同组，只摘 `.hr` 一项）。
 
 架构背景与拒绝理由见 `.docs/adr/0017-divider-tiers-owned-by-kedit.md`；术语见 `CONTEXT.md` 的「分割线档位（Divider tier）」；样式约定见 `.docs/spec/frontend-conventions.md` 的 Styling Patterns。
@@ -34,6 +34,6 @@ Author 逐轮确认（Q1 接受推荐；Q2 给出档位表；第 3 轮起"其他
 ## Testing strategy
 
 - `npm run build` 是唯一 CI 门槛（Jest 链已断，不要依赖）。
-- 断词可自动化的部分靠导出 HTML 文本/DOM 断言（导出产物里 `overflow-wrap` 落在 `.stackedit__html` 上）；折行的最终判断必须在真机真浏览器里看，不接受"合成段落宽度"这种替代证据。
-- 三档的验收姿势固定为**切主题实测**：每个内置预览主题 + 每个内置编辑主题各切一遍，三档的颜色/粗细/盒模型不得变形；再手写一段最强特异性的自定义主题 CSS（例如 `.preview-theme--x hr { border-top: 3px solid #f00 !important }` 之类）确认档位仍然成立。
+- 断词可自动化的部分靠编译后的样式表断言（`overflow-wrap` 落在 `.cl-preview-section` 与 `.stackedit__html` 上）+ 真机 headless Chrome 的几何测量（`scrollWidth`/`clientWidth`/行盒数量），不接受"合成段落宽度"这种替代证据。三道浏览器关卡：`test/browser/divider-tiers.mjs`（harness，全主题矩阵）、`test/browser/preview-wrap.mjs`（折行红/绿对照）、`test/browser/divider-app.mjs`（真实 `dist/` 端到端）。
+- 三档的验收姿势固定为**切主题实测**：每个内置预览主题 + 每个内置编辑主题各切一遍，三档的颜色/粗细/盒模型不得变形；再注入一段特异性高于档位规则、但不带 `!important` 的自定义主题 CSS（这是真实主题的写法），确认档位仍然成立。带 `!important` 的极端对手属于 CSS 级联边界，记在 ADR 0017。
 - 每片都要给出可复现的源片段（3/6/9 个 `-`，以及 `- - - - - -`、`***`、`___` 各一行）与截图证据。

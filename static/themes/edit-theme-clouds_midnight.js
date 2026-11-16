@@ -25,7 +25,6 @@ function init_edit_theme_clouds_midnight() {
 }\n\
 /* 源信息、md标记符号等非关键信息的颜色 */\n\
 .edit-theme--clouds_midnight .editor__inner .cl,\n\
-.edit-theme--clouds_midnight .editor__inner .hr,\n\
 .edit-theme--clouds_midnight .editor__inner .link,\n\
 .edit-theme--clouds_midnight .editor__inner .linkref, \n\
 .edit-theme--clouds_midnight .editor__inner .linkdef .url {\n\

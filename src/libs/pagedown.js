@@ -1,3 +1,5 @@
+import { TOOLBAR_DIVIDER_SNIPPET } from '../services/dividerSvc.js';
+
 var util = {},
   re = window.RegExp,
   SETTINGS = {
@@ -1488,7 +1490,8 @@ commandProto.doHeading = function (chunk) {
 };
 
 commandProto.doHorizontalRule = function (chunk) {
-  chunk.startTag = "----------\n";
+  // 分割线档位（ADR 0017）：插最普通的原色档；红线要人特意敲 9 个标记。
+  chunk.startTag = TOOLBAR_DIVIDER_SNIPPET;
   chunk.selection = "";
   chunk.skipLines(2, 1, true);
 };

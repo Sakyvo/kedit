@@ -242,11 +242,31 @@
   }
 
   /* `------` (>= 6 markers): the marker run reads as a divider, not markup. */
-  .hr-strong {
-    color: $strong-hr-color-light;
+  /* 分割线档位（ADR 0017）：三档颜色归 KEDIT。`!important` 是必需的——编辑主题
+     （`static/themes/edit-theme-*.js`）用 `.edit-theme--x .editor__inner .hr`
+     这类 3 个类的选择器染色，特异性高于这里；主题是用户可编辑 CSS，只靠堆选择器
+     永远可能被反超。 */
+  .hr {
+    color: $editor-color-light-high !important;
 
     .app--dark & {
-      color: $strong-hr-color-dark;
+      color: $editor-color-dark-high !important;
+    }
+  }
+
+  .hr-strong {
+    color: $strong-hr-color-light !important;
+
+    .app--dark & {
+      color: $strong-hr-color-dark !important;
+    }
+  }
+
+  .hr-strong--red {
+    color: $alert-hr-color-light !important;
+
+    .app--dark & {
+      color: $alert-hr-color-dark !important;
     }
   }
 

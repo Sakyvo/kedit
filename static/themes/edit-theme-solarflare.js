@@ -25,7 +25,6 @@ function init_edit_theme_solarflare() {
 }\n\
 /* 源信息、md标记符号等非关键信息的颜色 */\n\
 .edit-theme--solarflare .editor__inner .cl,\n\
-.edit-theme--solarflare .editor__inner .hr,\n\
 .edit-theme--solarflare .editor__inner .link,\n\
 .edit-theme--solarflare .editor__inner .linkref, \n\
 .edit-theme--solarflare .editor__inner .linkdef .url {\n\

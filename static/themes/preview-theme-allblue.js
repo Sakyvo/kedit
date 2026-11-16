@@ -254,17 +254,6 @@ color: #3594F7;\n \
 color: #3594F7;\n \
 }\n \
 \n \
-/* 分隔线\n \
-* 粗细、样式和颜色\n \
-* border-top:1px solid #3e3e3e;\n \
-*/\n \
-.preview-theme--allblue hr {\n \
-height: 1px;\n \
-padding: 0;\n \
-border: none;\n \
-border-top: 2px solid #3BAAFA;\n \
-}\n \
-\n \
 /* 图片\n \
 * 宽度 width:80%;\n \
 * 居中 margin:0 auto;\n \

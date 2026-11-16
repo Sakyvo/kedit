@@ -25,7 +25,6 @@ function init_edit_theme_iceberg_contrast() {
 }\n\
 /* 源信息、md标记符号等非关键信息的颜色 */\n\
 .edit-theme--iceberg_contrast .editor__inner .cl,\n\
-.edit-theme--iceberg_contrast .editor__inner .hr,\n\
 .edit-theme--iceberg_contrast .editor__inner .link,\n\
 .edit-theme--iceberg_contrast .editor__inner .linkref, \n\
 .edit-theme--iceberg_contrast .editor__inner .linkdef .url {\n\

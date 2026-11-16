@@ -25,7 +25,6 @@ function init_edit_theme_lavender() {
 }\n\
 /* 源信息、md标记符号等非关键信息的颜色 */\n\
 .edit-theme--lavender .editor__inner .cl,\n\
-.edit-theme--lavender .editor__inner .hr,\n\
 .edit-theme--lavender .editor__inner .link,\n\
 .edit-theme--lavender .editor__inner .linkref, \n\
 .edit-theme--lavender .editor__inner .linkdef .url {\n\

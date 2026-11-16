@@ -12,7 +12,7 @@ import markdownitTasklist from './libs/markdownItTasklist';
 import markdownitAnchor from './libs/markdownItAnchor';
 import frontmatterRule from './frontmatterRule';
 import extensionSvc from '../services/extensionSvc';
-import { STRONG_HR_MIN_MARKERS } from '../services/markdownGrammarSvc';
+import { dividerTierForMarkers } from '../services/dividerSvc.js';
 
 const coreBaseRules = [
   'normalize',
@@ -124,11 +124,13 @@ extensionSvc.onInitConverter(0, (markdown, options) => {
   }
   markdown.use(markdownitAnchor);
 
-  // `------` (STRONG_HR_MIN_MARKERS markers or more) is a strong divider; the
-  // source keeps a plain CommonMark hr, only the presentation changes (ADR-0004).
+  // 分割线档位（ADR 0017）：`------`（6 个标记）起是蓝色加重分割线，9 个及以上
+  // 是红色档；源文本仍是标准 CommonMark hr，只有表现变（ADR-0004）。档位由标记
+  // 字符数决定，空格不计，与编辑区语法同口径（dividerSvc 是唯一阈值来源）。
   markdown.renderer.rules.hr = (tokens, idx, opts, env, self) => {
-    if (tokens[idx].markup.length >= STRONG_HR_MIN_MARKERS) {
-      tokens[idx].attrJoin('class', 'kedit-hr-strong');
+    const tier = dividerTierForMarkers(tokens[idx].markup.length);
+    if (tier.previewClass) {
+      tokens[idx].attrJoin('class', tier.previewClass);
     }
     return self.renderToken(tokens, idx, opts);
   };

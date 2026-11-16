@@ -13,8 +13,16 @@ the only thing that tells the tiers apart, thickness is shared by tiers 2 and 3.
 exported HTML (`.cl-preview-section hr`, `.stackedit__html hr`) the whole rule
 — `border`, `border-top`, `background`, `height`, `padding`, `margin` — is
 declared by KEDIT with `!important`; in the editor the three tier colours are
-`!important` as well. `static/themes/*.js` may not style `hr` / `.hr`, and a
-user-authored theme cannot override the tiers either.
+`!important` as well. `static/themes/*.js` may not style `hr` / `.hr`, and their
+existing rules plus the "分隔线" hint comments were removed.
+
+**Boundary**: `!important` beats every theme rule that does not itself use
+`!important`, regardless of specificity — which covers all 22 built-in themes
+and any ordinary hand-written one. A user theme that deliberately writes
+`!important` *and* out-specifies `.cl-preview-section hr.kedit-hr-strong--red`
+can still win; that is plain CSS cascade and is accepted rather than fought
+with inline styles, because fighting it would make a user's deliberate
+override impossible and the export templates carry different ancestor chains.
 
 **Considered Options**
 

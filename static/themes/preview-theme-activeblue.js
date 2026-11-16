@@ -134,11 +134,6 @@ style.innerHTML = "/** activeblue 灵动蓝\n \
  color: #fff;\n \
 }\n \
 \n \
-/* 分隔线 */\n \
-.preview-theme--activeblue hr {\n \
- border-top: 1px solid #135ce0;\n \
-}\n \
-\n \
 /* 图片描述文字，隐藏了，如果需要，请删除display */\n \
 .preview-theme--activeblue figcaption {\n \
  display: none;\n \

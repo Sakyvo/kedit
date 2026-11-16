@@ -15,6 +15,9 @@
     "build-style": "vite build --config vite.style.config.js && copyfiles -f --up=1 diststyle/static/fonts/* dist/static/fonts && copyfiles -f --up=1 diststyle/style.css* dist",
     "preview": "vite preview",
     "test:node": "node --test test/node/",
+    "test:browser:divider": "node test/browser/divider-tiers.mjs",
+    "test:browser:wrap": "node test/browser/preview-wrap.mjs",
+    "test:browser:app": "node test/browser/divider-app.mjs",
     "copystatic": "copyfiles -f --up=1 diststyle/style.css* dist"
   },
   "dependencies": {

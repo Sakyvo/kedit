@@ -26,7 +26,6 @@ function init_edit_theme_github() {
 }\n\
 /* 源信息、md标记符号等非关键信息的颜色 */\n\
 .edit-theme--github .editor__inner .cl,\n\
-.edit-theme--github .editor__inner .hr,\n\
 .edit-theme--github .editor__inner .link,\n\
 .edit-theme--github .editor__inner .linkref, \n\
 .edit-theme--github .editor__inner .linkdef .url {\n\
