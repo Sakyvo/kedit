@@ -6,7 +6,7 @@ export default [
   {
     title: '性能',
     fields: [
-      { path: ['dynamicLoading'], type: 'toggle', label: '动态加载（超长文档不卡死）' },
+      { path: ['dynamicLoading'], type: 'toggle', label: '动态加载' },
       {
         path: ['dynamicLoadingThreshold'],
         type: 'number',

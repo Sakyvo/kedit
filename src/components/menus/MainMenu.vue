@@ -134,7 +134,6 @@
     <menu-entry @click.native="forceSyncFromRemote">
       <template v-slot:icon><icon-cloud-refresh></icon-cloud-refresh></template>
       强制从远端覆盖
-      <span>丢弃本地所有文档，从远端仓库重新拉取。保留登录授权和设置。</span>
     </menu-entry>
     <menu-entry @click.native="reset">
       <template v-slot:icon><icon-logout></icon-logout></template>

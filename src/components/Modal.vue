@@ -615,4 +615,53 @@ export default {
   border-bottom: 2px solid $link-color;
   color: inherit;
 }
+
+// 移动端（≤600px）：弹窗与视口四边完全嵌合——去掉外边距与圆角、占满可用高度，
+// 内距 20px → 12px，粘顶盖板的偏移与按钮栏的负 margin 必须同步跟着内距走。
+// 字号整体降一档，但按钮与输入框保持原尺寸（触控目标不缩）。
+@media (max-width: 600px) {
+  .modal .modal__inner-1 {
+    max-width: none;
+    min-width: 0;
+  }
+
+  .modal__inner-2 {
+    margin: 0;
+    padding: 12px;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .modal__inner-2 .modal__title,
+  .modal__inner-2 .tabs {
+    box-shadow: 0 -12px 0 0 #f8f8f8;
+
+    .app--dark & {
+      box-shadow: 0 -12px 0 0 #383c4a;
+    }
+  }
+
+  .modal__inner-2 .tabs {
+    margin: 0 -12px;
+    padding: 0 12px;
+  }
+
+  .modal__button-bar {
+    margin: 0.5rem -12px -12px;
+    padding: 10px 12px;
+    bottom: -12px;
+  }
+
+  .modal__title {
+    font-size: 20px;
+  }
+
+  .tabs__tab {
+    font-size: 1em;
+  }
+
+  .form-entry__label {
+    font-size: 0.8rem;
+  }
+}
 </style>

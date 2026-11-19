@@ -34,7 +34,7 @@
 </template>
 
 <script>
-import { mapActions, mapGetters } from 'vuex';
+import { mapActions, mapGetters, mapState } from 'vuex';
 import Toc from './Toc';
 import MainMenu from './menus/MainMenu';
 import WorkspacesMenu from './menus/WorkspacesMenu';
@@ -110,11 +110,28 @@ export default {
     ...mapGetters('layout', [
       'styles',
     ]),
+    ...mapState('content', [
+      'revisionContent',
+    ]),
+  },
+  watch: {
+    // 窄屏（layoutOverflow）下侧栏是覆盖文档的全宽面板：文档区一旦出现修订对比，
+    // 侧栏必须让位——否则在「文件历史」里点一个版本，diff 已经打在编辑/预览上却
+    // 仍被侧栏挡着，看起来像没反应。桌面侧栏是文档旁的固定列，保持不动。
+    //
+    // 只隐藏侧栏、不调 toggleSideBar(false)：后者会把面板重置回主菜单，
+    // HistoryMenu 随 v-if 卸载，其 destroyed 钩子清空修订对比——diff 会跟着消失。
+    revisionContent(value) {
+      if (value && this.styles.showSideBar && this.styles.layoutOverflow) {
+        this.patchLayoutSettings({ showSideBar: false });
+      }
+    },
   },
   methods: {
     ...mapActions('data', [
       'toggleSideBar',
       'toggleTocAutoCollapse',
+      'patchLayoutSettings',
     ]),
     ...mapActions('data', {
       setPanel: 'setSideBarPanel',
