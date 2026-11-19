@@ -1,5 +1,5 @@
 <template>
-  <div class="app" :class="classes" :style="breakGapVars" @keydown.esc="close">
+  <div class="app" :class="classes" :style="[breakGapVars, viewportVars]" @keydown.esc="close">
     <layout v-if="ready"></layout>
     <modal></modal>
     <notification></notification>
@@ -39,6 +39,9 @@ export default {
   },
   data: () => ({
     ready: false,
+    // 可视视口尺寸（软键盘弹出时小于窗口）。与 breakGapVars 同一通道设在 .app 上，
+    // 弹窗尺寸消费它（批 113）。
+    viewportVars: {},
   }),
   computed: {
     classes() {
@@ -57,6 +60,26 @@ export default {
     },
   },
   methods: {
+    // 软键盘弹出时可视视口会缩到键盘上方，而窗口高度不变；弹窗锁定在视口上限，
+    // 必须跟着可视视口走，否则底部按钮栏被键盘盖住。桌面下两者相等，无副作用。
+    publishViewportVars() {
+      const viewport = window.visualViewport;
+      this.viewportVars = {
+        '--kedit-visual-viewport-height': `${Math.round(viewport ? viewport.height : window.innerHeight)}px`,
+        '--kedit-visual-viewport-top': `${Math.round(viewport ? viewport.offsetTop : 0)}px`,
+      };
+    },
+    // 只订阅 visualViewport：window 的 scroll 被触屏滚动代理高频触发，不该牵动面板。
+    listenViewport() {
+      const viewport = window.visualViewport;
+      this.onViewportChange = () => this.publishViewportVars();
+      if (viewport) {
+        viewport.addEventListener('resize', this.onViewportChange);
+        viewport.addEventListener('scroll', this.onViewportChange);
+      } else {
+        window.addEventListener('resize', this.onViewportChange);
+      }
+    },
     close() {
       tempFileSvc.close();
     },
@@ -93,6 +116,8 @@ export default {
     },
   },
   mounted() {
+    this.publishViewportVars();
+    this.listenViewport();
     // Touch devices only: body is position: fixed so the window has no scroll
     // range and browser "scroll to top/bottom" gestures are no-ops. Give the
     // window a 2px range (html.app--touch, see app.scss), park the position in
@@ -116,6 +141,15 @@ export default {
       window.scrollTo(0, 1); // Re-park
     }, { passive: true });
     window.scrollTo(0, 1);
+  },
+  destroyed() {
+    const viewport = window.visualViewport;
+    if (viewport) {
+      viewport.removeEventListener('resize', this.onViewportChange);
+      viewport.removeEventListener('scroll', this.onViewportChange);
+    } else {
+      window.removeEventListener('resize', this.onViewportChange);
+    }
   },
   async created() {
     window.viewFileByPath = this.viewFileByPath;

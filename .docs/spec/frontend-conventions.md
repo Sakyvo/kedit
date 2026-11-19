@@ -229,12 +229,30 @@ bottom: -14px }`, `.form-entry { margin: 0.5em 0 }`.
   header-button rows with 20px icons and a 120px shortcut field. Textarea
   fields opt out of the fixed width (`wide` on `FormEntry`). Never scope these
   to a shared class — other modals keep label-above/full-width fields.
+- **Panel size is locked, never content-driven.** Every modal's
+  `.modal__inner-2` height equals the viewport cap: the visual viewport height
+  on ≤600px, the visual viewport height − 60px above it. Switching tabs or
+  opening a content-light modal must not resize the panel — short content
+  leaves blank space inside the panel, and fixed-height inner widgets (yaml
+  editors, image lists, AI output boxes) keep their own size on purpose. No
+  minimum-height fallback for short desktop windows; their content scrolls
+  instead.
+- **The button bar is pinned to the panel bottom**, not to the end of the
+  content: with short content the bar still sits flush with the panel's bottom
+  edge. Keep the modal content at its natural height (never let flex shrink it)
+  so long content still scrolls.
+- **On-screen keyboard**: the panel follows the visual viewport — the app
+  publishes the visual viewport height and top as CSS custom properties on
+  `.app`, and the panel consumes them; on desktop they degrade to the window
+  height. No height transition: animating the panel would fight the platform
+  keyboard animation.
 - **Mobile modal (≤600 CSS px)**: the panel is flush with the viewport on all
   four sides — `.modal__inner-1` loses its `max-width`/`min-width` (otherwise a
   per-modal cap leaves side bands between 481 and 600px), `.modal__inner-2`
-  drops both margins and its border radius, `max-height` becomes `100vh`,
-  padding goes 20px → 12px, and the iron rule's `N` above becomes 12 (cover
-  shadow, tabs negative margin/padding, button-bar negative margin + `bottom`).
+  drops both margins and its border radius, `height` becomes the visual
+  viewport height (`max-height: none`), padding goes 20px → 12px, and the iron
+  rule's `N` above becomes 12 (cover shadow, tabs negative margin/padding,
+  button-bar negative margin + `bottom`).
   Type drops one step: title 20px, tabs `1em`, form label `0.8rem`. Buttons and
   `textfield` stay at 16px — the touch target never shrinks with the type.
   Above 600px nothing changes. Verified by `test/browser/mobile-modal.mjs`

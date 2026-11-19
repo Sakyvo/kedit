@@ -58,6 +58,7 @@ const snapshot = `(() => {
       width: px(r2.width),
       right: px(r2.right),
       bottom: px(r2.bottom),
+      height: px(r2.height),
       radius: cs(inner2).borderTopLeftRadius,
       paddingTop: cs(inner2).paddingTop,
       maxHeight: cs(inner2).maxHeight,
@@ -188,8 +189,10 @@ if (!desktop || narrow.some(([, value]) => !value) || wide.some(([, value]) => !
     check(`${id} panel top edge`, mobile.inner2.top, 0);
     check(`${id} panel bottom edge`, mobile.inner2.bottom, mobile.vh);
     check(`${id} panel has no radius`, mobile.inner2.radius, '0px');
-    check(`${id} panel fills the viewport height`, mobile.inner2.maxHeight, `${mobile.vh}px`);
-    expectTrue(`${id} settings panel really overflows (bottom edge is the cap, not the content)`,
+    // 批 113：面板高度锁定，内容不再决定面板大小（max-height 上限改为 height）。
+    check(`${id} panel height is locked to the viewport`, mobile.inner2.height, mobile.vh);
+    check(`${id} panel height cap is removed`, mobile.inner2.maxHeight, 'none');
+    expectTrue(`${id} settings panel really overflows (content is taller than the panel)`,
       mobile.inner2.scrolls === true, JSON.stringify(mobile.inner2));
     expectTrue(`${id} sticky button bar hugs the panel bottom`,
       mobile.bar && Math.abs(mobile.bar.rectBottom - mobile.vh) < 1,
@@ -220,15 +223,14 @@ if (!desktop || narrow.some(([, value]) => !value) || wide.some(([, value]) => !
     check(`${id} field font size unchanged`, mobile.textfield?.fontSize, desktop.textfield?.fontSize);
     check(`${id} field height unchanged`, mobile.textfield?.height, desktop.textfield?.height);
 
-    // 5. A short dialog is a flush sheet with its natural height, not a
-    //    viewport-sized empty page.
+    // 5. A short dialog is a flush sheet that still fills the locked panel
+    //    (批 113 反转：短弹窗不再保持自然高度)。
     const short = results[id]?.short;
     check(`${id} short dialog left edge`, short?.inner2.left, 0);
     check(`${id} short dialog right edge`, short?.inner2.right, short?.vw);
     check(`${id} short dialog top edge`, short?.inner2.top, 0);
     check(`${id} short dialog has no radius`, short?.inner2.radius, '0px');
-    expectTrue(`${id} short dialog keeps its natural height`,
-      short && short.inner2.bottom < short.vh - 100, JSON.stringify(short?.inner2));
+    check(`${id} short dialog also fills the viewport`, short?.inner2.bottom, short?.vh);
   }
 
   // 5. Wider viewports keep the desktop panel.
@@ -237,7 +239,9 @@ if (!desktop || narrow.some(([, value]) => !value) || wide.some(([, value]) => !
     check(`${id} panel keeps its 16px top inset`, viewport.inner2.top, 16);
     check(`${id} panel keeps its radius`, viewport.inner2.radius, '3px');
     check(`${id} panel keeps its padding`, viewport.inner2.paddingTop, '20px');
-    check(`${id} panel keeps its height cap`, viewport.inner2.maxHeight, `${viewport.vh - 60}px`);
+    check(`${id} panel keeps its locked height`, viewport.inner2.height, viewport.vh - 60);
+    check(`${id} panel keeps its bottom inset`,
+      viewport.vh - viewport.inner2.bottom, 44);
     check(`${id} panel keeps its own width cap`, viewport.inner1.width, Math.min(560, viewport.vw));
     check(`${id} panel keeps its side insets inside that cap`,
       viewport.inner2.width, viewport.inner1.width - 20);

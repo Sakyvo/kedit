@@ -310,14 +310,25 @@ export default {
   padding: 20px 20px 14px;
   border-radius: $border-radius-base;
   position: relative;
-  // 长内容模态：顶栏吸顶、底部按钮栏吸底，不允许内容海出屏幕（配置窗 3310px
-  // 实测超屏）。滚动容器下放给 .modal__inner-2 本身。
-  max-height: calc(100vh - 60px);
+  // 面板尺寸锁定（批 113）：高度恒等于视口上限，不再由内容决定——切 tab、换
+  // 弹窗、内容多少都不改变面板大小，短内容的留白是有意为之。长内容仍由
+  // .modal__inner-2 自身滚动。
+  // 视口高度取可视视口（软键盘弹出时它会缩小，窗口高度不变），变量由 App.vue
+  // 发布在 .app 上；无该变量时退化为 100vh。
+  height: calc(var(--kedit-visual-viewport-height, 100vh) - 60px);
+  // 列布局 + 子项 flex:none：内容保持自身高度（不会被压扁，靠面板滚动），
+  // 按钮栏用 margin-top:auto 钉到面板底部（内容短时也不悬在内容下方）。
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
   // 各 tab 内容高度不一（可视化 tab 长→出滚动条，yaml编辑 短→无），滚动条沟槽
   // 出现/消失会让内容宽度变 8px 上下横移（035 右偏根治）：恒预留沟槽。
   scrollbar-gutter: stable;
+
+  > * {
+    flex: none;
+  }
 
   .app--dark & {
     background-color: #383c4a;
@@ -379,6 +390,8 @@ export default {
 
 .modal__button-bar {
   margin: 0.5rem -20px -14px;
+  // 内容短时把按钮栏推到面板底部；内容长时它跟在内容后，并由下面两条吸底。
+  margin-top: auto;
   padding: 10px 20px 10px;
   display: flex;
   flex-direction: row;
@@ -628,7 +641,11 @@ export default {
   .modal__inner-2 {
     margin: 0;
     padding: 12px;
-    max-height: 100vh;
+    // 锁高在移动端同样生效：面板等于可视视口高，短内容不再缩成半截；
+    // 面板上沿跟随可视视口偏移，键盘把可视区向下平移时面板不被甩到屏外。
+    height: var(--kedit-visual-viewport-height, 100vh);
+    max-height: none;
+    top: var(--kedit-visual-viewport-top, 0);
     border-radius: 0;
   }
 
@@ -648,6 +665,9 @@ export default {
 
   .modal__button-bar {
     margin: 0.5rem -12px -12px;
+    // 简写会覆掉基础规则的 margin-top:auto，这里必须重申一次，否则移动端
+    // 短内容时按钮栏又悬在内容下方。
+    margin-top: auto;
     padding: 10px 12px;
     bottom: -12px;
   }
