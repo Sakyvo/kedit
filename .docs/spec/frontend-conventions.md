@@ -229,6 +229,24 @@ bottom: -14px }`, `.form-entry { margin: 0.5em 0 }`.
   header-button rows with 20px icons and a 120px shortcut field. Textarea
   fields opt out of the fixed width (`wide` on `FormEntry`). Never scope these
   to a shared class — other modals keep label-above/full-width fields.
+- **Mobile modal (≤600 CSS px)**: the panel is flush with the viewport on all
+  four sides — `.modal__inner-1` loses its `max-width`/`min-width` (otherwise a
+  per-modal cap leaves side bands between 481 and 600px), `.modal__inner-2`
+  drops both margins and its border radius, `max-height` becomes `100vh`,
+  padding goes 20px → 12px, and the iron rule's `N` above becomes 12 (cover
+  shadow, tabs negative margin/padding, button-bar negative margin + `bottom`).
+  Type drops one step: title 20px, tabs `1em`, form label `0.8rem`. Buttons and
+  `textfield` stay at 16px — the touch target never shrinks with the type.
+  Above 600px nothing changes. Verified by `test/browser/mobile-modal.mjs`
+  (390 / 590 / 601 / 1280 px against the real build).
+
+### 窄屏侧边栏关闭语义 (layoutOverflow)
+
+侧栏在窄屏是覆盖文档的全宽面板，桌面端是文档旁的固定列。任何面板内的点击若已把
+结果显示到文档区（如「文件历史」选中一个版本、diff 已打在编辑/预览上），必须在
+`styles.layoutOverflow` 为真时关闭侧栏、回到文档；桌面端保持侧栏不动。既是
+「关掉了一个看不见的内容面板」，也是这条规则与目录面板回退语义（批 016 切片 2）
+同族的唯一理由。
 
 ### Overlay Z-Index Ladder
 
