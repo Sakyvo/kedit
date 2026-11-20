@@ -421,12 +421,21 @@ const syncFile = async (fileId, syncContext = new SyncContext()) => {
         const serverContent = await downloadContent(token, syncLocation);
         const syncedContent = getSyncedContent();
         const syncHistoryItem = getSyncHistoryItem(syncLocation.id);
+        // Legacy no-upload rounds already confirmed LAST_SEEN by downloading it.
+        const lastSyncedHash = syncHistoryItem && (syncHistoryItem[LAST_SENT] == null
+          ? syncHistoryItem[LAST_SEEN] : syncHistoryItem[LAST_MERGED]);
+        const lastSyncedContent = syncedContent.historyData[lastSyncedHash];
 
         // Merge content
         let mergedContent;
         const clientContent = utils.deepCopy(store.state.content.itemsById[contentId]);
         if (!clientContent) {
           mergedContent = utils.deepCopy(serverContent || null);
+        } else if (serverContent && lastSyncedContent
+          && clientContent.hash === lastSyncedContent.hash
+        ) {
+          // An unchanged local copy adopts the remote, even if its history was pruned.
+          mergedContent = utils.deepCopy(serverContent);
         } else if (!serverContent // If sync location has not been created yet
           // Or server and client contents are synced
           || serverContent.hash === clientContent.hash
@@ -440,8 +449,8 @@ const syncFile = async (fileId, syncContext = new SyncContext()) => {
             serverContent.history,
             hash => syncedContent.historyData[hash],
           );
-          if (!lastMergedContent && syncHistoryItem) {
-            lastMergedContent = syncedContent.historyData[syncHistoryItem[LAST_MERGED]];
+          if (!lastMergedContent) {
+            lastMergedContent = lastSyncedContent;
           }
           mergedContent = diffUtils.mergeContent(serverContent, clientContent, lastMergedContent);
           if (mergedContent.mergeFlag) {
@@ -496,7 +505,11 @@ const syncFile = async (fileId, syncContext = new SyncContext()) => {
           // That's the 2nd time we've seen this content, trust it for future merges
           newSyncHistoryItem[LAST_MERGED] = newSyncHistoryItem[LAST_SEEN];
         }
-        newSyncHistoryItem[LAST_MERGED] = newSyncHistoryItem[LAST_MERGED] || null;
+        if (serverContent && serverContent.hash === mergedContent.hash) {
+          // A downloaded version is already confirmed; no second observation is needed.
+          newSyncHistoryItem[LAST_MERGED] = mergedContent.hash;
+        }
+        newSyncHistoryItem[LAST_MERGED] = newSyncHistoryItem[LAST_MERGED] ?? null;
         newSyncHistoryItem[LAST_SEEN] = mergedContent.hash;
         newSyncHistoryItem[LAST_SENT] = skipUpload ? null : mergedContent.hash;
         newSyncedContent.historyData[mergedContent.hash] = mergedContent;
@@ -544,6 +557,12 @@ const syncFile = async (fileId, syncContext = new SyncContext()) => {
           tooLateChecker(restartContentSyncAfter),
           commitMsg,
         );
+
+        // Only a successful upload can confirm a locally produced version.
+        const confirmedSyncedContent = utils.deepCopy(getSyncedContent());
+        confirmedSyncedContent.syncHistory[syncLocation.id][LAST_MERGED] = mergedContent.hash;
+        cleanSyncedContent(confirmedSyncedContent);
+        store.commit('syncedContent/patchItem', confirmedSyncedContent);
 
         // Replace sync location if modified
         if (utils.serializeObject(syncLocation) !==
