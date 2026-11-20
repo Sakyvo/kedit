@@ -1,5 +1,5 @@
 <template>
-  <modal-inner class="modal__inner-1--settings" aria-label="Settings">
+  <modal-inner class="modal__inner-1--settings" :class="{'modal__inner-1--settings-yaml': tab !== 'visual'}" aria-label="Settings">
     <div class="modal__content">
       <div class="tabs flex flex--row">
         <tab :active="tab === 'visual'" @click="tab = 'visual'">
@@ -21,15 +21,17 @@
           @invalid="visualInvalid = $event"
         ></settings-visual-tab>
       </div>
-      <div class="form-entry" v-else-if="tab === 'custom'" role="tabpanel" aria-label="yaml编辑">
-        <label class="form-entry__label">YAML</label>
-        <div class="form-entry__field form-entry__field--code-editor">
-          <code-editor lang="yaml" :value="customSettings" key="custom-settings" @changed="setCustomSettings"></code-editor>
+      <div class="settings-modal__yaml" v-else-if="tab === 'custom'" role="tabpanel" aria-label="yaml编辑">
+        <div class="settings-modal__yaml-head">
+          <label class="form-entry__label" id="settings-custom-yaml-label">YAML</label>
+        </div>
+        <div class="form-entry__field form-entry__field--code-editor settings-modal__yaml-scroll">
+          <code-editor lang="yaml" :value="customSettings" key="custom-settings" scroll-class="settings-modal__yaml-scroll" aria-labelledby="settings-custom-yaml-label" @changed="setCustomSettings"></code-editor>
         </div>
       </div>
-      <div class="form-entry" v-else-if="tab === 'default'" role="tabpanel" aria-label="默认预览">
-        <div class="settings-modal__default-head">
-          <label class="form-entry__label">YAML</label>
+      <div class="settings-modal__yaml" v-else-if="tab === 'default'" role="tabpanel" aria-label="默认预览">
+        <div class="settings-modal__yaml-head">
+          <label class="form-entry__label" id="settings-default-yaml-label">YAML</label>
           <button
             class="button settings-modal__copy-default"
             v-clipboard="defaultSettings"
@@ -37,11 +39,11 @@
             v-title="'复制默认配置'"
           ><icon-content-copy></icon-content-copy></button>
         </div>
-        <div class="form-entry__field form-entry__field--code-editor">
-          <code-editor lang="yaml" :value="defaultSettings" key="default-settings" disabled="true"></code-editor>
+        <div class="form-entry__field form-entry__field--code-editor settings-modal__yaml-scroll">
+          <code-editor lang="yaml" :value="defaultSettings" key="default-settings" disabled="true" scroll-class="settings-modal__yaml-scroll" aria-labelledby="settings-default-yaml-label"></code-editor>
         </div>
       </div>
-      <div class="modal__error modal__error--settings">{{error}}</div>
+      <div v-if="error" class="modal__error modal__error--settings" role="alert">{{error}}</div>
     </div>
     <div class="modal__button-bar">
       <button class="button" @click="config.reject()">取消</button>
@@ -129,10 +131,8 @@ export default {
   max-width: 560px;
 }
 
-// 配置窗专属层（紧凑化）：字段改「标签 + 右侧定宽控件」单行。
-// 全部前缀在 .modal__inner-1--settings 下 —— 其他模态保持标签在上/字段满宽。
-// textarea（新文件默认内容/属性）走 form-entry--wide，仍整块满宽。
-.modal__inner-1--settings {
+// 紧凑表单仅用于可视化页签，不能把 YAML 工作区压成 170px 小控件。
+.modal__inner-1--settings .settings-visual {
   .form-entry:not(.form-entry--inline):not(.form-entry--wide) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 170px;
@@ -170,10 +170,53 @@ export default {
 
 // 设置两个 yaml 编辑区启用软换行——默认配置的长中文注释或用户的超长长行不会
 // 把模态撑出横向滚动（超宽）。cledit 只需要宿主 pre 放宽 white-space。
-.modal__inner-1--settings .code-editor {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  overflow-x: hidden;
+.modal__inner-1--settings-yaml {
+  .modal__inner-2 {
+    overflow-y: hidden;
+  }
+
+  .modal__content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .tabs {
+    flex: none;
+  }
+
+  .modal__error--settings {
+    flex: 0 1 auto;
+    max-height: 25%;
+    overflow: auto;
+    overflow-wrap: anywhere;
+  }
+}
+
+.settings-modal__yaml {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  margin: 0.25em 0 0.5em;
+
+  .settings-modal__yaml-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .code-editor {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+    padding: 0.4rem;
+    font-size: 0.95em;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
 }
 
 .modal__error--settings {
@@ -182,10 +225,16 @@ export default {
   font-size: $font-size-monospace;
 }
 
-.settings-modal__default-head {
+.settings-modal__yaml-head {
   display: flex;
+  flex: none;
+  min-height: 28px;
   align-items: center;
   justify-content: space-between;
+
+  .form-entry__label {
+    margin: 0;
+  }
 }
 
 .settings-modal__copy-default {

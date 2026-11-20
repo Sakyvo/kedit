@@ -1,7 +1,8 @@
 // Headless verification that a modal panel's size is locked to the viewport cap
 // instead of following its content: every tab of the settings modal, a long and
 // a short modal all measure the same panel box, the button bar stays flush with
-// the panel's bottom edge, and fixed-height inner widgets are not stretched.
+// the panel's bottom edge. Settings YAML fills the content area; other inner
+// widgets retain their own sizing.
 //
 // Run after `npm run build`: node test/browser/modal-locked-size.mjs
 import { mkdir } from 'node:fs/promises';
@@ -42,6 +43,7 @@ const snapshot = `(() => {
   const r1 = inner1 ? inner1.getBoundingClientRect() : null;
   const bar = pick('.modal__inner-2 .modal__button-bar');
   const codeEditor = pick('.modal__inner-2 .code-editor');
+  const yamlScroll = pick('.settings-modal__yaml-scroll');
   const cleanupList = pick('.modal__inner-2 .image-cleanup__list');
   const properties = cs(inner2).transitionProperty.split(',');
   const durations = cs(inner2).transitionDuration.split(',');
@@ -62,6 +64,7 @@ const snapshot = `(() => {
       height: px(bar.getBoundingClientRect().height),
     } : null,
     codeEditor: codeEditor ? { height: px(codeEditor.getBoundingClientRect().height) } : null,
+    yamlScroll: yamlScroll ? { height: px(yamlScroll.getBoundingClientRect().height) } : null,
     cleanupList: cleanupList ? {
       maxHeight: cs(cleanupList).maxHeight,
       height: px(cleanupList.getBoundingClientRect().height),
@@ -227,11 +230,11 @@ for (const viewport of VIEWPORTS) {
     check(`${viewport.id} panel width`, cases['settings-visual'].panel.width, 540);
   }
 
-  // 4. The yaml tab's editor keeps its own size instead of filling the panel.
+  // Settings YAML is the deliberate exception to natural-size inner widgets.
   const yamlCase = cases['settings-yaml'];
-  expectTrue(`${viewport.id} yaml editor is not stretched`,
-    yamlCase?.codeEditor && yamlCase.codeEditor.height < yamlCase.panel.height / 2,
-    JSON.stringify(yamlCase?.codeEditor));
+  expectTrue(`${viewport.id} YAML workspace fills the remaining panel height`,
+    yamlCase?.yamlScroll && yamlCase.yamlScroll.height > yamlCase.panel.height * 0.6,
+    JSON.stringify(yamlCase?.yamlScroll));
 
   // 5. A capped inner list keeps its own cap inside the locked panel.
   const cleanupCase = cases.cleanup;
