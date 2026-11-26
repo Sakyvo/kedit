@@ -5,6 +5,7 @@ import store from '../../store';
 const { Keystroke } = cledit;
 const indentRegexp = /^ {0,3}>[ ]*|^[ \t]*[*+-][ \t](?:\[[ xX]\][ \t])?|^([ \t]*)\d+\.[ \t](?:\[[ xX]\][ \t])?|^\s+/;
 const thematicBreakRegexp = /^ {0,3}(?:-(?:[ \t]*-){2,}|\*(?:[ \t]*\*){2,}|_(?:[ \t]*_){2,})[ \t]*$/;
+const blankLineRegexp = /^[ \t]*$/;
 let clearNewline;
 let lastSelection;
 
@@ -36,7 +37,7 @@ function fixNumberedList(state, indent) {
         /^[ \t]*/,
         wholeMatch => wholeMatch.replace(/\t/g, '    '),
       ).match(indentRegex);
-      if (!match || line.match(/^#+ /) || line.match(thematicBreakRegexp)) { // Line not empty, not indented, title, or thematic break
+      if (!match || blankLineRegexp.test(line) || line.match(/^#+ /) || line.match(thematicBreakRegexp)) { // Blank line, incompatible indent, heading, or thematic break
         flush();
         return true;
       }
@@ -83,6 +84,9 @@ function fixNumberedList(state, indent) {
   let lines = before.concat(currentLine).concat(after);
   let idx = before.length - getHits(before.slice().reverse()).length; // Prevents starting from 0
   while (idx <= before.length + 1) {
+    if (blankLineRegexp.test(lines[idx])) {
+      break;
+    }
     const hits = formatHits(getHits(lines.slice(idx)));
     if (!hits.length) {
       idx += 1;
