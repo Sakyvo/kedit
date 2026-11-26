@@ -1021,7 +1021,7 @@ const requestSync = () => {
           // 同步图片
           await uploadImgs();
 
-          // W5: unreferenced-image clocks + 7-day auto cleanup (never throws)
+          // Refresh unreferenced-image clocks and apply the synced cleanup policy.
           await imgCleanupSvc.sweepAfterSync();
 
           // Clean files

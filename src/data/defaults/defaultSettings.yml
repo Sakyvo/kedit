@@ -11,6 +11,12 @@ hardBreakOffset: 3
 # Auto-sync frequency (in ms). Minimum is 60000.
 autoSyncEvery: 90000
 
+# 未引用图片自动清理（随设置同步；关闭后仍保留引用检测和计时）
+imageCleanup:
+  enabled: true
+  # 连续未引用天数，手动输入正整数；到期后在下轮同步永久删除
+  days: 3
+
 # 动态加载（超长文档编辑器分片构建 + 进度条；保页面不卡死，默认开）
 dynamicLoading: true
 # 启用动态加载的字符阈值（文档字符数超过该值才分片构建；可自定义）

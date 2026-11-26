@@ -5,8 +5,9 @@ import localDbSvc from './localDbSvc';
 import gitWorkspaceSvc from './gitWorkspaceSvc';
 import workspaceBackupSvc from './workspaceBackupSvc';
 import providerRegistry from './providers/common/providerRegistry';
+import settingsYamlSvc from './settingsYamlSvc';
 
-const unreferencedMaxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+const dayMs = 24 * 60 * 60 * 1000;
 const uploadGraceDelay = 24 * 60 * 60 * 1000; // 24 hours
 const logMaxEntries = 50;
 const pathDateMatcher = /(\d{4})-(\d{2})-(\d{2})/;
@@ -67,6 +68,37 @@ const isMainGitWorkspace = () => store.getters['workspace/currentWorkspace'].id 
   && !!store.getters['workspace/syncToken'];
 
 export default {
+  getPolicy() {
+    const custom = settingsYamlSvc.get(store.getters['data/settings'], ['imageCleanup']);
+    if (custom !== undefined && (custom === null || typeof custom !== 'object' || Array.isArray(custom))) {
+      return custom;
+    }
+    // Do not let the generic settings merge hide an invalid destructive policy.
+    return { ...store.getters['data/computedSettings'].imageCleanup, ...custom };
+  },
+
+  validatePolicy(policy) {
+    if (!policy || typeof policy.enabled !== 'boolean' || !Number.isSafeInteger(policy.days)
+      || policy.days < 1 || !Number.isSafeInteger(policy.days * dayMs)) {
+      return '清理天数必须是大于等于 1 的整数。';
+    }
+    return '';
+  },
+
+  async savePolicy(policy) {
+    const error = this.validatePolicy(policy);
+    if (error) throw new Error(error);
+    let settings = store.getters['data/settings'];
+    const custom = settingsYamlSvc.get(settings, ['imageCleanup']);
+    if (custom !== undefined && (custom === null || typeof custom !== 'object' || Array.isArray(custom))) {
+      settings = settingsYamlSvc.set(settings, ['imageCleanup'], policy);
+    } else {
+      settings = settingsYamlSvc.set(settings, ['imageCleanup', 'enabled'], policy.enabled);
+      settings = settingsYamlSvc.set(settings, ['imageCleanup', 'days'], policy.days);
+    }
+    await store.dispatch('data/setSettings', settings);
+  },
+
   /**
    * Absolute img-store form ('/imgs/…', %20-escaped) of a git path.
    */
@@ -88,7 +120,7 @@ export default {
   },
 
   /**
-   * Inventory minus referenced set → [{ path, sha, since }].
+   * Inventory minus referenced set → [{ path, sha, since, uploadGrace }].
    */
   async scanUnreferenced() {
     const inventory = this.getInventory();
@@ -101,7 +133,25 @@ export default {
         path,
         sha: inventory[path],
         since: unreferencedSince[path],
+        uploadGrace: !unreferencedSince[path] && isWithinUploadGrace(path, Date.now()),
       }));
+  },
+
+  describeEntry(entry, now = Date.now(), policy = this.getPolicy()) {
+    const age = entry.since ? Math.max(0, now - entry.since) : 0;
+    const days = Math.floor(age / dayMs);
+    const ageLabel = entry.since
+      ? (days < 1 ? '未引用不足 1 天' : `未引用 ${days} 天`)
+      : (entry.uploadGrace ? '上传保护期' : '待同步开始计时');
+    if (this.validatePolicy(policy)) return { ageLabel, cleanupLabel: '清理设置无效', due: false };
+    if (!policy.enabled) return { ageLabel, cleanupLabel: '自动清理已关闭', due: false };
+    if (!entry.since) return { ageLabel, cleanupLabel: '', due: false };
+    const remaining = policy.days * dayMs - age;
+    return {
+      ageLabel,
+      cleanupLabel: remaining <= 0 ? '下次同步清理' : `距清理约 ${Math.ceil(remaining / dayMs)} 天`,
+      due: remaining <= 0,
+    };
   },
 
   /**
@@ -162,7 +212,7 @@ export default {
   /**
    * Post-sync sweep: refresh zero-reference clocks (24h upload grace,
    * re-referenced paths reset, gone paths dropped) and auto-delete images
-   * unreferenced for 7+ days. Never throws: the sync flow must not break.
+   * unreferenced for the configured duration. Failures must not break Sync.
    */
   async sweepAfterSync() {
     try {
@@ -196,13 +246,20 @@ export default {
         });
       }
 
+      const policy = this.getPolicy();
+      const policyError = this.validatePolicy(policy);
+      if (policyError) {
+        store.dispatch('notification/error', `自动清理未执行：${policyError}`);
+        return;
+      }
+      if (!policy.enabled) return;
       const dueEntries = Object.keys(unreferencedSince)
-        .filter(path => now - unreferencedSince[path] >= unreferencedMaxAge)
+        .filter(path => now - unreferencedSince[path] >= policy.days * dayMs)
         .map(path => ({ path, sha: inventory[path] }));
       if (dueEntries.length) {
         const { removedPaths, failedPaths } = await this.deleteImgs(dueEntries);
         if (removedPaths.length) {
-          store.dispatch('notification/info', `已自动清理 ${removedPaths.length} 张连续 7 天未引用的图片。`);
+          store.dispatch('notification/info', `已自动清理 ${removedPaths.length} 张连续 ${policy.days} 天未引用的图片。`);
         }
         if (failedPaths.length) {
           // Entries were kept, retried on next sync

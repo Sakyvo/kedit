@@ -1,59 +1,83 @@
 <template>
   <modal-inner class="modal__inner-1--image-cleanup" aria-label="图片引用检测">
-    <div class="modal__content">
-      <div class="modal__image">
-        <icon-file-image></icon-file-image>
-      </div>
-      <!-- Inline confirm: nested modal unmounts this component mid-delete (stack[0] only) -->
+    <div class="modal__content image-cleanup">
+      <h2 class="modal__title">图片引用检测</h2>
+      <p class="image-cleanup__intro">扫描文档引用，管理未引用的仓库图片。</p>
       <template v-if="confirmCount">
-        <p>确定删除所选的 <b>{{confirmCount}}</b> 张未引用图片？此操作不可撤销。</p>
+        <div class="image-cleanup__confirmation">
+          <p>确定永久删除所选的 {{confirmCount}} 张未引用图片？</p>
+          <p>仓库图片和本地缓存将一并删除，此操作不可撤销。</p>
+        </div>
       </template>
       <template v-else>
-        <p>扫描所有文档，列出未被任何文档引用的仓库图片。</p>
-        <p v-if="scanning">正在扫描文档引用…</p>
-        <template v-else>
-          <p v-if="!entries.length">未发现未引用图片。</p>
-          <template v-else>
-            <div class="image-cleanup__select-all form-entry__checkbox">
-              <label>
-                <input type="checkbox" :checked="allSelected" @change="toggleAll">
-                全选（共 {{entries.length}} 张）
-              </label>
-            </div>
-            <div class="image-cleanup__list" ref="listEl">
-              <label
-                class="image-cleanup__entry flex flex--row flex--align-center"
-                v-for="entry in entries"
-                :key="entry.path"
-                :data-path="entry.path"
-                ref="entryEls"
-              >
-                <input type="checkbox" v-model="entry.selected">
-                <span class="image-cleanup__thumbnail flex flex--column flex--center">
-                  <img v-if="entry.dataUrl" :src="entry.dataUrl">
-                  <span v-else class="image-cleanup__placeholder">无预览</span>
-                </span>
-                <span class="image-cleanup__info">
-                  <span class="image-cleanup__path">{{entry.path}}</span>
-                  <span class="image-cleanup__age">{{ageLabel(entry)}}</span>
-                </span>
-              </label>
-            </div>
-          </template>
-        </template>
+        <div class="image-cleanup__policy">
+          <form-entry label="自动清理" :inline="true">
+            <template v-slot:field>
+              <input type="checkbox" v-model="draftEnabled" :disabled="saving" @change="policyEdited">
+            </template>
+          </form-entry>
+          <div class="image-cleanup__duration">
+            <label for="image-cleanup-days">连续未引用</label>
+            <input id="image-cleanup-days" class="textfield" type="number" min="1" step="1" inputmode="numeric"
+              v-model="draftDays" :disabled="saving || !draftEnabled" :aria-invalid="!!policyError"
+              aria-describedby="image-cleanup-policy-hint" @input="policyEdited">
+            <span>天</span>
+            <button class="button" :disabled="!policyDirty || !!policyError || saving" @click="savePolicy">
+              {{saving ? '保存中…' : '保存设置'}}
+            </button>
+          </div>
+          <p id="image-cleanup-policy-hint" class="image-cleanup__hint">
+            设置随设备同步。按已累计时间判断，到期后在下轮同步永久删除；关闭后仍保留计时和手动删除。
+          </p>
+          <p v-if="policyDirty" class="image-cleanup__hint">修改尚未保存；下方状态按已保存设置显示。</p>
+          <p v-if="policyError || saveError" class="modal__error" role="alert">{{policyError || saveError}}</p>
+          <p v-else-if="saved" class="image-cleanup__hint" role="status">设置已保存。</p>
+        </div>
+        <div class="image-cleanup__toolbar">
+          <label class="form-entry__checkbox">
+            <input type="checkbox" :checked="allSelected" :indeterminate="selectedCount > 0 && !allSelected"
+              :disabled="scanning || !entries.length" @change="toggleAll">
+            全选
+          </label>
+          <span>未引用 {{entries.length}} 张 · 已选 {{selectedCount}} 张</span>
+          <button class="button" :disabled="scanning || deleting" @click="scan">重新扫描</button>
+        </div>
+        <div class="image-cleanup__list" ref="listEl" :aria-busy="scanning">
+          <p v-if="scanning" class="image-cleanup__empty" role="status">正在扫描文档引用…</p>
+          <div v-else-if="scanError" class="image-cleanup__empty" role="alert">
+            <p>扫描失败，尚未取得引用结果。</p>
+            <button class="button" @click="scan">重试</button>
+          </div>
+          <p v-else-if="!entries.length" class="image-cleanup__empty">未发现未引用图片。</p>
+          <label v-else class="image-cleanup__entry" v-for="entry in entries" :key="entry.path"
+            :data-path="entry.path" ref="entryEls">
+            <input type="checkbox" v-model="entry.selected" :aria-label="`选择 ${entry.path}`">
+            <span class="image-cleanup__thumbnail">
+              <img v-if="entry.dataUrl" :src="entry.dataUrl" alt="">
+              <span v-else class="image-cleanup__placeholder">无预览</span>
+            </span>
+            <span class="image-cleanup__info" v-title="entry.path">
+              <span class="image-cleanup__name">{{entry.path.split('/').pop()}}</span>
+              <span class="image-cleanup__age">
+                {{entryStates[entry.path].ageLabel}}<template v-if="entryStates[entry.path].cleanupLabel"> · {{entryStates[entry.path].cleanupLabel}}</template>
+              </span>
+              <span class="image-cleanup__path">{{entry.path}}</span>
+            </span>
+          </label>
+        </div>
         <details class="image-cleanup__log" v-if="log.length">
-          <summary>最近清理记录（{{log.length}}）</summary>
+          <summary tabindex="0">最近清理记录（{{log.length}}）</summary>
           <div class="image-cleanup__log-scroll">
             <div class="image-cleanup__log-entry" v-for="(item, idx) in log" :key="idx">
               <span class="image-cleanup__log-time">{{formatTime(item.ts)}}</span>
-              <span class="image-cleanup__log-path">{{item.path}}</span>
+              <span class="image-cleanup__log-path" v-title="item.path">{{item.path}}</span>
             </div>
           </div>
         </details>
       </template>
     </div>
     <div class="modal__button-bar" v-if="confirmCount">
-      <button class="button" :disabled="deleting" @click="confirmCount = 0">取消</button>
+      <button class="button" :disabled="deleting" @click="cancelRemove">取消</button>
       <button class="button button--resolve" :disabled="deleting" @click="confirmRemove">
         {{deleting ? '删除中…' : '确认删除'}}
       </button>
@@ -61,7 +85,7 @@
     <div class="modal__button-bar" v-else>
       <button class="button" @click="config.reject()">关闭</button>
       <button class="button button--resolve" :disabled="!selectedCount || deleting || scanning" @click="removeSelected">
-        {{deleting ? '删除中…' : `删除所选 (${selectedCount})`}}
+        {{deleting ? '删除中…' : `删除所选（${selectedCount}）`}}
       </button>
     </div>
   </modal-inner>
@@ -86,6 +110,14 @@ export default modalTemplate({
     entries: [],
     confirmCount: 0,
     pendingRemove: null,
+    draftEnabled: true,
+    draftDays: '',
+    policyDirty: false,
+    saving: false,
+    saved: false,
+    saveError: '',
+    scanError: false,
+    now: Date.now(),
   }),
   computed: {
     selectedCount() {
@@ -97,14 +129,55 @@ export default modalTemplate({
     log() {
       return store.getters['data/imgCleanup'].log || [];
     },
+    settings() {
+      return store.getters['data/settings'];
+    },
+    draftPolicy() {
+      return { enabled: this.draftEnabled, days: Number(this.draftDays) };
+    },
+    policyError() {
+      return imgCleanupSvc.validatePolicy(this.draftPolicy);
+    },
+    entryStates() {
+      const policy = imgCleanupSvc.getPolicy();
+      return Object.fromEntries(this.entries.map(entry => [entry.path, imgCleanupSvc.describeEntry(entry, this.now, policy)]));
+    },
+  },
+  watch: {
+    settings() {
+      if (!this.policyDirty) this.loadPolicy();
+    },
   },
   methods: {
-    ageLabel(entry) {
-      if (!entry.since) {
-        return '刚发现';
+    loadPolicy() {
+      const policy = imgCleanupSvc.getPolicy();
+      this.draftEnabled = policy?.enabled === true;
+      this.draftDays = policy?.days ?? '';
+    },
+    policyEdited() {
+      this.policyDirty = true;
+      this.saved = false;
+      this.saveError = '';
+    },
+    async savePolicy() {
+      if (this.policyError || this.saving) return;
+      this.saving = true;
+      this.saveError = '';
+      try {
+        await imgCleanupSvc.savePolicy(this.draftPolicy);
+        this.policyDirty = false;
+        this.saved = true;
+        this.now = Date.now();
+      } catch (err) {
+        this.saveError = `设置未保存：${err.message}`;
+      } finally {
+        this.saving = false;
       }
-      const days = Math.floor((Date.now() - entry.since) / (24 * 60 * 60 * 1000));
-      return days < 1 ? '零引用不足 1 天' : `零引用 ${days} 天`;
+    },
+    cancelRemove() {
+      this.confirmCount = 0;
+      this.pendingRemove = null;
+      this.$nextTick(() => this.setupLazyThumbs());
     },
     formatTime(ts) {
       return new Date(ts).toLocaleString();
@@ -186,6 +259,10 @@ export default modalTemplate({
       }
     },
     async scan() {
+      this.scanning = true;
+      this.scanError = false;
+      this.now = Date.now();
+      this.teardownLazyThumbs();
       try {
         const unreferenced = await imgCleanupSvc.scanUnreferenced();
         this.entries = unreferenced.map(entry => ({
@@ -194,7 +271,8 @@ export default modalTemplate({
           dataUrl: '',
         }));
       } catch (err) {
-        console.error(err); // eslint-disable-line no-console
+        this.entries = [];
+        this.scanError = true;
         store.dispatch('notification/error', err);
       } finally {
         this.scanning = false;
@@ -220,6 +298,7 @@ export default modalTemplate({
         path: entry.path,
         sha: entry.sha,
       }));
+      this.teardownLazyThumbs();
       this.confirmCount = selected.length;
     },
     async confirmRemove() {
@@ -251,6 +330,7 @@ export default modalTemplate({
   },
   created() {
     this._thumbInFlight = new Set();
+    this.loadPolicy();
     this.scan();
   },
   beforeUnmount() {
@@ -262,38 +342,154 @@ export default modalTemplate({
 <style lang="scss">
 @import '../../styles/variables.scss';
 
-.image-cleanup__select-all {
-  margin: 0.5em 0 0.25em;
+.modal__inner-1--image-cleanup {
+  .modal__inner-2 {
+    overflow-y: hidden;
+  }
+
+  .modal__content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .modal__title {
+    flex: none;
+    margin: 0 32px 4px 0;
+    font-weight: 500;
+  }
+
+  .modal__button-bar .button--resolve:disabled {
+    color: inherit;
+    opacity: 0.55;
+  }
+
+  .button:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid $link-color;
+    outline-offset: 2px;
+  }
+}
+
+.image-cleanup__intro {
+  flex: none;
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.image-cleanup__policy {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 45%;
+  overflow: auto;
+  border-bottom: 1px solid $hr-color;
+  padding-bottom: 8px;
+
+  .form-entry {
+    margin: 0 0 4px;
+  }
+
+  .modal__error {
+    font-size: 14px;
+    margin: 4px 0 0;
+  }
+}
+
+.image-cleanup__duration {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  .textfield {
+    width: 76px;
+    min-width: 0;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .button {
+    margin-left: auto;
+    font-size: 14px;
+  }
+}
+
+.image-cleanup__hint {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.image-cleanup__toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 14px;
+
+  label {
+    white-space: nowrap;
+  }
+
+  .button {
+    margin-left: auto;
+    padding: 4px;
+    font-size: 14px;
+  }
 }
 
 .image-cleanup__list {
-  max-height: 320px;
+  flex: 1 1 0;
+  min-height: 56px;
   overflow: auto;
-  border: 1px solid $hr-color;
-  border-radius: $border-radius-base;
+  overscroll-behavior: contain;
+  border-block: 1px solid $hr-color;
+}
+
+.image-cleanup__empty {
+  padding: 12px 4px;
+  font-size: 14px;
 }
 
 .image-cleanup__entry {
-  padding: 0.4em 0.6em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 2px;
+  border-bottom: 1px solid $hr-color;
   cursor: pointer;
 
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &:hover,
+  &:focus-within {
+    background-color: $code-bg;
+
+    .app--dark & {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
   }
 
   input {
     flex: none;
-    margin-right: 0.6em;
+    margin: 0 2px;
   }
 }
 
 .image-cleanup__thumbnail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
   width: 48px;
   height: 48px;
-  margin-right: 0.75em;
   border-radius: $border-radius-base;
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: $code-bg;
   overflow: hidden;
 
   img {
@@ -304,74 +500,68 @@ export default modalTemplate({
 }
 
 .image-cleanup__placeholder {
-  font-size: 0.7em;
-  opacity: 0.5;
+  font-size: 12px;
   text-align: center;
 }
 
 .image-cleanup__info {
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  line-height: 1.5;
+}
+
+.image-cleanup__name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+}
+
+.image-cleanup__age,
+.image-cleanup__path {
+  font-size: 13px;
 }
 
 .image-cleanup__path {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  word-break: break-all;
-}
-
-.image-cleanup__age {
-  font-size: 0.75em;
-  opacity: 0.6;
 }
 
 .image-cleanup__log {
-  margin-top: 1em;
-  max-width: 100%;
-  min-width: 0;
+  flex: 0 1 auto;
+  max-height: 25%;
+  min-height: 24px;
+  margin: 8px 0;
+  overflow: auto;
 
   summary {
     cursor: pointer;
-    font-size: 0.9em;
-    opacity: 0.75;
+    font-size: 14px;
   }
 }
 
 .image-cleanup__log-scroll {
-  max-height: 160px;
-  overflow: auto;
-  margin-top: 0.35em;
-  max-width: 100%;
-  border: 1px solid $hr-color;
-  border-radius: $border-radius-base;
-  padding: 0.25em 0.4em;
+  padding: 4px 0;
 }
 
 .image-cleanup__log-entry {
   display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 0.5em;
-  font-size: 0.8em;
-  opacity: 0.75;
-  padding: 0.15em 0;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.image-cleanup__log-time {
-  flex: none;
-  opacity: 0.75;
-  white-space: nowrap;
+  flex-direction: column;
+  font-size: 13px;
+  padding: 4px 0;
+  line-height: 1.5;
 }
 
 .image-cleanup__log-path {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+
+.image-cleanup__confirmation {
+  min-height: 0;
+  overflow: auto;
 }
 </style>
